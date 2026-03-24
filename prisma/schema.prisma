@@ -1,0 +1,203 @@
+// Notion Clone - Prisma Schema
+// 完整版 Notion 数据模型
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户模型
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  avatarUrl     String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关系
+  workspaces    WorkspaceMember[]
+  pages         Page[]
+  blocks        Block[]
+  comments      Comment[]
+}
+
+// 工作区
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String   @default("📁")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     WorkspaceMember[]
+  pages       Page[]
+  databases   Database[]
+}
+
+// 工作区成员
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  role        Role     @default(MEMBER)
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+// 页面
+model Page {
+  id          String    @id @default(cuid())
+  title       String    @default("Untitled")
+  icon        String?
+  coverImage  String?
+  parentId    String?
+  parentType  ParentType?
+  isPublished Boolean   @default(false)
+  isArchived  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  // 关系
+  parent      Page?    @relation("PageChildren", fields: [parentId], references: [id])
+  children    Page[]   @relation("PageChildren")
+  blocks      Block[]
+  databases   Database[]
+  comments    Comment[]
+}
+
+enum ParentType {
+  PAGE
+  WORKSPACE
+}
+
+// 块（Block）- Notion 的核心内容单元
+model Block {
+  id          String    @id @default(cuid())
+  type        BlockType
+  content     Json      // 根据类型存储不同内容
+  properties  Json?     // 额外属性（排序、样式等）
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  pageId      String
+  page        Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
+  parentBlockId String?
+  parentBlock   Block?   @relation("BlockChildren", fields: [parentBlockId], references: [id])
+  children      Block[]  @relation("BlockChildren")
+}
+
+enum BlockType {
+  // 基础块
+  TEXT
+  HEADING_1
+  HEADING_2
+  HEADING_3
+  BULLETED_LIST
+  NUMBERED_LIST
+  TO_DO
+  TOGGLE
+  QUOTE
+  DIVIDER
+  CODE
+  
+  // 媒体块
+  IMAGE
+  VIDEO
+  FILE
+  BOOKMARK
+  
+  // 高级块
+  CALLOUT
+  TABLE
+  TABLE_ROW
+  EMBED
+  LINK_PREVIEW
+  
+  // 数据库相关
+  DATABASE
+}
+
+// 数据库（Notion Database）
+model Database {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String   @default("📊")
+  schema      Json     // 数据库字段定义
+  views       Json?    // 视图配置
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  pageId      String?
+  page        Page?    @relation(fields: [pageId], references: [id])
+
+  records     DatabaseRecord[]
+}
+
+model DatabaseRecord {
+  id          String   @id @default(cuid())
+  data        Json     // 行的实际数据
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  databaseId  String
+  database    Database @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+}
+
+// 评论
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+}
+
+// 收藏
+model Favorite {
+  id        String   @id @default(cuid())
+  pageId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([pageId, userId])
+}
