@@ -1,118 +1,201 @@
-# Notion Clone
+# ClawNote
 
-一个完整的 Notion 替代品，功能几乎完全复刻 Notion。
+ClawNote 是一个面向个人 OpenClaw 的文档与知识工作台。它不是后台系统，而是类似 Notion、语雀、Word、Excel 的个人知识产品：可以写文档、管理表格、沉淀 Inbox、审核 Agent Memory，并通过 API 让 OpenClaw 读写长期知识。
 
-## 功能特性
+## 当前能力
 
-### 核心编辑器
-- 📝 块编辑器（文字、标题、列表、引用等）
-- 🎨 格式化工具栏（粗体、斜体、颜色、对齐等）
-- ✨ 斜杠命令支持（输入 '/' 快速插入块）
-- 📎 附件、图片、代码块
-- 📊 表格支持
-- ✅ 待办事项列表
+### 文档工作台
 
-### 数据库
-- 📋 看板视图（Kanban）
-- 📊 表格视图
-- 🖼️ 画廊视图
-- 📅 日历视图
-- 🔍 筛选和排序
+- 类 Notion / 语雀的左侧空间导航和文档树
+- 文档编辑、标题编辑、基础排版工具栏
+- 文档自动保存，优先写入 PostgreSQL API，API 不可用时回落到 localStorage
+- 文档 JSON / HTML / Text 存储模型
+- 文档版本表与搜索索引表预留
 
-### 页面管理
-- 🗂️ 层级页面结构
-- ⭐ 收藏功能
-- 🏷️ 标签系统
-- 🔗 页面链接和引用
+### 项目表格
 
-### 协作
-- 👥 多人协作（实时同步）
-- 💬 评论功能
-- 📤 分享和权限管理
+- 类 Excel 的任务表
+- 新增、编辑、删除任务
+- 字段包括任务、负责人、状态、优先级、截止日期、进度
+- 后端使用 Collection / CollectionRow 抽象，后续可扩展为看板、画廊、日历视图
+
+### Inbox 收集箱
+
+- 可收集 OpenClaw、GitHub、网页、文件、聊天记录
+- Inbox 可转换为文档或 Memory
+- 支持 API 写入
+
+### Agent Memory
+
+- Agent 写入长期记忆时默认进入待审核状态
+- 支持接受、拒绝、归档
+- 支持置信度、来源、标签
+
+### 模板中心
+
+- 内置会议纪要、项目计划、SOP、研究报告模板
+- 支持从模板快速新建文档
+
+### OpenClaw / Agent API
+
+- 搜索上下文
+- 写入文档
+- 写入 Memory
+- 记录 Agent Run Log
+- Token 校验：配置 `CLAWNOTE_AGENT_TOKEN` 后，Agent API 需要 `Authorization: Bearer <token>`
+
+### 文件上传
+
+- `/api/files` 支持本地文件上传
+- 默认写入 `public/uploads`
+- 返回可直接嵌入文档的 URL
 
 ## 技术栈
 
-- **前端**: Next.js 14, React 18, TypeScript
-- **编辑器**: TipTap (基于 ProseMirror)
-- **样式**: Tailwind CSS
-- **状态管理**: Zustand
-- **后端**: Next.js API Routes
-- **数据库**: PostgreSQL + Prisma
-- **认证**: NextAuth.js
+- Next.js 14 App Router
+- React 18
+- TypeScript
+- Tailwind CSS
+- Prisma 5
+- PostgreSQL
+- Docker / Docker Compose
 
-## 快速开始
-
-### 1. 克隆项目
-
-```bash
-git clone https://github.com/yourusername/notion-clone.git
-cd notion-clone
-```
-
-### 2. 安装依赖
+## 快速开始：本地开发
 
 ```bash
 npm install
-```
-
-### 3. 配置环境变量
-
-```bash
 cp .env.example .env
-# 编辑 .env 添加数据库连接等配置
-```
-
-### 4. 初始化数据库
-
-```bash
-npx prisma generate
-npx prisma db push
-```
-
-### 5. 启动开发服务器
-
-```bash
+npm run db:generate
+npm run db:push
+npm run db:seed
 npm run dev
 ```
 
-打开 http://localhost:3000
+打开：
 
-## 项目结构
-
-```
-notion-clone/
-├── prisma/
-│   └── schema.prisma      # 数据库模型
-├── src/
-│   ├── app/               # Next.js App Router
-│   │   ├── page/          # 页面编辑器
-│   │   ├── database/      # 数据库视图
-│   │   └── api/           # API 路由
-│   ├── components/
-│   │   └── editor/        # TipTap 编辑器组件
-│   ├── lib/               # 工具函数
-│   └── types/            # TypeScript 类型
-└── package.json
+```text
+http://localhost:3000
 ```
 
-## 部署
+健康检查：
 
-### Vercel (推荐)
+```text
+http://localhost:3000/api/health
+```
+
+## Docker 部署
 
 ```bash
-# 1. 推送代码到 GitHub
-# 2. 在 Vercel 导入项目
-# 3. 配置环境变量
-# 4. Deploy!
+docker compose up -d --build
 ```
 
-### Docker
+首次启动时容器会自动执行：
 
 ```bash
-docker build -t notion-clone .
-docker run -p 3000:3000 notion-clone
+npx prisma db push
+npm run start
 ```
 
-## 许可证
+如需导入种子数据：
+
+```bash
+docker compose exec web npm run db:seed
+```
+
+## 环境变量
+
+```env
+DATABASE_URL="postgresql://clawnote:clawnote@localhost:5432/clawnote?schema=public"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="replace-with-a-long-random-secret"
+CLAWNOTE_AGENT_TOKEN="replace-with-agent-token"
+STORAGE_DRIVER="local"
+UPLOAD_DIR="public/uploads"
+```
+
+## OpenClaw 调用示例
+
+### 搜索上下文
+
+```bash
+curl -X POST http://localhost:3000/api/agent/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer replace-with-agent-token" \
+  -d '{"query":"OpenClaw 部署", "limit": 8}'
+```
+
+### 写入文档
+
+```bash
+curl -X POST http://localhost:3000/api/agent/write-document \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer replace-with-agent-token" \
+  -d '{
+    "title":"OpenClaw 执行记录",
+    "content":"今天完成了 ClawNote API 接入。",
+    "tags":["OpenClaw", "执行记录"]
+  }'
+```
+
+### 写入 Memory
+
+```bash
+curl -X POST http://localhost:3000/api/agent/create-memory \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer replace-with-agent-token" \
+  -d '{
+    "content":"用户希望 ClawNote 更像 Notion / 语雀 / Word / Excel。",
+    "tags":["产品定位"],
+    "confidence":0.98
+  }'
+```
+
+### 记录 Agent Run
+
+```bash
+curl -X POST http://localhost:3000/api/agent/run \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer replace-with-agent-token" \
+  -d '{
+    "agentName":"OpenClaw",
+    "input":{"task":"分析仓库"},
+    "output":{"status":"done"},
+    "status":"completed"
+  }'
+```
+
+## API 目录
+
+```text
+/api/documents                 文档列表 / 新建
+/api/documents/[id]            文档详情 / 更新 / 归档
+/api/collections/tasks         任务表列表 / 新建任务
+/api/collections/tasks/[rowId] 更新 / 删除任务
+/api/inbox                     Inbox 列表 / 新建
+/api/inbox/[id]                Inbox 更新 / 删除
+/api/memory                    Memory 列表 / 新建
+/api/memory/[id]               Memory 审核 / 归档
+/api/templates                 模板列表 / 新建
+/api/search                    全局搜索
+/api/files                     文件上传
+/api/agent/search              OpenClaw 搜索上下文
+/api/agent/write-document      OpenClaw 写文档
+/api/agent/create-memory       OpenClaw 写 Memory
+/api/agent/run                 OpenClaw Run Log
+/api/health                    健康检查
+```
+
+## 下一步建议
+
+- 将当前 `contentEditable` 编辑器替换回 TipTap JSON 编辑器
+- 补完整 Slash Command
+- 补 pgvector 语义搜索
+- 补 NextAuth 登录与权限
+- 补文件管理 UI
+- 补看板 / 画廊 / 日历多视图
+- 补 OpenClaw Skill 配置文件
+
+## License
 
 MIT
