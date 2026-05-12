@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createDocumentVersion, ensureWorkspace, htmlToText, summarize, upsertSearchIndex } from "@/lib/clawnote-store";
+import { verifyAgentRequest } from "@/lib/agent-auth";
 
 export async function POST(req: NextRequest) {
+  const unauthorized = verifyAgentRequest(req);
+  if (unauthorized) return unauthorized;
+
   const { user, workspace } = await ensureWorkspace();
   const body = await req.json().catch(() => ({}));
   const title = body.title ?? "Agent 写入文档";
