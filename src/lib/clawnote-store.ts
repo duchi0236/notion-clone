@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { InboxSource, MemoryStatus } from "@prisma/client";
+import type { InboxSource, MemoryStatus, Prisma } from "@prisma/client";
 
 const DEMO_EMAIL = "local@clawnote.dev";
 const DEMO_WORKSPACE_NAME = "Personal OpenClaw Workspace";
@@ -49,7 +49,7 @@ export function summarize(value: string) {
 }
 
 export function toJsonSafe<T>(value: T) {
-  return JSON.parse(JSON.stringify(value)) as unknown;
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
 export async function createDocumentVersion(documentId: string, changedBy: string, snapshot: unknown, reason?: string) {
@@ -63,7 +63,7 @@ export async function createDocumentVersion(documentId: string, changedBy: strin
       documentId,
       version: (last?.version ?? 0) + 1,
       changedBy,
-      snapshot: toJsonSafe(snapshot) as object,
+      snapshot: toJsonSafe(snapshot),
       reason,
     },
   });
