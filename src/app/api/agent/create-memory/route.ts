@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureWorkspace } from "@/lib/clawnote-store";
+import { ensureWorkspace, normalizeMemoryStatus } from "@/lib/clawnote-store";
 import { verifyAgentRequest } from "@/lib/agent-auth";
 
 export async function POST(req: NextRequest) {
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       sourceType: body.sourceType ?? "OPENCLAW",
       sourceId: body.sourceId ?? null,
       confidence: Number(body.confidence ?? 0.9),
-      status: body.status ?? "PENDING",
+      status: normalizeMemoryStatus(body.status),
     },
   });
 
