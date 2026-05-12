@@ -1,161 +1,106 @@
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Plus, Search, Settings, User, Database, FileText } from "lucide-react";
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Bot, BookOpen, Check, Database, FileText, Home, Inbox, ListChecks, Plus, Search, Settings, Sparkles, Star, Table2, Tags, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// 模拟数据
-const workspaces = [
-  { id: "1", name: "Personal", icon: "👤" },
-  { id: "2", name: "Work", icon: "💼" },
-];
+type View = "home" | "docs" | "table" | "inbox" | "memory" | "templates" | "search";
+type Doc = { id: string; title: string; icon: string; html: string; text: string; summary: string; tags: string[]; favorite: boolean; updatedAt: string };
+type Task = { id: string; name: string; owner: string; status: "未开始" | "进行中" | "已完成"; priority: "低" | "中" | "高"; progress: number; dueDate: string };
+type InboxItem = { id: string; source: string; title: string; content: string; status: "unprocessed" | "converted" | "archived" };
+type Memory = { id: string; content: string; source: string; status: "pending" | "accepted" | "rejected"; confidence: number; tags: string[] };
+type Template = { id: string; title: string; icon: string; desc: string; html: string; tags: string[] };
+type State = { docs: Doc[]; tasks: Task[]; inbox: InboxItem[]; memories: Memory[]; templates: Template[] };
 
-const recentPages = [
-  { id: "1", title: "Project Roadmap", icon: "🗺️", updatedAt: "2 hours ago" },
-  { id: "2", title: "Meeting Notes", icon: "📝", updatedAt: "Yesterday" },
-  { id: "3", title: "Reading List", icon: "📚", updatedAt: "3 days ago" },
-];
+const id = (p: string) => `${p}_${Math.random().toString(36).slice(2, 9)}`;
+const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+const summary = (value: string) => value ? `${value.slice(0, 120)}${value.length > 120 ? "…" : ""}` : "暂无摘要";
+const today = () => new Date().toISOString().slice(0, 10);
 
-const databases = [
-  { id: "1", name: "Task Board", icon: "📋", type: "board" },
-  { id: "2", name: "Investment Tracker", icon: "💰", type: "table" },
-];
+const seed: State = {
+  docs: [
+    { id: "d1", title: "OpenClaw 个人部署方案", icon: "🧠", html: "<h1>OpenClaw 个人部署方案</h1><p>部署一个可长期沉淀知识、记录任务、管理文档的个人 AI 工作台。</p><h2>核心模块</h2><ul><li>文档编辑器</li><li>知识库</li><li>Agent Memory</li><li>Inbox 收集中心</li></ul>", text: "OpenClaw 个人部署方案，部署个人 AI 工作台。", summary: "部署个人 OpenClaw，并通过 ClawNote 做长期知识、任务和文档沉淀。", tags: ["OpenClaw", "部署", "知识库"], favorite: true, updatedAt: today() },
+    { id: "d2", title: "产品设计原则", icon: "📘", html: "<h1>产品设计原则</h1><p>ClawNote 不是后台系统，而是类似 Notion、语雀、Word、Excel 的知识工作台。</p><blockquote>文档优先，Agent 辅助；人负责判断，AI 负责整理。</blockquote>", text: "ClawNote 类似 Notion 语雀 Word Excel。", summary: "ClawNote 的核心是人和 Agent 共用的文档与知识工作台。", tags: ["产品", "原则"], favorite: false, updatedAt: today() },
+    { id: "d3", title: "用户访谈记录", icon: "📝", html: "<h1>用户访谈记录</h1><p>用户希望文档体验接近语雀和 Notion，同时保留 Excel 式表格能力。</p>", text: "用户希望文档体验接近语雀和 Notion，同时保留 Excel 式表格能力。", summary: "用户强调产品要像文档工具，而不是后台系统。", tags: ["访谈", "需求"], favorite: false, updatedAt: today() }
+  ],
+  tasks: [
+    { id: "t1", name: "重构 Prisma 数据模型", owner: "Lily", status: "已完成", priority: "高", progress: 100, dueDate: today() },
+    { id: "t2", name: "实现文档工作台 UI", owner: "Tom", status: "进行中", priority: "高", progress: 75, dueDate: today() },
+    { id: "t3", name: "接入 OpenClaw API", owner: "Alex", status: "未开始", priority: "中", progress: 20, dueDate: today() }
+  ],
+  inbox: [
+    { id: "i1", source: "OpenClaw", title: "OpenClaw Chat 记录", content: "用户要求 ClawNote 更像 Notion / 语雀 / Word / Excel，而不是后台系统。", status: "unprocessed" },
+    { id: "i2", source: "GitHub", title: "notion-clone 仓库分析", content: "项目已有 TipTap、Prisma、Next.js 基础，但大量功能仍是 mock。", status: "unprocessed" }
+  ],
+  memories: [
+    { id: "m1", content: "用户希望个人 OpenClaw 有一个可以沉淀文档和长期记忆的知识工作台。", source: "OpenClaw Chat", status: "accepted", confidence: 0.96, tags: ["OpenClaw"] },
+    { id: "m2", content: "产品形态应类似 Notion、语雀、Word、Excel，而不是后台系统。", source: "产品反馈", status: "pending", confidence: 0.98, tags: ["产品定位"] }
+  ],
+  templates: [
+    { id: "tpl1", title: "会议纪要", icon: "📋", desc: "会议目标、讨论要点、行动项", tags: ["会议"], html: "<h1>会议纪要</h1><h2>会议目标</h2><p></p><h2>讨论要点</h2><ul><li></li></ul><h2>行动项</h2><ul><li>[ ] </li></ul>" },
+    { id: "tpl2", title: "项目计划", icon: "🚀", desc: "目标、里程碑、风险、任务", tags: ["项目"], html: "<h1>项目计划</h1><h2>目标</h2><p></p><h2>里程碑</h2><ul><li></li></ul><h2>风险</h2><p></p>" },
+    { id: "tpl3", title: "SOP 模板", icon: "🧭", desc: "将重复流程沉淀为标准方法", tags: ["SOP"], html: "<h1>SOP</h1><h2>适用场景</h2><p></p><h2>步骤</h2><ol><li></li></ol>" },
+    { id: "tpl4", title: "研究报告", icon: "📊", desc: "市场、竞品、用户研究", tags: ["研究"], html: "<h1>研究报告</h1><h2>背景</h2><p></p><h2>发现</h2><p></p><h2>结论</h2><p></p>" }
+  ]
+};
 
-export default function Home() {
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold">Notion Clone</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <SearchButton />
-            <IconButton icon={<Settings className="w-5 h-5" />} />
-            <IconButton icon={<User className="w-5 h-5" />} />
-          </div>
-        </div>
-      </header>
+export default function ClawNote() {
+  const [state, setState] = useState<State>(seed);
+  const [view, setView] = useState<View>("home");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState("d1");
+  const [ai, setAi] = useState(["你可以让我总结当前文档、提取任务、写入 Memory、检索知识库。"]); 
+  const doc = state.docs.find((d) => d.id === selected) || state.docs[0];
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 border-r border-border min-h-[calc(100vh-57px)] p-2">
-          {/* Workspaces */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between px-2 mb-2">
-              <span className="text-xs font-semibold text-muted-foreground">Workspaces</span>
-              <button className="p-1 hover:bg-muted rounded">
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-            {workspaces.map((ws) => (
-              <WorkspaceItem key={ws.id} workspace={ws} />
-            ))}
-          </div>
+  useEffect(() => {
+    const raw = localStorage.getItem("clawnote-state-v1");
+    if (raw) setState(JSON.parse(raw));
+  }, []);
+  useEffect(() => localStorage.setItem("clawnote-state-v1", JSON.stringify(state)), [state]);
 
-          {/* Quick Find */}
-          <button className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted rounded">
-            <Search className="w-4 h-4" />
-            <span>Quick Find</span>
-            <span className="ml-auto text-xs">⌘K</span>
-          </button>
-        </aside>
+  const docs = useMemo(() => state.docs.filter(d => `${d.title} ${d.text} ${d.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [state.docs, query]);
+  const createDoc = (tpl?: Template) => {
+    const html = tpl?.html || "<h1>Untitled</h1><p>开始写作...</p>";
+    const d: Doc = { id: id("d"), title: tpl?.title || "Untitled", icon: tpl?.icon || "📄", html, text: text(html), summary: summary(text(html)), tags: tpl?.tags || [], favorite: false, updatedAt: today() };
+    setState(s => ({ ...s, docs: [d, ...s.docs] })); setSelected(d.id); setView("docs");
+  };
+  const updateDoc = (patch: Partial<Doc>) => setState(s => ({ ...s, docs: s.docs.map(d => d.id === doc.id ? { ...d, ...patch, updatedAt: today() } : d) }));
+  const addTask = (name = "新任务") => setState(s => ({ ...s, tasks: [...s.tasks, { id: id("t"), name, owner: "Me", status: "未开始", priority: "中", progress: 0, dueDate: today() }] }));
+  const askAi = (mode: "summary" | "task" | "memory" | "search") => {
+    if (mode === "summary") { updateDoc({ summary: summary(doc.text) }); setAi(a => [`已总结《${doc.title}》：${summary(doc.text)}`, ...a]); }
+    if (mode === "task") { addTask(doc.title); setAi(a => ["已从当前文档提取任务并加入表格。", ...a]); }
+    if (mode === "memory") { setState(s => ({ ...s, memories: [{ id: id("m"), content: summary(doc.text), source: doc.title, status: "pending", confidence: .92, tags: doc.tags }, ...s.memories] })); setAi(a => ["已写入待审核 Memory。", ...a]); }
+    if (mode === "search") setAi(a => [`找到相关文档：${state.docs.filter(d => d.id !== doc.id && d.tags.some(t => doc.tags.includes(t))).map(d => d.title).join("、") || "暂无"}`, ...a]);
+  };
 
-        {/* Main Content */}
-        <main className="flex-1 p-8">
-          {/* Recent */}
-          <section className="mb-8">
-            <h2 className="text-lg font-semibold mb-4">Recent</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {recentPages.map((page) => (
-                <PageCard key={page.id} page={page} />
-              ))}
-              <NewPageCard />
-            </div>
-          </section>
-
-          {/* Databases */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4">Databases</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {databases.map((db) => (
-                <Link
-                  key={db.id}
-                  href={`/database/${db.id}`}
-                  className="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-muted transition-colors"
-                >
-                  <span className="text-2xl">{db.icon}</span>
-                  <span className="font-medium">{db.name}</span>
-                </Link>
-              ))}
-              <NewDatabaseCard />
-            </div>
-          </section>
-        </main>
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-[#f7f7fb] text-slate-900"><div className="grid min-h-screen grid-cols-[72px_260px_minmax(0,1fr)_360px]">
+    <Rail view={view} setView={setView} />
+    <Sidebar docs={docs} selected={selected} setSelected={setSelected} setView={setView} query={query} setQuery={setQuery} createDoc={() => createDoc()} />
+    <main className="min-w-0 border-x border-slate-200 bg-white"><Top query={query} setQuery={setQuery} createDoc={() => createDoc()} />
+      {view === "home" && <Dashboard state={state} setView={setView} setSelected={setSelected} />}
+      {view === "docs" && <Editor doc={doc} updateDoc={updateDoc} del={() => { setState(s => ({ ...s, docs: s.docs.filter(d => d.id !== doc.id) })); setSelected(state.docs[0]?.id || ""); }} askAi={askAi} />}
+      {view === "table" && <TaskTable tasks={state.tasks} setState={setState} addTask={addTask} />}
+      {view === "inbox" && <InboxPage items={state.inbox} setState={setState} createDoc={(title, content) => createDoc({ id: "tmp", title, icon: "📥", desc: "", tags: ["Inbox"], html: `<h1>${title}</h1><p>${content}</p>` })} />}
+      {view === "memory" && <MemoryPage memories={state.memories} setState={setState} />}
+      {view === "templates" && <Templates templates={state.templates} createDoc={createDoc} />}
+      {view === "search" && <SearchPage query={query} setQuery={setQuery} docs={docs} setSelected={setSelected} setView={setView} />}
+    </main>
+    <AiPanel doc={doc} state={state} ai={ai} askAi={askAi} />
+  </div></div>;
 }
 
-function SearchButton() {
-  return (
-    <button className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground bg-muted rounded-lg hover:bg-muted/80">
-      <Search className="w-4 h-4" />
-      <span>Search</span>
-      <span className="text-xs">⌘K</span>
-    </button>
-  );
-}
-
-function IconButton({ icon }: { icon: React.ReactNode }) {
-  return (
-    <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-      {icon}
-    </button>
-  );
-}
-
-function WorkspaceItem({ workspace }: { workspace: { id: string; name: string; icon: string } }) {
-  return (
-    <Link
-      href={`/workspace/${workspace.id}`}
-      className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded-lg transition-colors"
-    >
-      <span className="text-lg">{workspace.icon}</span>
-      <span className="text-sm">{workspace.name}</span>
-    </Link>
-  );
-}
-
-function PageCard({ page }: { page: { id: string; title: string; icon: string; updatedAt: string } }) {
-  return (
-    <Link
-      href={`/page/${page.id}`}
-      className="flex flex-col p-3 border border-border rounded-lg hover:bg-muted transition-colors"
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-2xl">{page.icon}</span>
-      </div>
-      <h3 className="font-medium mb-1">{page.title}</h3>
-      <span className="text-xs text-muted-foreground">{page.updatedAt}</span>
-    </Link>
-  );
-}
-
-function NewPageCard() {
-  return (
-    <button className="flex flex-col items-center justify-center p-3 border border-dashed border-border rounded-lg hover:border-primary hover:bg-muted/50 transition-colors min-h-[120px]">
-      <Plus className="w-6 h-6 mb-2 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">New Page</span>
-    </button>
-  );
-}
-
-function NewDatabaseCard() {
-  return (
-    <button className="flex flex-col items-center justify-center p-3 border border-dashed border-border rounded-lg hover:border-primary hover:bg-muted/50 transition-colors min-h-[80px]">
-      <Plus className="w-6 h-6 mb-2 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">New Database</span>
-    </button>
-  );
-}
+function Rail({ view, setView }: { view: View; setView: (v: View) => void }) { const items: [View, any, string][] = [["home", Home, "首页"], ["docs", FileText, "文档"], ["table", Table2, "表格"], ["inbox", Inbox, "收集"], ["memory", Sparkles, "记忆"], ["templates", BookOpen, "模板"]]; return <aside className="flex flex-col items-center gap-3 bg-slate-950 py-4 text-white"><div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-600 text-xl font-black">C</div>{items.map(([id, Icon, label]) => <button key={id} title={label} onClick={() => setView(id)} className={cn("flex h-11 w-11 items-center justify-center rounded-2xl text-slate-400 hover:bg-white/10 hover:text-white", view === id && "bg-violet-600 text-white")}><Icon className="h-5 w-5" /></button>)}</aside>; }
+function Sidebar(p: { docs: Doc[]; selected: string; setSelected: (v: string) => void; setView: (v: View) => void; query: string; setQuery: (v: string) => void; createDoc: () => void }) { return <aside className="bg-[#fbfbfe] p-4"><div className="mb-5 flex items-center justify-between"><div><h1 className="text-lg font-bold">ClawNote</h1><p className="text-xs text-slate-500">个人 AI 知识工作台</p></div><button onClick={p.createDoc} className="rounded-xl bg-violet-600 p-2 text-white"><Plus className="h-4 w-4" /></button></div><SearchBox value={p.query} onChange={p.setQuery} /><Section title="空间">{[["home","工作台",Home],["docs","我的文档",FileText],["table","项目表格",Database],["inbox","收集箱",Inbox],["memory","Agent 记忆",Bot],["search","搜索",Search]].map(([id,label,Icon]: any) => <button key={id} onClick={() => p.setView(id)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-600 hover:bg-violet-50 hover:text-violet-700"><Icon className="h-4 w-4" />{label}</button>)}</Section><Section title="文档树">{p.docs.map(d => <button key={d.id} onClick={() => { p.setSelected(d.id); p.setView("docs"); }} className={cn("flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-slate-100", p.selected === d.id && "bg-violet-50 text-violet-700")}><span>{d.icon}</span><span className="flex-1 truncate">{d.title}</span>{d.favorite && <Star className="h-3 w-3 fill-amber-400 text-amber-400" />}</button>)}</Section></aside>; }
+function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) { return <div className="mb-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"><Search className="h-4 w-4 text-slate-400" /><input value={value} onChange={e => onChange(e.target.value)} placeholder="搜索文档、标签、记忆" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></div>; }
+function Section({ title, children }: { title: string; children: React.ReactNode }) { return <section className="mb-5"><div className="mb-2 px-2 text-xs font-semibold uppercase text-slate-400">{title}</div><div className="space-y-1">{children}</div></section>; }
+function Top({ query, setQuery, createDoc }: { query: string; setQuery: (v: string) => void; createDoc: () => void }) { return <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-5 backdrop-blur"><div className="flex flex-1 items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2"><Search className="h-4 w-4 text-slate-400" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索文档、任务、Memory..." className="flex-1 bg-transparent text-sm outline-none" /><span className="rounded-lg bg-white px-2 py-1 text-xs text-slate-400">⌘K</span></div><button onClick={createDoc} className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white"><Plus className="mr-1 inline h-4 w-4" />新建</button><button className="rounded-2xl border border-slate-200 p-2"><Settings className="h-4 w-4" /></button></header>; }
+function Dashboard({ state, setView, setSelected }: { state: State; setView: (v: View) => void; setSelected: (id: string) => void }) { return <div className="space-y-6 p-6"><div className="rounded-3xl bg-gradient-to-br from-violet-600 to-indigo-600 p-8 text-white"><p className="text-sm opacity-80">欢迎回来</p><h2 className="mt-2 text-3xl font-bold">你的 OpenClaw 知识工作台已准备好</h2><p className="mt-3 text-sm opacity-85">像 Notion / 语雀一样写文档，像 Excel 一样管理任务表，并让 Agent 自动沉淀长期记忆。</p></div><div className="grid grid-cols-4 gap-4"><Metric title="文档" value={state.docs.length} icon={<FileText />} /><Metric title="任务" value={state.tasks.length} icon={<ListChecks />} /><Metric title="收集" value={state.inbox.length} icon={<Inbox />} /><Metric title="Memory" value={state.memories.length} icon={<Sparkles />} /></div><div className="grid grid-cols-2 gap-4">{state.docs.slice(0,4).map(d => <button key={d.id} onClick={() => { setSelected(d.id); setView("docs"); }} className="rounded-3xl border border-slate-200 bg-white p-5 text-left hover:border-violet-300"><div className="text-3xl">{d.icon}</div><div className="mt-2 font-semibold">{d.title}</div><p className="mt-1 text-sm text-slate-500">{d.summary}</p></button>)}</div></div>; }
+function Metric({ title, value, icon }: { title: string; value: number; icon: React.ReactNode }) { return <div className="rounded-3xl border border-slate-200 bg-white p-5"><div className="flex justify-between text-sm text-slate-500">{title}<span className="text-violet-600 [&_svg]:h-5 [&_svg]:w-5">{icon}</span></div><div className="mt-3 text-3xl font-bold">{value}</div></div>; }
+function Editor({ doc, updateDoc, del, askAi }: { doc: Doc; updateDoc: (p: Partial<Doc>) => void; del: () => void; askAi: (m: any) => void }) { const ref = useRef<HTMLDivElement>(null); useEffect(() => { if (ref.current && ref.current.innerHTML !== doc.html) ref.current.innerHTML = doc.html; }, [doc.id]); const sync = () => { const html = ref.current?.innerHTML || ""; const t = text(html); updateDoc({ html, text: t, summary: summary(t) }); }; const cmd = (c: string, v?: string) => { document.execCommand(c, false, v); ref.current?.focus(); sync(); }; return <div className="mx-auto max-w-5xl p-8"><div className="mb-6 flex justify-between"><div><button className="mb-3 text-6xl">{doc.icon}</button><input value={doc.title} onChange={e => updateDoc({ title: e.target.value })} className="w-full bg-transparent text-4xl font-bold outline-none" /><div className="mt-3 flex gap-2">{doc.tags.map(t => <span key={t} className="rounded-full bg-violet-50 px-3 py-1 text-xs text-violet-700">#{t}</span>)}</div></div><button onClick={del} className="h-10 rounded-xl border border-slate-200 p-2 text-red-500"><Trash2 className="h-4 w-4" /></button></div><div className="sticky top-16 z-10 mb-5 flex flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">{[["formatBlock","h1","H1"],["formatBlock","h2","H2"],["bold","","B"],["italic","","I"],["insertUnorderedList","","列表"],["insertOrderedList","","编号"],["formatBlock","blockquote","引用"]].map(([c,v,l]) => <button key={l} onMouseDown={e => { e.preventDefault(); cmd(c, v); }} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">{l}</button>)}<button onClick={() => askAi("summary")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">AI 摘要</button><button onClick={() => askAi("task")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">提取任务</button><button onClick={() => askAi("memory")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">写入 Memory</button></div><div ref={ref} contentEditable suppressContentEditableWarning onInput={sync} className="prose prose-slate min-h-[520px] max-w-none rounded-3xl border border-slate-200 bg-white p-8 leading-8 outline-none focus:border-violet-300" /></div>; }
+function TaskTable({ tasks, setState, addTask }: { tasks: Task[]; setState: any; addTask: () => void }) { const upd = (id: string, p: Partial<Task>) => setState((s: State) => ({ ...s, tasks: s.tasks.map(t => t.id === id ? { ...t, ...p } : t) })); return <div className="p-6"><div className="mb-5 flex justify-between"><div><h2 className="text-2xl font-bold">项目跟进表</h2><p className="text-sm text-slate-500">Excel 式任务管理，支持状态、优先级、进度。</p></div><button onClick={addTask} className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white"><Plus className="mr-1 inline h-4 w-4" />新增任务</button></div><div className="overflow-hidden rounded-3xl border border-slate-200"><table className="w-full bg-white text-sm"><thead className="bg-slate-50 text-left text-slate-500"><tr>{["任务","负责人","状态","优先级","截止","进度",""].map(h => <th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{tasks.map(t => <tr key={t.id} className="border-t border-slate-100"><td className="p-3"><input value={t.name} onChange={e => upd(t.id,{name:e.target.value})} className="w-full bg-transparent outline-none" /></td><td className="p-3"><input value={t.owner} onChange={e => upd(t.id,{owner:e.target.value})} className="w-24 bg-transparent outline-none" /></td><td className="p-3"><select value={t.status} onChange={e => upd(t.id,{status:e.target.value as any})} className="rounded-xl border px-2 py-1"><option>未开始</option><option>进行中</option><option>已完成</option></select></td><td className="p-3"><select value={t.priority} onChange={e => upd(t.id,{priority:e.target.value as any})} className="rounded-xl border px-2 py-1"><option>低</option><option>中</option><option>高</option></select></td><td className="p-3"><input type="date" value={t.dueDate} onChange={e => upd(t.id,{dueDate:e.target.value})} className="bg-transparent" /></td><td className="p-3"><input type="number" value={t.progress} onChange={e => upd(t.id,{progress:Number(e.target.value)})} className="w-16 rounded-lg border px-2 py-1" />%</td><td><button onClick={() => setState((s: State) => ({...s,tasks:s.tasks.filter(x=>x.id!==t.id)}))} className="text-red-500"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody></table></div></div>; }
+function InboxPage({ items, setState, createDoc }: { items: InboxItem[]; setState: any; createDoc: (t: string,c: string)=>void }) { return <ListPage title="Inbox 收集箱" desc="把 OpenClaw、网页、GitHub、文件输入整理成文档、任务或 Memory。">{items.map(i => <div key={i.id} className="rounded-3xl border bg-white p-5"><div className="flex justify-between"><b>{i.title}</b><span className="rounded-full bg-slate-100 px-3 py-1 text-xs">{i.source}</span></div><p className="mt-2 text-sm text-slate-600">{i.content}</p><div className="mt-4 flex gap-2"><button onClick={() => createDoc(i.title,i.content)} className="rounded-xl bg-violet-600 px-3 py-1.5 text-sm text-white">转文档</button><button onClick={() => setState((s: State) => ({...s, memories:[{id:id("m"),content:i.content,source:i.source,status:"pending",confidence:.9,tags:[i.source]},...s.memories]}))} className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm">转 Memory</button></div></div>)}</ListPage>; }
+function MemoryPage({ memories, setState }: { memories: Memory[]; setState: any }) { const upd=(id:string,status:Memory["status"])=>setState((s:State)=>({...s,memories:s.memories.map(m=>m.id===id?{...m,status}:m)})); return <ListPage title="Agent Memory 审核" desc="长期记忆必须审核，避免 Agent 错误沉淀。"><div className="grid grid-cols-3 gap-4">{["pending","accepted","rejected"].map(st => <section key={st} className="rounded-3xl border bg-slate-50 p-4"><h3 className="mb-3 font-semibold">{st}</h3>{memories.filter(m=>m.status===st).map(m=><div key={m.id} className="mb-3 rounded-2xl bg-white p-4 text-sm"><p>{m.content}</p><div className="mt-2 text-xs text-slate-500">置信度 {Math.round(m.confidence*100)}%</div>{st==="pending"&&<div className="mt-3 flex gap-2"><button onClick={()=>upd(m.id,"accepted")} className="rounded bg-emerald-500 px-2 py-1 text-xs text-white">接受</button><button onClick={()=>upd(m.id,"rejected")} className="rounded bg-red-500 px-2 py-1 text-xs text-white">拒绝</button></div>}</div>)}</section>)}</div></ListPage>; }
+function Templates({ templates, createDoc }: { templates: Template[]; createDoc: (t: Template)=>void }) { return <ListPage title="模板中心" desc="会议、项目、SOP、研究报告等文档模板。"><div className="grid grid-cols-3 gap-4">{templates.map(t => <button key={t.id} onClick={()=>createDoc(t)} className="rounded-3xl border bg-white p-5 text-left hover:border-violet-300"><div className="text-3xl">{t.icon}</div><div className="mt-3 font-semibold">{t.title}</div><p className="mt-2 text-sm text-slate-500">{t.desc}</p></button>)}</div></ListPage>; }
+function SearchPage({ query, setQuery, docs, setSelected, setView }: any) { return <ListPage title="搜索与推荐" desc="关键词搜索，后端可接 PostgreSQL 全文检索和 pgvector。"><SearchBox value={query} onChange={setQuery} />{docs.map((d:Doc)=><button key={d.id} onClick={()=>{setSelected(d.id);setView("docs")}} className="mb-3 w-full rounded-3xl border bg-white p-5 text-left hover:border-violet-300"><b>{d.icon} {d.title}</b><p className="mt-2 text-sm text-slate-500">{d.summary}</p></button>)}</ListPage>; }
+function ListPage({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) { return <div className="p-6"><h2 className="text-2xl font-bold">{title}</h2><p className="mb-5 text-sm text-slate-500">{desc}</p><div className="space-y-3">{children}</div></div>; }
+function AiPanel({ doc, state, ai, askAi }: { doc: Doc; state: State; ai: string[]; askAi: (m:any)=>void }) { return <aside className="flex flex-col bg-[#fbfbfe] p-4"><h2 className="font-bold">Claw AI 助手</h2><p className="mb-4 text-xs text-slate-500">基于当前文档和知识库</p><div className="mb-4 rounded-3xl bg-violet-50 p-4"><div className="mb-1 text-sm font-medium text-violet-700"><Sparkles className="mr-1 inline h-4 w-4" />当前上下文</div><b>{doc?.title}</b><p className="mt-1 text-xs text-slate-600">{doc?.summary}</p></div><div className="mb-4 grid grid-cols-2 gap-2">{[["summary","总结文档"],["task","提取任务"],["memory","写入 Memory"],["search","相关文档"]].map(([m,l])=><button key={m} onClick={()=>askAi(m)} className="rounded-2xl border bg-white px-3 py-2 text-sm hover:text-violet-700">{l}</button>)}</div><div className="mb-4 grid grid-cols-2 gap-3"><Metric title="Memory" value={state.memories.length} icon={<Sparkles />} /><Metric title="任务" value={state.tasks.length} icon={<Check />} /></div><div className="min-h-0 flex-1 space-y-3 overflow-auto">{ai.map((m,i)=><div key={i} className="rounded-3xl bg-white p-4 text-sm shadow-sm"><Bot className="mr-1 inline h-4 w-4 text-violet-600" />{m}</div>)}</div><div className="mt-4 rounded-2xl border bg-white p-3 text-sm text-slate-500"><Wand2 className="mr-1 inline h-4 w-4" />后端 Agent API 已预留，可接 OpenClaw。</div></aside>; }
