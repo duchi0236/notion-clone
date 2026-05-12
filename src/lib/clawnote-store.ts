@@ -48,6 +48,10 @@ export function summarize(value: string) {
   return value.length > 160 ? `${value.slice(0, 160)}…` : value;
 }
 
+export function toJsonSafe<T>(value: T) {
+  return JSON.parse(JSON.stringify(value)) as unknown;
+}
+
 export async function createDocumentVersion(documentId: string, changedBy: string, snapshot: unknown, reason?: string) {
   const last = await prisma.documentVersion.findFirst({
     where: { documentId },
@@ -59,7 +63,7 @@ export async function createDocumentVersion(documentId: string, changedBy: strin
       documentId,
       version: (last?.version ?? 0) + 1,
       changedBy,
-      snapshot: snapshot as object,
+      snapshot: toJsonSafe(snapshot) as object,
       reason,
     },
   });
