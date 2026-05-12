@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clawnote-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clawnote
+      POSTGRES_PASSWORD: clawnote
+      POSTGRES_DB: clawnote
+    ports:
+      - "5432:5432"
+    volumes:
+      - clawnote-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clawnote -d clawnote"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: clawnote-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://clawnote:clawnote@postgres:5432/clawnote?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: replace-with-a-long-random-secret
+      CLAWNOTE_AGENT_TOKEN: replace-with-agent-token
+      STORAGE_DRIVER: local
+      UPLOAD_DIR: ./uploads
+    ports:
+      - "3000:3000"
+    volumes:
+      - clawnote-uploads:/app/uploads
+
+volumes:
+  clawnote-postgres-data:
+  clawnote-uploads:
