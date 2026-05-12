@@ -31,11 +31,11 @@ services:
       NEXTAUTH_SECRET: replace-with-a-long-random-secret
       CLAWNOTE_AGENT_TOKEN: replace-with-agent-token
       STORAGE_DRIVER: local
-      UPLOAD_DIR: ./uploads
+      UPLOAD_DIR: public/uploads
     ports:
       - "3000:3000"
     volumes:
-      - clawnote-uploads:/app/uploads
+      - clawnote-uploads:/app/public/uploads
 
 volumes:
   clawnote-postgres-data:
