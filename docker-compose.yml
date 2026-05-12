@@ -29,7 +29,7 @@ services:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: replace-with-a-long-random-secret
-      CLAWNOTE_AGENT_TOKEN: replace-with-agent-token
+      CLAWNOTE_AGENT_TOKEN: dev-change-me-agent-token
       STORAGE_DRIVER: local
       UPLOAD_DIR: public/uploads
     ports:
