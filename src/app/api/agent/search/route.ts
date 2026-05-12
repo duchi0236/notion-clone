@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureWorkspace } from "@/lib/clawnote-store";
+import { verifyAgentRequest } from "@/lib/agent-auth";
 
 export async function POST(req: NextRequest) {
+  const unauthorized = verifyAgentRequest(req);
+  if (unauthorized) return unauthorized;
+
   const { workspace } = await ensureWorkspace();
   const body = await req.json().catch(() => ({}));
   const q = String(body.query ?? body.q ?? "").trim();
