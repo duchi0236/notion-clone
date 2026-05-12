@@ -1,5 +1,5 @@
-// Notion Clone - Prisma Schema
-// 完整版 Notion 数据模型
+// ClawNote - Personal AI knowledge and document workspace
+// PostgreSQL + Prisma schema for Notion/Yuque-like documents, tables, memories, inbox, and OpenClaw integration.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,37 +10,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 用户模型
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  avatarUrl     String?
-  password      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // 关系
-  workspaces    WorkspaceMember[]
-  pages         Page[]
-  blocks        Block[]
-  comments      Comment[]
-}
-
-// 工作区
-model Workspace {
   id          String   @id @default(cuid())
-  name        String
-  icon        String   @default("📁")
+  email       String   @unique
+  name        String?
+  avatarUrl   String?
+  password    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members     WorkspaceMember[]
-  pages       Page[]
-  databases   Database[]
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  documents       Document[]        @relation("DocumentCreator")
+  comments        Comment[]
+  memories        AgentMemory[]
+  apiTokens       ApiToken[]
 }
 
-// 工作区成员
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String   @default("🧠")
+  description String?
+  ownerId     String
+  owner       User     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members      WorkspaceMember[]
+  documents    Document[]
+  collections  Collection[]
+  objects      KnowledgeObject[]
+  memories     AgentMemory[]
+  inboxItems   InboxItem[]
+  agentRuns    AgentRun[]
+  templates    Template[]
+  apiTokens    ApiToken[]
+}
+
 model WorkspaceMember {
   id          String   @id @default(cuid())
   role        Role     @default(MEMBER)
@@ -53,6 +60,7 @@ model WorkspaceMember {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([userId, workspaceId])
+  @@index([workspaceId])
 }
 
 enum Role {
@@ -62,60 +70,89 @@ enum Role {
   GUEST
 }
 
-// 页面
-model Page {
-  id          String    @id @default(cuid())
-  title       String    @default("Untitled")
-  icon        String?
-  coverImage  String?
-  parentId    String?
-  parentType  ParentType?
-  isPublished Boolean   @default(false)
-  isArchived  Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+model Document {
+  id             String         @id @default(cuid())
+  title          String         @default("Untitled")
+  icon           String?        @default("📄")
+  coverImage     String?
+  type           DocumentType   @default(DOC)
+  status         DocumentStatus @default(DRAFT)
+  parentId       String?
+  sortIndex      Int            @default(0)
 
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contentJson    Json
+  contentHtml    String         @db.Text
+  contentText    String         @db.Text
+  summary        String?        @db.Text
+  tags           String[]       @default([])
 
-  createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  isFavorite     Boolean        @default(false)
+  isPublished    Boolean        @default(false)
+  isArchived     Boolean        @default(false)
+  agentReadable  Boolean        @default(true)
+  agentWritable  Boolean        @default(false)
 
-  // 关系
-  parent      Page?    @relation("PageChildren", fields: [parentId], references: [id])
-  children    Page[]   @relation("PageChildren")
-  blocks      Block[]
-  databases   Database[]
-  comments    Comment[]
+  workspaceId    String
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdById    String
+  createdBy      User           @relation("DocumentCreator", fields: [createdById], references: [id])
+
+  parent         Document?      @relation("DocumentChildren", fields: [parentId], references: [id])
+  children       Document[]     @relation("DocumentChildren")
+  blocks         Block[]
+  comments       Comment[]
+  versions       DocumentVersion[]
+  objects        KnowledgeObject[]
+  collectionRows CollectionRow[]
+  searchIndex    SearchIndex?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([workspaceId, parentId])
+  @@index([workspaceId, updatedAt])
+  @@index([workspaceId, isArchived])
 }
 
-enum ParentType {
-  PAGE
-  WORKSPACE
+enum DocumentType {
+  DOC
+  NOTE
+  PROJECT
+  SOP
+  SOURCE
+  MEETING
+  AGENT_LOG
 }
 
-// 块（Block）- Notion 的核心内容单元
+enum DocumentStatus {
+  DRAFT
+  ACTIVE
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
 model Block {
-  id          String    @id @default(cuid())
-  type        BlockType
-  content     Json      // 根据类型存储不同内容
-  properties  Json?     // 额外属性（排序、样式等）
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  pageId      String
-  page        Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
-
-  createdById String
-  createdBy   User      @relation(fields: [createdById], references: [id])
-
+  id            String    @id @default(cuid())
+  type          BlockType
+  content       Json
+  properties    Json?
+  sortIndex     Int       @default(0)
   parentBlockId String?
-  parentBlock   Block?   @relation("BlockChildren", fields: [parentBlockId], references: [id])
-  children      Block[]  @relation("BlockChildren")
+
+  documentId    String
+  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parentBlock   Block?    @relation("BlockChildren", fields: [parentBlockId], references: [id])
+  children      Block[]   @relation("BlockChildren")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([documentId, sortIndex])
 }
 
 enum BlockType {
-  // 基础块
   TEXT
   HEADING_1
   HEADING_2
@@ -127,77 +164,225 @@ enum BlockType {
   QUOTE
   DIVIDER
   CODE
-  
-  // 媒体块
   IMAGE
   VIDEO
   FILE
   BOOKMARK
-  
-  // 高级块
   CALLOUT
   TABLE
   TABLE_ROW
   EMBED
-  LINK_PREVIEW
-  
-  // 数据库相关
   DATABASE
+  AI_SUMMARY
+  AI_MEMORY
 }
 
-// 数据库（Notion Database）
-model Database {
+model Collection {
   id          String   @id @default(cuid())
   name        String
   icon        String   @default("📊")
-  schema      Json     // 数据库字段定义
-  views       Json?    // 视图配置
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  description String?
+  schema      Json
+  views       Json
+  type        CollectionType @default(TABLE)
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  pageId      String?
-  page        Page?    @relation(fields: [pageId], references: [id])
-
-  records     DatabaseRecord[]
-}
-
-model DatabaseRecord {
-  id          String   @id @default(cuid())
-  data        Json     // 行的实际数据
+  rows        CollectionRow[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  databaseId  String
-  database    Database @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+  @@index([workspaceId])
 }
 
-// 评论
+enum CollectionType {
+  TABLE
+  BOARD
+  GALLERY
+  CALENDAR
+  TASKS
+}
+
+model CollectionRow {
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  documentId   String?
+  document     Document?  @relation(fields: [documentId], references: [id])
+  data         Json
+  sortIndex    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([collectionId, sortIndex])
+}
+
+model KnowledgeObject {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  properties  Json
+  relations   Json?
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id])
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId, type])
+}
+
+model AgentMemory {
+  id          String       @id @default(cuid())
+  scope       MemoryScope  @default(WORKSPACE)
+  content     String       @db.Text
+  summary     String?
+  tags        String[]     @default([])
+  sourceType  String?
+  sourceId    String?
+  confidence  Float        @default(1)
+  status      MemoryStatus @default(PENDING)
+
+  workspaceId String
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?        @relation(fields: [createdById], references: [id])
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([workspaceId, status])
+}
+
+enum MemoryScope {
+  USER
+  WORKSPACE
+  PROJECT
+  AGENT
+}
+
+enum MemoryStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  ARCHIVED
+}
+
+model InboxItem {
+  id          String      @id @default(cuid())
+  source      InboxSource
+  title       String
+  content     String      @db.Text
+  raw         Json?
+  status      InboxStatus @default(UNPROCESSED)
+  workspaceId String
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([workspaceId, status])
+}
+
+enum InboxSource {
+  MANUAL
+  OPENCLAW
+  WEB_CLIP
+  GITHUB
+  FILE
+  CHAT
+}
+
+enum InboxStatus {
+  UNPROCESSED
+  CONVERTED
+  ARCHIVED
+}
+
+model AgentRun {
+  id          String   @id @default(cuid())
+  agentName   String
+  input       Json
+  output      Json?
+  status      String
+  documentIds String[] @default([])
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId, createdAt])
+}
+
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  parentId   String?
+  parent     Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    Comment[] @relation("CommentReplies")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  pageId    String
-  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
-
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-
-  parentId  String?
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("CommentReplies")
+  @@index([documentId])
 }
 
-// 收藏
-model Favorite {
-  id        String   @id @default(cuid())
-  pageId    String
-  userId    String
-  createdAt DateTime @default(now())
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version     Int
+  changedBy   String
+  snapshot    Json
+  diff        Json?
+  reason      String?
+  createdAt   DateTime @default(now())
 
-  @@unique([pageId, userId])
+  @@unique([documentId, version])
+  @@index([documentId, createdAt])
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  title       String
+  icon        String   @default("📄")
+  description String?
+  category    String
+  contentJson Json
+  contentHtml String   @db.Text
+  tags        String[] @default([])
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SearchIndex {
+  id          String   @id @default(cuid())
+  documentId  String   @unique
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  title       String
+  text        String   @db.Text
+  summary     String?  @db.Text
+  tags        String[] @default([])
+  embedding   Json?
+  updatedAt   DateTime @updatedAt
+}
+
+model ApiToken {
+  id          String   @id @default(cuid())
+  name        String
+  tokenHash   String   @unique
+  scopes      String[] @default([])
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
 }
