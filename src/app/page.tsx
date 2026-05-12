@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, BookOpen, Check, Database, FileText, Home, Inbox, ListChecks, Plus, Search, Settings, Sparkles, Star, Table2, Tags, Trash2, Wand2 } from "lucide-react";
+import { Bot, BookOpen, Check, Database, FileText, Home, Inbox, ListChecks, Plus, Search, Settings, Sparkles, Star, Table2, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type View = "home" | "docs" | "table" | "inbox" | "memory" | "templates" | "search";
@@ -16,6 +16,7 @@ const id = (p: string) => `${p}_${Math.random().toString(36).slice(2, 9)}`;
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 const summary = (value: string) => value ? `${value.slice(0, 120)}${value.length > 120 ? "…" : ""}` : "暂无摘要";
 const today = () => new Date().toISOString().slice(0, 10);
+const dateOnly = (value?: string) => value ? new Date(value).toISOString().slice(0, 10) : today();
 
 const seed: State = {
   docs: [
@@ -44,45 +45,143 @@ const seed: State = {
   ]
 };
 
+async function api<T>(url: string, init?: RequestInit): Promise<T | null> {
+  try {
+    const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function mapDoc(d: any): Doc {
+  const html = d.contentHtml ?? d.html ?? "<h1>Untitled</h1><p></p>";
+  const plain = d.contentText ?? d.text ?? text(html);
+  return { id: d.id, title: d.title ?? "Untitled", icon: d.icon ?? "📄", html, text: plain, summary: d.summary ?? summary(plain), tags: Array.isArray(d.tags) ? d.tags : [], favorite: Boolean(d.isFavorite ?? d.favorite), updatedAt: dateOnly(d.updatedAt) };
+}
+function mapTask(r: any): Task { const d = r.data ?? r; return { id: r.id, name: d.name ?? "新任务", owner: d.owner ?? "Me", status: d.status ?? "未开始", priority: d.priority ?? "中", progress: Number(d.progress ?? 0), dueDate: d.dueDate ?? today() }; }
+function mapInbox(i: any): InboxItem { return { id: i.id, source: i.source ?? "MANUAL", title: i.title ?? "Untitled", content: i.content ?? "", status: String(i.status ?? "UNPROCESSED").toLowerCase() as InboxItem["status"] }; }
+function mapMemory(m: any): Memory { return { id: m.id, content: m.content ?? "", source: m.sourceType ?? m.source ?? "Agent", status: String(m.status ?? "PENDING").toLowerCase() as Memory["status"], confidence: Number(m.confidence ?? 1), tags: Array.isArray(m.tags) ? m.tags : [] }; }
+function mapTemplate(t: any): Template { return { id: t.id, title: t.title ?? "Untitled", icon: t.icon ?? "📄", desc: t.description ?? t.desc ?? "", html: t.contentHtml ?? t.html ?? "<h1>Untitled</h1><p></p>", tags: Array.isArray(t.tags) ? t.tags : [] }; }
+
 export default function ClawNote() {
   const [state, setState] = useState<State>(seed);
   const [view, setView] = useState<View>("home");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("d1");
-  const [ai, setAi] = useState(["你可以让我总结当前文档、提取任务、写入 Memory、检索知识库。"]); 
+  const [ai, setAi] = useState(["你可以让我总结当前文档、提取任务、写入 Memory、检索知识库。"]);
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const doc = state.docs.find((d) => d.id === selected) || state.docs[0];
 
   useEffect(() => {
     const raw = localStorage.getItem("clawnote-state-v1");
     if (raw) setState(JSON.parse(raw));
+
+    void (async () => {
+      const [docRes, taskRes, inboxRes, memoryRes, templateRes] = await Promise.all([
+        api<{ documents: any[] }>("/api/documents"),
+        api<{ rows: any[] }>("/api/collections/tasks"),
+        api<{ items: any[] }>("/api/inbox"),
+        api<{ memories: any[] }>("/api/memory"),
+        api<{ templates: any[] }>("/api/templates"),
+      ]);
+      setState((s) => ({
+        docs: docRes?.documents?.map(mapDoc) ?? s.docs,
+        tasks: taskRes?.rows?.map(mapTask) ?? s.tasks,
+        inbox: inboxRes?.items?.map(mapInbox) ?? s.inbox,
+        memories: memoryRes?.memories?.map(mapMemory) ?? s.memories,
+        templates: templateRes?.templates?.map(mapTemplate) ?? s.templates,
+      }));
+      if (docRes?.documents?.length) setSelected(docRes.documents[0].id);
+    })();
   }, []);
+
   useEffect(() => localStorage.setItem("clawnote-state-v1", JSON.stringify(state)), [state]);
 
   const docs = useMemo(() => state.docs.filter(d => `${d.title} ${d.text} ${d.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [state.docs, query]);
-  const createDoc = (tpl?: Template) => {
-    const html = tpl?.html || "<h1>Untitled</h1><p>开始写作...</p>";
-    const d: Doc = { id: id("d"), title: tpl?.title || "Untitled", icon: tpl?.icon || "📄", html, text: text(html), summary: summary(text(html)), tags: tpl?.tags || [], favorite: false, updatedAt: today() };
-    setState(s => ({ ...s, docs: [d, ...s.docs] })); setSelected(d.id); setView("docs");
+
+  const persistDoc = (d: Doc) => {
+    clearTimeout(saveTimers.current[d.id]);
+    saveTimers.current[d.id] = setTimeout(() => {
+      void api(`/api/documents/${d.id}`, { method: "PUT", body: JSON.stringify({ title: d.title, icon: d.icon, tags: d.tags, contentHtml: d.html, contentText: d.text, summary: d.summary, isFavorite: d.favorite }) });
+    }, 650);
   };
-  const updateDoc = (patch: Partial<Doc>) => setState(s => ({ ...s, docs: s.docs.map(d => d.id === doc.id ? { ...d, ...patch, updatedAt: today() } : d) }));
-  const addTask = (name = "新任务") => setState(s => ({ ...s, tasks: [...s.tasks, { id: id("t"), name, owner: "Me", status: "未开始", priority: "中", progress: 0, dueDate: today() }] }));
+
+  const createDoc = async (tpl?: Template) => {
+    const html = tpl?.html || "<h1>Untitled</h1><p>开始写作...</p>";
+    const draft: Doc = { id: id("d"), title: tpl?.title || "Untitled", icon: tpl?.icon || "📄", html, text: text(html), summary: summary(text(html)), tags: tpl?.tags || [], favorite: false, updatedAt: today() };
+    setState(s => ({ ...s, docs: [draft, ...s.docs] }));
+    setSelected(draft.id); setView("docs");
+    const res = await api<{ document: any }>("/api/documents", { method: "POST", body: JSON.stringify({ title: draft.title, icon: draft.icon, tags: draft.tags, contentHtml: draft.html, contentText: draft.text, summary: draft.summary }) });
+    if (res?.document) {
+      const saved = mapDoc(res.document);
+      setState(s => ({ ...s, docs: s.docs.map(d => d.id === draft.id ? saved : d) }));
+      setSelected(saved.id);
+    }
+  };
+
+  const updateDoc = (patch: Partial<Doc>) => {
+    if (!doc) return;
+    let nextDoc = doc;
+    setState(s => ({ ...s, docs: s.docs.map(d => {
+      if (d.id !== doc.id) return d;
+      nextDoc = { ...d, ...patch, updatedAt: today() };
+      return nextDoc;
+    }) }));
+    persistDoc(nextDoc);
+  };
+
+  const deleteDoc = () => {
+    if (!doc) return;
+    void api(`/api/documents/${doc.id}`, { method: "DELETE" });
+    setState(s => ({ ...s, docs: s.docs.filter(d => d.id !== doc.id) }));
+    setSelected(state.docs.find(d => d.id !== doc.id)?.id || "");
+  };
+
+  const addTask = async (name = "新任务") => {
+    const draft: Task = { id: id("t"), name, owner: "Me", status: "未开始", priority: "中", progress: 0, dueDate: today() };
+    setState(s => ({ ...s, tasks: [...s.tasks, draft] }));
+    const res = await api<{ row: any }>("/api/collections/tasks", { method: "POST", body: JSON.stringify(draft) });
+    if (res?.row) setState(s => ({ ...s, tasks: s.tasks.map(t => t.id === draft.id ? mapTask(res.row) : t) }));
+  };
+  const updateTask = (taskId: string, patch: Partial<Task>) => {
+    setState(s => ({ ...s, tasks: s.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t) }));
+    void api(`/api/collections/tasks/${taskId}`, { method: "PUT", body: JSON.stringify(patch) });
+  };
+  const deleteTask = (taskId: string) => {
+    setState(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== taskId) }));
+    void api(`/api/collections/tasks/${taskId}`, { method: "DELETE" });
+  };
+  const createMemory = async (content: string, source = "User", tags: string[] = []) => {
+    const draft: Memory = { id: id("m"), content, source, status: "pending", confidence: .92, tags };
+    setState(s => ({ ...s, memories: [draft, ...s.memories] }));
+    const res = await api<{ memory: any }>("/api/memory", { method: "POST", body: JSON.stringify({ content, sourceType: source, tags, confidence: .92, status: "PENDING" }) });
+    if (res?.memory) setState(s => ({ ...s, memories: s.memories.map(m => m.id === draft.id ? mapMemory(res.memory) : m) }));
+  };
+  const updateMemory = (memoryId: string, status: Memory["status"]) => {
+    setState(s => ({ ...s, memories: s.memories.map(m => m.id === memoryId ? { ...m, status } : m) }));
+    void api(`/api/memory/${memoryId}`, { method: "PUT", body: JSON.stringify({ status: status.toUpperCase() }) });
+  };
+
   const askAi = (mode: "summary" | "task" | "memory" | "search") => {
+    if (!doc) return;
     if (mode === "summary") { updateDoc({ summary: summary(doc.text) }); setAi(a => [`已总结《${doc.title}》：${summary(doc.text)}`, ...a]); }
-    if (mode === "task") { addTask(doc.title); setAi(a => ["已从当前文档提取任务并加入表格。", ...a]); }
-    if (mode === "memory") { setState(s => ({ ...s, memories: [{ id: id("m"), content: summary(doc.text), source: doc.title, status: "pending", confidence: .92, tags: doc.tags }, ...s.memories] })); setAi(a => ["已写入待审核 Memory。", ...a]); }
+    if (mode === "task") { void addTask(doc.title); setAi(a => ["已从当前文档提取任务并加入表格。", ...a]); }
+    if (mode === "memory") { void createMemory(summary(doc.text), doc.title, doc.tags); setAi(a => ["已写入待审核 Memory。", ...a]); }
     if (mode === "search") setAi(a => [`找到相关文档：${state.docs.filter(d => d.id !== doc.id && d.tags.some(t => doc.tags.includes(t))).map(d => d.title).join("、") || "暂无"}`, ...a]);
   };
 
   return <div className="min-h-screen bg-[#f7f7fb] text-slate-900"><div className="grid min-h-screen grid-cols-[72px_260px_minmax(0,1fr)_360px]">
     <Rail view={view} setView={setView} />
-    <Sidebar docs={docs} selected={selected} setSelected={setSelected} setView={setView} query={query} setQuery={setQuery} createDoc={() => createDoc()} />
-    <main className="min-w-0 border-x border-slate-200 bg-white"><Top query={query} setQuery={setQuery} createDoc={() => createDoc()} />
+    <Sidebar docs={docs} selected={selected} setSelected={setSelected} setView={setView} query={query} setQuery={setQuery} createDoc={() => void createDoc()} />
+    <main className="min-w-0 border-x border-slate-200 bg-white"><Top query={query} setQuery={setQuery} createDoc={() => void createDoc()} />
       {view === "home" && <Dashboard state={state} setView={setView} setSelected={setSelected} />}
-      {view === "docs" && <Editor doc={doc} updateDoc={updateDoc} del={() => { setState(s => ({ ...s, docs: s.docs.filter(d => d.id !== doc.id) })); setSelected(state.docs[0]?.id || ""); }} askAi={askAi} />}
-      {view === "table" && <TaskTable tasks={state.tasks} setState={setState} addTask={addTask} />}
-      {view === "inbox" && <InboxPage items={state.inbox} setState={setState} createDoc={(title, content) => createDoc({ id: "tmp", title, icon: "📥", desc: "", tags: ["Inbox"], html: `<h1>${title}</h1><p>${content}</p>` })} />}
-      {view === "memory" && <MemoryPage memories={state.memories} setState={setState} />}
-      {view === "templates" && <Templates templates={state.templates} createDoc={createDoc} />}
+      {view === "docs" && <Editor doc={doc} updateDoc={updateDoc} del={deleteDoc} askAi={askAi} />}
+      {view === "table" && <TaskTable tasks={state.tasks} updateTask={updateTask} deleteTask={deleteTask} addTask={() => void addTask()} />}
+      {view === "inbox" && <InboxPage items={state.inbox} createDoc={(title, content) => void createDoc({ id: "tmp", title, icon: "📥", desc: "", tags: ["Inbox"], html: `<h1>${title}</h1><p>${content}</p>` })} createMemory={createMemory} />}
+      {view === "memory" && <MemoryPage memories={state.memories} updateMemory={updateMemory} />}
+      {view === "templates" && <Templates templates={state.templates} createDoc={(tpl) => void createDoc(tpl)} />}
       {view === "search" && <SearchPage query={query} setQuery={setQuery} docs={docs} setSelected={setSelected} setView={setView} />}
     </main>
     <AiPanel doc={doc} state={state} ai={ai} askAi={askAi} />
@@ -96,11 +195,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Top({ query, setQuery, createDoc }: { query: string; setQuery: (v: string) => void; createDoc: () => void }) { return <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-5 backdrop-blur"><div className="flex flex-1 items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2"><Search className="h-4 w-4 text-slate-400" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索文档、任务、Memory..." className="flex-1 bg-transparent text-sm outline-none" /><span className="rounded-lg bg-white px-2 py-1 text-xs text-slate-400">⌘K</span></div><button onClick={createDoc} className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white"><Plus className="mr-1 inline h-4 w-4" />新建</button><button className="rounded-2xl border border-slate-200 p-2"><Settings className="h-4 w-4" /></button></header>; }
 function Dashboard({ state, setView, setSelected }: { state: State; setView: (v: View) => void; setSelected: (id: string) => void }) { return <div className="space-y-6 p-6"><div className="rounded-3xl bg-gradient-to-br from-violet-600 to-indigo-600 p-8 text-white"><p className="text-sm opacity-80">欢迎回来</p><h2 className="mt-2 text-3xl font-bold">你的 OpenClaw 知识工作台已准备好</h2><p className="mt-3 text-sm opacity-85">像 Notion / 语雀一样写文档，像 Excel 一样管理任务表，并让 Agent 自动沉淀长期记忆。</p></div><div className="grid grid-cols-4 gap-4"><Metric title="文档" value={state.docs.length} icon={<FileText />} /><Metric title="任务" value={state.tasks.length} icon={<ListChecks />} /><Metric title="收集" value={state.inbox.length} icon={<Inbox />} /><Metric title="Memory" value={state.memories.length} icon={<Sparkles />} /></div><div className="grid grid-cols-2 gap-4">{state.docs.slice(0,4).map(d => <button key={d.id} onClick={() => { setSelected(d.id); setView("docs"); }} className="rounded-3xl border border-slate-200 bg-white p-5 text-left hover:border-violet-300"><div className="text-3xl">{d.icon}</div><div className="mt-2 font-semibold">{d.title}</div><p className="mt-1 text-sm text-slate-500">{d.summary}</p></button>)}</div></div>; }
 function Metric({ title, value, icon }: { title: string; value: number; icon: React.ReactNode }) { return <div className="rounded-3xl border border-slate-200 bg-white p-5"><div className="flex justify-between text-sm text-slate-500">{title}<span className="text-violet-600 [&_svg]:h-5 [&_svg]:w-5">{icon}</span></div><div className="mt-3 text-3xl font-bold">{value}</div></div>; }
-function Editor({ doc, updateDoc, del, askAi }: { doc: Doc; updateDoc: (p: Partial<Doc>) => void; del: () => void; askAi: (m: any) => void }) { const ref = useRef<HTMLDivElement>(null); useEffect(() => { if (ref.current && ref.current.innerHTML !== doc.html) ref.current.innerHTML = doc.html; }, [doc.id]); const sync = () => { const html = ref.current?.innerHTML || ""; const t = text(html); updateDoc({ html, text: t, summary: summary(t) }); }; const cmd = (c: string, v?: string) => { document.execCommand(c, false, v); ref.current?.focus(); sync(); }; return <div className="mx-auto max-w-5xl p-8"><div className="mb-6 flex justify-between"><div><button className="mb-3 text-6xl">{doc.icon}</button><input value={doc.title} onChange={e => updateDoc({ title: e.target.value })} className="w-full bg-transparent text-4xl font-bold outline-none" /><div className="mt-3 flex gap-2">{doc.tags.map(t => <span key={t} className="rounded-full bg-violet-50 px-3 py-1 text-xs text-violet-700">#{t}</span>)}</div></div><button onClick={del} className="h-10 rounded-xl border border-slate-200 p-2 text-red-500"><Trash2 className="h-4 w-4" /></button></div><div className="sticky top-16 z-10 mb-5 flex flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">{[["formatBlock","h1","H1"],["formatBlock","h2","H2"],["bold","","B"],["italic","","I"],["insertUnorderedList","","列表"],["insertOrderedList","","编号"],["formatBlock","blockquote","引用"]].map(([c,v,l]) => <button key={l} onMouseDown={e => { e.preventDefault(); cmd(c, v); }} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">{l}</button>)}<button onClick={() => askAi("summary")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">AI 摘要</button><button onClick={() => askAi("task")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">提取任务</button><button onClick={() => askAi("memory")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">写入 Memory</button></div><div ref={ref} contentEditable suppressContentEditableWarning onInput={sync} className="prose prose-slate min-h-[520px] max-w-none rounded-3xl border border-slate-200 bg-white p-8 leading-8 outline-none focus:border-violet-300" /></div>; }
-function TaskTable({ tasks, setState, addTask }: { tasks: Task[]; setState: any; addTask: () => void }) { const upd = (id: string, p: Partial<Task>) => setState((s: State) => ({ ...s, tasks: s.tasks.map(t => t.id === id ? { ...t, ...p } : t) })); return <div className="p-6"><div className="mb-5 flex justify-between"><div><h2 className="text-2xl font-bold">项目跟进表</h2><p className="text-sm text-slate-500">Excel 式任务管理，支持状态、优先级、进度。</p></div><button onClick={addTask} className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white"><Plus className="mr-1 inline h-4 w-4" />新增任务</button></div><div className="overflow-hidden rounded-3xl border border-slate-200"><table className="w-full bg-white text-sm"><thead className="bg-slate-50 text-left text-slate-500"><tr>{["任务","负责人","状态","优先级","截止","进度",""].map(h => <th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{tasks.map(t => <tr key={t.id} className="border-t border-slate-100"><td className="p-3"><input value={t.name} onChange={e => upd(t.id,{name:e.target.value})} className="w-full bg-transparent outline-none" /></td><td className="p-3"><input value={t.owner} onChange={e => upd(t.id,{owner:e.target.value})} className="w-24 bg-transparent outline-none" /></td><td className="p-3"><select value={t.status} onChange={e => upd(t.id,{status:e.target.value as any})} className="rounded-xl border px-2 py-1"><option>未开始</option><option>进行中</option><option>已完成</option></select></td><td className="p-3"><select value={t.priority} onChange={e => upd(t.id,{priority:e.target.value as any})} className="rounded-xl border px-2 py-1"><option>低</option><option>中</option><option>高</option></select></td><td className="p-3"><input type="date" value={t.dueDate} onChange={e => upd(t.id,{dueDate:e.target.value})} className="bg-transparent" /></td><td className="p-3"><input type="number" value={t.progress} onChange={e => upd(t.id,{progress:Number(e.target.value)})} className="w-16 rounded-lg border px-2 py-1" />%</td><td><button onClick={() => setState((s: State) => ({...s,tasks:s.tasks.filter(x=>x.id!==t.id)}))} className="text-red-500"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody></table></div></div>; }
-function InboxPage({ items, setState, createDoc }: { items: InboxItem[]; setState: any; createDoc: (t: string,c: string)=>void }) { return <ListPage title="Inbox 收集箱" desc="把 OpenClaw、网页、GitHub、文件输入整理成文档、任务或 Memory。">{items.map(i => <div key={i.id} className="rounded-3xl border bg-white p-5"><div className="flex justify-between"><b>{i.title}</b><span className="rounded-full bg-slate-100 px-3 py-1 text-xs">{i.source}</span></div><p className="mt-2 text-sm text-slate-600">{i.content}</p><div className="mt-4 flex gap-2"><button onClick={() => createDoc(i.title,i.content)} className="rounded-xl bg-violet-600 px-3 py-1.5 text-sm text-white">转文档</button><button onClick={() => setState((s: State) => ({...s, memories:[{id:id("m"),content:i.content,source:i.source,status:"pending",confidence:.9,tags:[i.source]},...s.memories]}))} className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm">转 Memory</button></div></div>)}</ListPage>; }
-function MemoryPage({ memories, setState }: { memories: Memory[]; setState: any }) { const upd=(id:string,status:Memory["status"])=>setState((s:State)=>({...s,memories:s.memories.map(m=>m.id===id?{...m,status}:m)})); return <ListPage title="Agent Memory 审核" desc="长期记忆必须审核，避免 Agent 错误沉淀。"><div className="grid grid-cols-3 gap-4">{["pending","accepted","rejected"].map(st => <section key={st} className="rounded-3xl border bg-slate-50 p-4"><h3 className="mb-3 font-semibold">{st}</h3>{memories.filter(m=>m.status===st).map(m=><div key={m.id} className="mb-3 rounded-2xl bg-white p-4 text-sm"><p>{m.content}</p><div className="mt-2 text-xs text-slate-500">置信度 {Math.round(m.confidence*100)}%</div>{st==="pending"&&<div className="mt-3 flex gap-2"><button onClick={()=>upd(m.id,"accepted")} className="rounded bg-emerald-500 px-2 py-1 text-xs text-white">接受</button><button onClick={()=>upd(m.id,"rejected")} className="rounded bg-red-500 px-2 py-1 text-xs text-white">拒绝</button></div>}</div>)}</section>)}</div></ListPage>; }
+function Editor({ doc, updateDoc, del, askAi }: { doc?: Doc; updateDoc: (p: Partial<Doc>) => void; del: () => void; askAi: (m: any) => void }) { const ref = useRef<HTMLDivElement>(null); useEffect(() => { if (ref.current && doc && ref.current.innerHTML !== doc.html) ref.current.innerHTML = doc.html; }, [doc?.id]); if (!doc) return <div className="p-8 text-slate-500">暂无文档，点击新建开始。</div>; const sync = () => { const html = ref.current?.innerHTML || ""; const t = text(html); updateDoc({ html, text: t, summary: summary(t) }); }; const cmd = (c: string, v?: string) => { document.execCommand(c, false, v); ref.current?.focus(); sync(); }; return <div className="mx-auto max-w-5xl p-8"><div className="mb-6 flex justify-between"><div><button className="mb-3 text-6xl">{doc.icon}</button><input value={doc.title} onChange={e => updateDoc({ title: e.target.value })} className="w-full bg-transparent text-4xl font-bold outline-none" /><div className="mt-3 flex gap-2">{doc.tags.map(t => <span key={t} className="rounded-full bg-violet-50 px-3 py-1 text-xs text-violet-700">#{t}</span>)}</div></div><button onClick={del} className="h-10 rounded-xl border border-slate-200 p-2 text-red-500"><Trash2 className="h-4 w-4" /></button></div><div className="sticky top-16 z-10 mb-5 flex flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">{[["formatBlock","h1","H1"],["formatBlock","h2","H2"],["bold","","B"],["italic","","I"],["insertUnorderedList","","列表"],["insertOrderedList","","编号"],["formatBlock","blockquote","引用"]].map(([c,v,l]) => <button key={l} onMouseDown={e => { e.preventDefault(); cmd(c, v); }} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">{l}</button>)}<button onClick={() => askAi("summary")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">AI 摘要</button><button onClick={() => askAi("task")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">提取任务</button><button onClick={() => askAi("memory")} className="rounded-xl px-3 py-1.5 text-sm hover:bg-violet-50">写入 Memory</button></div><div ref={ref} contentEditable suppressContentEditableWarning onInput={sync} className="prose prose-slate min-h-[520px] max-w-none rounded-3xl border border-slate-200 bg-white p-8 leading-8 outline-none focus:border-violet-300" /></div>; }
+function TaskTable({ tasks, updateTask, deleteTask, addTask }: { tasks: Task[]; updateTask: (id: string, p: Partial<Task>) => void; deleteTask: (id: string) => void; addTask: () => void }) { return <div className="p-6"><div className="mb-5 flex justify-between"><div><h2 className="text-2xl font-bold">项目跟进表</h2><p className="text-sm text-slate-500">Excel 式任务管理，支持状态、优先级、进度。</p></div><button onClick={addTask} className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white"><Plus className="mr-1 inline h-4 w-4" />新增任务</button></div><div className="overflow-hidden rounded-3xl border border-slate-200"><table className="w-full bg-white text-sm"><thead className="bg-slate-50 text-left text-slate-500"><tr>{["任务","负责人","状态","优先级","截止","进度",""] .map(h => <th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{tasks.map(t => <tr key={t.id} className="border-t border-slate-100"><td className="p-3"><input value={t.name} onChange={e => updateTask(t.id,{name:e.target.value})} className="w-full bg-transparent outline-none" /></td><td className="p-3"><input value={t.owner} onChange={e => updateTask(t.id,{owner:e.target.value})} className="w-24 bg-transparent outline-none" /></td><td className="p-3"><select value={t.status} onChange={e => updateTask(t.id,{status:e.target.value as any})} className="rounded-xl border px-2 py-1"><option>未开始</option><option>进行中</option><option>已完成</option></select></td><td className="p-3"><select value={t.priority} onChange={e => updateTask(t.id,{priority:e.target.value as any})} className="rounded-xl border px-2 py-1"><option>低</option><option>中</option><option>高</option></select></td><td className="p-3"><input type="date" value={t.dueDate} onChange={e => updateTask(t.id,{dueDate:e.target.value})} className="bg-transparent" /></td><td className="p-3"><input type="number" value={t.progress} onChange={e => updateTask(t.id,{progress:Number(e.target.value)})} className="w-16 rounded-lg border px-2 py-1" />%</td><td><button onClick={() => deleteTask(t.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></button></td></tr>)}</tbody></table></div></div>; }
+function InboxPage({ items, createDoc, createMemory }: { items: InboxItem[]; createDoc: (t: string,c: string)=>void; createMemory: (c: string, s?: string, tags?: string[]) => void }) { return <ListPage title="Inbox 收集箱" desc="把 OpenClaw、网页、GitHub、文件输入整理成文档、任务或 Memory。">{items.map(i => <div key={i.id} className="rounded-3xl border bg-white p-5"><div className="flex justify-between"><b>{i.title}</b><span className="rounded-full bg-slate-100 px-3 py-1 text-xs">{i.source}</span></div><p className="mt-2 text-sm text-slate-600">{i.content}</p><div className="mt-4 flex gap-2"><button onClick={() => createDoc(i.title,i.content)} className="rounded-xl bg-violet-600 px-3 py-1.5 text-sm text-white">转文档</button><button onClick={() => createMemory(i.content, i.source, [i.source])} className="rounded-xl bg-slate-100 px-3 py-1.5 text-sm">转 Memory</button></div></div>)}</ListPage>; }
+function MemoryPage({ memories, updateMemory }: { memories: Memory[]; updateMemory: (id: string, status: Memory["status"]) => void }) { return <ListPage title="Agent Memory 审核" desc="长期记忆必须审核，避免 Agent 错误沉淀。"><div className="grid grid-cols-3 gap-4">{["pending","accepted","rejected"].map(st => <section key={st} className="rounded-3xl border bg-slate-50 p-4"><h3 className="mb-3 font-semibold">{st}</h3>{memories.filter(m=>m.status===st).map(m=><div key={m.id} className="mb-3 rounded-2xl bg-white p-4 text-sm"><p>{m.content}</p><div className="mt-2 text-xs text-slate-500">置信度 {Math.round(m.confidence*100)}%</div>{st==="pending"&&<div className="mt-3 flex gap-2"><button onClick={()=>updateMemory(m.id,"accepted")} className="rounded bg-emerald-500 px-2 py-1 text-xs text-white">接受</button><button onClick={()=>updateMemory(m.id,"rejected")} className="rounded bg-red-500 px-2 py-1 text-xs text-white">拒绝</button></div>}</div>)}</section>)}</div></ListPage>; }
 function Templates({ templates, createDoc }: { templates: Template[]; createDoc: (t: Template)=>void }) { return <ListPage title="模板中心" desc="会议、项目、SOP、研究报告等文档模板。"><div className="grid grid-cols-3 gap-4">{templates.map(t => <button key={t.id} onClick={()=>createDoc(t)} className="rounded-3xl border bg-white p-5 text-left hover:border-violet-300"><div className="text-3xl">{t.icon}</div><div className="mt-3 font-semibold">{t.title}</div><p className="mt-2 text-sm text-slate-500">{t.desc}</p></button>)}</div></ListPage>; }
 function SearchPage({ query, setQuery, docs, setSelected, setView }: any) { return <ListPage title="搜索与推荐" desc="关键词搜索，后端可接 PostgreSQL 全文检索和 pgvector。"><SearchBox value={query} onChange={setQuery} />{docs.map((d:Doc)=><button key={d.id} onClick={()=>{setSelected(d.id);setView("docs")}} className="mb-3 w-full rounded-3xl border bg-white p-5 text-left hover:border-violet-300"><b>{d.icon} {d.title}</b><p className="mt-2 text-sm text-slate-500">{d.summary}</p></button>)}</ListPage>; }
 function ListPage({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) { return <div className="p-6"><h2 className="text-2xl font-bold">{title}</h2><p className="mb-5 text-sm text-slate-500">{desc}</p><div className="space-y-3">{children}</div></div>; }
-function AiPanel({ doc, state, ai, askAi }: { doc: Doc; state: State; ai: string[]; askAi: (m:any)=>void }) { return <aside className="flex flex-col bg-[#fbfbfe] p-4"><h2 className="font-bold">Claw AI 助手</h2><p className="mb-4 text-xs text-slate-500">基于当前文档和知识库</p><div className="mb-4 rounded-3xl bg-violet-50 p-4"><div className="mb-1 text-sm font-medium text-violet-700"><Sparkles className="mr-1 inline h-4 w-4" />当前上下文</div><b>{doc?.title}</b><p className="mt-1 text-xs text-slate-600">{doc?.summary}</p></div><div className="mb-4 grid grid-cols-2 gap-2">{[["summary","总结文档"],["task","提取任务"],["memory","写入 Memory"],["search","相关文档"]].map(([m,l])=><button key={m} onClick={()=>askAi(m)} className="rounded-2xl border bg-white px-3 py-2 text-sm hover:text-violet-700">{l}</button>)}</div><div className="mb-4 grid grid-cols-2 gap-3"><Metric title="Memory" value={state.memories.length} icon={<Sparkles />} /><Metric title="任务" value={state.tasks.length} icon={<Check />} /></div><div className="min-h-0 flex-1 space-y-3 overflow-auto">{ai.map((m,i)=><div key={i} className="rounded-3xl bg-white p-4 text-sm shadow-sm"><Bot className="mr-1 inline h-4 w-4 text-violet-600" />{m}</div>)}</div><div className="mt-4 rounded-2xl border bg-white p-3 text-sm text-slate-500"><Wand2 className="mr-1 inline h-4 w-4" />后端 Agent API 已预留，可接 OpenClaw。</div></aside>; }
+function AiPanel({ doc, state, ai, askAi }: { doc?: Doc; state: State; ai: string[]; askAi: (m:any)=>void }) { return <aside className="flex flex-col bg-[#fbfbfe] p-4"><h2 className="font-bold">Claw AI 助手</h2><p className="mb-4 text-xs text-slate-500">基于当前文档和知识库</p><div className="mb-4 rounded-3xl bg-violet-50 p-4"><div className="mb-1 text-sm font-medium text-violet-700"><Sparkles className="mr-1 inline h-4 w-4" />当前上下文</div><b>{doc?.title || "暂无文档"}</b><p className="mt-1 text-xs text-slate-600">{doc?.summary || "新建或选择一个文档开始。"}</p></div><div className="mb-4 grid grid-cols-2 gap-2">{[["summary","总结文档"],["task","提取任务"],["memory","写入 Memory"],["search","相关文档"]].map(([m,l])=><button key={m} onClick={()=>askAi(m)} className="rounded-2xl border bg-white px-3 py-2 text-sm hover:text-violet-700">{l}</button>)}</div><div className="mb-4 grid grid-cols-2 gap-3"><Metric title="Memory" value={state.memories.length} icon={<Sparkles />} /><Metric title="任务" value={state.tasks.length} icon={<Check />} /></div><div className="min-h-0 flex-1 space-y-3 overflow-auto">{ai.map((m,i)=><div key={i} className="rounded-3xl bg-white p-4 text-sm shadow-sm"><Bot className="mr-1 inline h-4 w-4 text-violet-600" />{m}</div>)}</div><div className="mt-4 rounded-2xl border bg-white p-3 text-sm text-slate-500"><Wand2 className="mr-1 inline h-4 w-4" />后端 Agent API 已预留，可接 OpenClaw。</div></aside>; }
