@@ -58,14 +58,22 @@ http://localhost:3000/clawnote
 - 写入文档
 - 写入 Memory
 - 记录 Agent Run Log
-- Token 校验：配置 `CLAWNOTE_AGENT_TOKEN` 后，Agent API 需要 `Authorization: Bearer <token>`
+- 支持环境变量 `CLAWNOTE_AGENT_TOKEN`
+- 支持数据库生成的访问密钥：`/tokens`
 - OpenClaw Skill 配置：`openclaw/clawnote.skill.yaml`
 
-### 文件上传
+### 文件管理
 
-- `/api/files` 支持本地文件上传
+- 文件管理页：`/files`
+- `/api/files` 支持上传、列表、删除
 - 默认写入 `public/uploads`
 - 返回可直接嵌入文档的 URL
+
+### 搜索
+
+- `/api/search` 全局关键词搜索
+- `/api/search/semantic` 语义搜索 fallback，当前为 token-overlap 排序
+- `prisma/sql/pgvector.sql` 提供 pgvector 初始化 SQL，后续可接 embedding 服务
 
 ## 技术栈
 
@@ -100,6 +108,18 @@ http://localhost:3000/clawnote
 
 ```text
 http://localhost:3000/login
+```
+
+文件管理：
+
+```text
+http://localhost:3000/files
+```
+
+访问密钥管理：
+
+```text
+http://localhost:3000/tokens
 ```
 
 健康检查：
@@ -149,6 +169,8 @@ curl -X POST http://localhost:3000/api/agent/search \
   -H "Authorization: Bearer dev-change-me-agent-token" \
   -d '{"query":"OpenClaw 部署", "limit": 8}'
 ```
+
+也可以在 `/tokens` 生成访问密钥，并替换上面的 Bearer 值。
 
 ### 写入文档
 
@@ -206,7 +228,10 @@ curl -X POST http://localhost:3000/api/agent/run \
 /api/memory/[id]                                    Memory 审核 / 归档
 /api/templates                                      模板列表 / 新建
 /api/search                                         全局搜索
-/api/files                                          文件上传
+/api/search/semantic                                语义搜索 fallback
+/api/files                                          文件上传 / 文件列表 / 删除文件
+/api/tokens                                         访问密钥列表 / 创建访问密钥
+/api/tokens/[id]                                    删除访问密钥
 /api/auth/[...nextauth]                             NextAuth 登录
 /api/auth/register                                  注册
 /api/agent/search                                   OpenClaw 搜索上下文
@@ -218,11 +243,11 @@ curl -X POST http://localhost:3000/api/agent/run \
 
 ## 下一步建议
 
-- 接 pgvector 语义搜索
-- 补文件管理 UI 和拖拽上传
+- 接真实 embedding 服务并将 `/api/search/semantic` 替换为 pgvector 检索
+- 补拖拽上传并从编辑器直接插入附件
 - 补真实 LLM 自动摘要 / 自动标签
-- 补权限细化与 API Token 管理界面
-- 补 CI 构建检查和 E2E 测试
+- 补权限细化与团队协作
+- 补 E2E 测试
 
 ## License
 
