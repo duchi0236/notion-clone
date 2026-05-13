@@ -1,17 +1,20 @@
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/lib/auth";
 import type { InboxSource, MemoryStatus, Prisma } from "@prisma/client";
 
 const DEMO_EMAIL = "local@clawnote.dev";
 const DEMO_WORKSPACE_NAME = "Personal OpenClaw Workspace";
 
 export async function ensureWorkspace() {
+  const session = await getServerSession(authOptions).catch(() => null);
+  const email = session?.user?.email?.trim().toLowerCase() || DEMO_EMAIL;
+  const name = session?.user?.name || "Local User";
+
   const user = await prisma.user.upsert({
-    where: { email: DEMO_EMAIL },
-    update: {},
-    create: {
-      email: DEMO_EMAIL,
-      name: "Local User",
-    },
+    where: { email },
+    update: { name },
+    create: { email, name },
   });
 
   let workspace = await prisma.workspace.findFirst({
@@ -22,7 +25,7 @@ export async function ensureWorkspace() {
   if (!workspace) {
     workspace = await prisma.workspace.create({
       data: {
-        name: DEMO_WORKSPACE_NAME,
+        name: user.email === DEMO_EMAIL ? DEMO_WORKSPACE_NAME : `${user.name || "我的"} 的知识库`,
         icon: "🧠",
         description: "Personal OpenClaw knowledge workspace",
         ownerId: user.id,
