@@ -4,7 +4,7 @@ import { createDocumentVersion, ensureWorkspace, htmlToText, summarize, upsertSe
 import { verifyAgentRequest } from "@/lib/agent-auth";
 
 export async function POST(req: NextRequest) {
-  const unauthorized = verifyAgentRequest(req);
+  const unauthorized = await verifyAgentRequest(req);
   if (unauthorized) return unauthorized;
 
   const { user, workspace } = await ensureWorkspace();
