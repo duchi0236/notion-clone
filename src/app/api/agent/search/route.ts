@@ -4,7 +4,7 @@ import { ensureWorkspace } from "@/lib/clawnote-store";
 import { verifyAgentRequest } from "@/lib/agent-auth";
 
 export async function POST(req: NextRequest) {
-  const unauthorized = verifyAgentRequest(req);
+  const unauthorized = await verifyAgentRequest(req);
   if (unauthorized) return unauthorized;
 
   const { workspace } = await ensureWorkspace();
