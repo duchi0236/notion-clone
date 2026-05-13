@@ -1,0 +1,98 @@
+name: clawnote
+version: 0.1.0
+description: Persistent personal document, task, inbox, and memory workspace for OpenClaw.
+base_url: http://localhost:3000
+headers:
+  Authorization: Bearer ${CLAWNOTE_AGENT_TOKEN}
+  Content-Type: application/json
+permissions:
+  - network:http
+  - storage:read
+  - storage:write
+tools:
+  - name: search_context
+    description: Search readable ClawNote documents and accepted memories for task context.
+    method: POST
+    path: /api/agent/search
+    input_schema:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          description: Search query.
+        limit:
+          type: number
+          description: Maximum number of results.
+  - name: write_document
+    description: Persist an execution note, research output, or structured document to ClawNote.
+    method: POST
+    path: /api/agent/write-document
+    input_schema:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        contentHtml:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        agentName:
+          type: string
+  - name: create_memory
+    description: Create a pending long-term memory for user review.
+    method: POST
+    path: /api/agent/create-memory
+    input_schema:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+        summary:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+        sourceType:
+          type: string
+        sourceId:
+          type: string
+  - name: log_run
+    description: Record an OpenClaw agent run for traceability.
+    method: POST
+    path: /api/agent/run
+    input_schema:
+      type: object
+      properties:
+        agentName:
+          type: string
+        input:
+          type: object
+        output:
+          type: object
+        status:
+          type: string
+        documentIds:
+          type: array
+          items:
+            type: string
+workflow:
+  before_task:
+    - search_context
+  after_task:
+    - write_document
+    - create_memory
+    - log_run
+safety:
+  - Memories should remain pending unless the user explicitly approves them.
+  - Prefer documents for execution summaries and memories for stable reusable facts.
+  - Include source metadata whenever possible.
