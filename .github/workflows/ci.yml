@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: clawnote
+          POSTGRES_PASSWORD: clawnote
+          POSTGRES_DB: clawnote
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clawnote -d clawnote"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://clawnote:clawnote@localhost:5432/clawnote?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-secret-change-me
+      CLAWNOTE_AGENT_TOKEN: ci-agent-token
+      STORAGE_DRIVER: local
+      UPLOAD_DIR: public/uploads
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run db:push
+      - run: npm run build
