@@ -6,13 +6,18 @@ Base URL in local development:
 http://localhost:3000
 ```
 
+Main app routes:
+
+```text
+/clawnote   ClawNote workspace
+/login      Login and registration page
+```
+
 ## Health
 
 ### GET /api/health
 
 Checks whether the app can connect to PostgreSQL.
-
-Response:
 
 ```json
 {
@@ -22,11 +27,30 @@ Response:
 }
 ```
 
+## Auth
+
+### GET /api/auth/[...nextauth]
+### POST /api/auth/[...nextauth]
+
+NextAuth Credentials provider.
+
+### POST /api/auth/register
+
+Creates a user and a personal workspace.
+
+```json
+{
+  "email": "me@example.com",
+  "name": "Me",
+  "password": "clawnote123"
+}
+```
+
 ## Documents
 
 ### GET /api/documents
 
-Returns non-archived documents in the default workspace.
+Returns non-archived documents in the current user workspace. If no user is logged in, ClawNote uses the local default workspace.
 
 Query params:
 
@@ -116,7 +140,7 @@ Creates a task row.
   "status": "未开始",
   "priority": "高",
   "progress": 0,
-  "dueDate": "2026-05-13"
+  "dueDate": "2026-05-14"
 }
 ```
 
@@ -211,7 +235,28 @@ Searches documents, memories, and inbox.
 }
 ```
 
+### POST /api/search/semantic
+
+Semantic-search fallback API. It currently uses deterministic token overlap over `SearchIndex`. After pgvector is enabled, replace the ranking logic with vector distance.
+
+```json
+{
+  "query": "OpenClaw 部署方案",
+  "limit": 10
+}
+```
+
+Optional pgvector setup SQL:
+
+```text
+prisma/sql/pgvector.sql
+```
+
 ## Files
+
+### GET /api/files
+
+Lists uploaded files.
 
 ### POST /api/files
 
@@ -236,15 +281,40 @@ Response:
 }
 ```
 
+### DELETE /api/files?filename=:filename
+
+Deletes an uploaded file. Path traversal is blocked by filename normalization.
+
+## API Tokens
+
+### GET /api/tokens
+
+Lists generated API tokens without exposing raw token values.
+
+### POST /api/tokens
+
+Creates an API token for OpenClaw or other integrations. The raw token is returned once.
+
+```json
+{
+  "name": "OpenClaw Agent Token",
+  "scopes": ["agent:read", "agent:write", "memory:write", "run:write"]
+}
+```
+
+### DELETE /api/tokens/:id
+
+Deletes an API token.
+
 ## Agent APIs
 
-Agent APIs are protected by `CLAWNOTE_AGENT_TOKEN` when set to a real value.
-
-Use:
+Agent APIs support both:
 
 ```http
 Authorization: Bearer <CLAWNOTE_AGENT_TOKEN>
 ```
+
+and generated DB-backed API tokens from `/api/tokens`.
 
 ### POST /api/agent/search
 
@@ -297,4 +367,12 @@ Records an agent run.
   "status": "completed",
   "documentIds": []
 }
+```
+
+## OpenClaw Skill
+
+The OpenClaw Skill manifest is available at:
+
+```text
+openclaw/clawnote.skill.yaml
 ```
