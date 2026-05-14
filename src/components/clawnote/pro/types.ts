@@ -1,4 +1,5 @@
-export type View = "docs" | "tasks" | "inbox" | "memory" | "files" | "tokens";
+export type View = "docs" | "tasks" | "inbox" | "memory" | "templates" | "files" | "tokens";
+export type TaskView = "table" | "board" | "gallery" | "calendar";
 
 export type Doc = {
   id: string;
@@ -32,5 +33,14 @@ export type Memory = {
   content: string;
   status: "pending" | "accepted" | "rejected" | "archived";
   confidence: number;
+  tags: string[];
+};
+
+export type Template = {
+  id: string;
+  title: string;
+  icon: string;
+  desc: string;
+  html: string;
   tags: string[];
 };
