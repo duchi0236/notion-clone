@@ -1,5 +1,5 @@
-import ClawNoteApp from "@/components/clawnote/ClawNoteApp";
+import ClawNotePro from "@/components/clawnote/pro/ClawNotePro";
 
 export default function ClawNotePage() {
-  return <ClawNoteApp />;
+  return <ClawNotePro />;
 }
