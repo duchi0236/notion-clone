@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Bot, Check, FileText, Inbox, KeyRound, Paperclip, Plus, Search, Sparkles, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,13 +10,13 @@ import { DocumentPanel } from "./DocumentPanel";
 import { TaskPanel } from "./TaskPanel";
 import { InboxPanel, MemoryPanel, TemplatePanel } from "./Panels";
 
-function NavButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function NavButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: ReactNode; label: string }) {
   return (
     <button title={label} onClick={onClick} className={cn("flex h-11 w-11 items-center justify-center rounded-2xl text-slate-400 hover:bg-white/10 hover:text-white [&_svg]:h-5 [&_svg]:w-5", active && "bg-violet-600 text-white")}>{icon}</button>
   );
 }
 
-function Metric({ title, value, icon }: { title: string; value: number; icon: React.ReactNode }) {
+function Metric({ title, value, icon }: { title: string; value: number; icon: ReactNode }) {
   return <div className="rounded-3xl border border-slate-200 bg-white p-4"><div className="flex justify-between text-xs text-slate-500">{title}<span className="text-violet-600 [&_svg]:h-4 [&_svg]:w-4">{icon}</span></div><div className="mt-2 text-2xl font-bold">{value}</div></div>;
 }
 
