@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { ClawTipTapEditor } from "@/components/editor/ClawTipTapEditor";
 import type { Doc } from "./types";
 import { htmlToText, summarize } from "./api";
+import { DocumentMetaPanel } from "./DocumentMetaPanel";
 
 export function DocumentPanel({
   doc,
@@ -48,6 +49,8 @@ export function DocumentPanel({
         onTextChange={(text) => updateDoc({ text, summary: summarize(text) })}
         onAiCommand={(command) => askAi(command === "tasks" ? "task" : command)}
       />
+
+      <DocumentMetaPanel documentId={doc.id} />
     </div>
   );
 }
