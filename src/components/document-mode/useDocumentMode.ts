@@ -24,6 +24,7 @@ export function useDocumentMode() {
   const [selectedId, setSelectedId] = useState(fallbackDocs[0].id);
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiMessage, setAiMessage] = useState("");
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const selected = documents.find((item) => item.id === selectedId) ?? documents[0];
@@ -46,6 +47,16 @@ export function useDocumentMode() {
       setSelectedId(mapped[0].id);
     })();
   }, []);
+
+  async function reloadSelected() {
+    if (!selected) return;
+    const response = await api<{ document: unknown }>(`/api/documents/${selected.id}`);
+    if (response?.document) {
+      const mapped = mapDocument(response.document);
+      setDocuments((items) => items.map((item) => item.id === mapped.id ? mapped : item));
+      setSelectedId(mapped.id);
+    }
+  }
 
   function persist(doc: DocumentRecord) {
     clearTimeout(saveTimers.current[doc.id]);
@@ -109,5 +120,31 @@ export function useDocumentMode() {
     if (next) setSelectedId(next.id);
   }
 
-  return { documents, selected, selectedId, setSelectedId, query, setQuery, saving, tree, toc, updateSelected, createDocument, deleteSelected };
+  async function askAi(mode: "summary" | "task" | "memory" | "search") {
+    if (!selected) return;
+    setAiMessage("");
+    if (mode === "summary") {
+      const result = await api<{ summary: string }>("/api/ai/summarize", { method: "POST", body: JSON.stringify({ html: selected.contentHtml, text: selected.contentText }) });
+      const summary = result?.summary ?? selected.contentText.slice(0, 160);
+      updateSelected({ summary });
+      setAiMessage("已生成摘要");
+    }
+    if (mode === "task") {
+      const result = await api<{ tasks: Array<{ name: string; priority?: string }> }>("/api/ai/extract-tasks", { method: "POST", body: JSON.stringify({ html: selected.contentHtml, text: selected.contentText }) });
+      const taskName = result?.tasks?.[0]?.name ?? selected.title;
+      await api("/api/collections/tasks", { method: "POST", body: JSON.stringify({ name: taskName, status: "未开始", priority: "中", progress: 0 }) });
+      setAiMessage("已提取任务");
+    }
+    if (mode === "memory") {
+      await api("/api/memory", { method: "POST", body: JSON.stringify({ content: selected.summary ?? selected.contentText.slice(0, 160), sourceType: "document", sourceId: selected.id, tags: selected.tags, status: "PENDING" }) });
+      setAiMessage("已写入待审核 Memory");
+    }
+    if (mode === "search") {
+      const result = await api<{ results: Array<{ citation?: { title?: string }; document?: { title?: string } }> }>("/api/knowledge/search", { method: "POST", body: JSON.stringify({ query: selected.title, limit: 5 }) });
+      const names = result?.results?.map((item) => item.citation?.title ?? item.document?.title).filter(Boolean).join("、") || "暂无相关内容";
+      setAiMessage(`相关内容：${names}`);
+    }
+  }
+
+  return { documents, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, createDocument, deleteSelected, reloadSelected, askAi };
 }
