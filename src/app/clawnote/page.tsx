@@ -1,5 +1,5 @@
-import ClawNotePro from "@/components/clawnote/pro/ClawNotePro";
+import DocumentOnlyApp from "@/components/document-mode/DocumentOnlyApp";
 
 export default function ClawNotePage() {
-  return <ClawNotePro />;
+  return <DocumentOnlyApp />;
 }
