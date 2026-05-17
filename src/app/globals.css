@@ -115,7 +115,6 @@ body {
   margin: 2em 0;
 }
 
-/* Task List */
 .ProseMirror ul[data-type="taskList"] {
   list-style: none;
   padding: 0;
@@ -131,7 +130,6 @@ body {
   margin-top: 0.3em;
 }
 
-/* Table Styles */
 .ProseMirror table {
   border-collapse: collapse;
   width: 100%;
@@ -150,7 +148,53 @@ body {
   font-weight: 600;
 }
 
-/* Selection */
 .ProseMirror ::selection {
   background-color: hsl(var(--primary) / 0.2);
+}
+
+/* Minimal document mode */
+.document-only-editor > div {
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.document-only-editor .ProseMirror {
+  min-height: 560px;
+  padding: 16px 0 96px !important;
+  max-width: 860px;
+  line-height: 1.9;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.document-only-editor .ProseMirror h1,
+.document-only-editor .ProseMirror h2,
+.document-only-editor .ProseMirror h3 {
+  color: #0f172a;
+  scroll-margin-top: 96px;
+}
+
+.document-only-editor .ProseMirror h2 {
+  margin-top: 2.2em;
+}
+
+.document-only-editor .ProseMirror p {
+  margin: 0.75em 0;
+}
+
+.document-only-editor .ProseMirror table {
+  font-size: 14px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.document-only-editor .sticky {
+  position: sticky;
+  top: 56px;
+  border: 0 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  background: rgba(255, 255, 255, 0.92) !important;
 }
