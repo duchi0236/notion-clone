@@ -1,15 +1,20 @@
 "use client";
 
-import { MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
+import { Bot, Clock3, MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { ClawTipTapEditor } from "@/components/editor/ClawTipTapEditor";
 import { DocumentToc } from "./DocumentToc";
 import { DocumentTree } from "./DocumentTree";
+import { DocumentSidePanel } from "./DocumentSidePanel";
 import { htmlToText } from "./document-utils";
 import { useDocumentMode } from "./useDocumentMode";
+
+type SidePanelMode = "meta" | "ai" | null;
 
 export default function DocumentOnlyApp() {
   const store = useDocumentMode();
   const doc = store.selected;
+  const [sidePanel, setSidePanel] = useState<SidePanelMode>(null);
 
   return (
     <div className="flex min-h-screen bg-white text-slate-900">
@@ -31,10 +36,17 @@ export default function DocumentOnlyApp() {
             <span>/</span>
             <span className="truncate text-slate-800">{doc?.title ?? "Untitled"}</span>
             {store.saving ? <span className="ml-2 text-xs text-amber-600">保存中...</span> : <span className="ml-2 text-xs text-emerald-600">已保存</span>}
+            {store.aiMessage && <span className="ml-2 text-xs text-blue-600">{store.aiMessage}</span>}
           </div>
           <div className="flex items-center gap-2">
             <button className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
               <Share2 className="mr-1 inline h-4 w-4" />分享
+            </button>
+            <button onClick={() => setSidePanel(sidePanel === "meta" ? null : "meta")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+              <Clock3 className="mr-1 inline h-4 w-4" />历史/评论
+            </button>
+            <button onClick={() => setSidePanel(sidePanel === "ai" ? null : "ai")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+              <Bot className="mr-1 inline h-4 w-4" />AI 插件
             </button>
             <button onClick={() => void store.deleteSelected()} className="rounded-xl border border-slate-200 p-1.5 text-red-500 hover:bg-red-50">
               <Trash2 className="h-4 w-4" />
@@ -88,6 +100,16 @@ export default function DocumentOnlyApp() {
           <Save className="mr-1 inline h-3 w-3" />文档功能独立可用，AI 知识库作为可选外挂层。
         </footer>
       </main>
+
+      {doc && sidePanel && (
+        <DocumentSidePanel
+          documentId={doc.id}
+          mode={sidePanel}
+          onClose={() => setSidePanel(null)}
+          onAskAi={(mode) => void store.askAi(mode)}
+          onRestored={() => void store.reloadSelected()}
+        />
+      )}
     </div>
   );
 }
