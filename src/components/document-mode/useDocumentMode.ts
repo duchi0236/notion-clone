@@ -88,6 +88,16 @@ export function useDocumentMode() {
     persist(next);
   }
 
+  async function moveDocument(id: string, parentId: string | null, sortIndex?: number) {
+    if (id === parentId) return;
+    setDocuments((items) => items.map((item) => item.id === id ? { ...item, parentId } : item));
+    await api(`/api/documents/${id}/move`, {
+      method: "POST",
+      body: JSON.stringify({ parentId, sortIndex }),
+    });
+    await reloadAll();
+  }
+
   async function createDocument(parentId?: string | null) {
     const html = "<h1>Untitled</h1><p>开始写作...</p>";
     const response = await api<{ document: unknown }>("/api/documents", {
@@ -149,5 +159,5 @@ export function useDocumentMode() {
     }
   }
 
-  return { documents, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, createDocument, deleteSelected, reloadSelected, reloadAll, askAi };
+  return { documents, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, moveDocument, createDocument, deleteSelected, reloadSelected, reloadAll, askAi };
 }
