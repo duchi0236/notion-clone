@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Clock3, Download, MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
+import { Bot, Clock3, Download, LockKeyhole, MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ClawTipTapEditor } from "@/components/editor/ClawTipTapEditor";
 import { DocumentToc } from "./DocumentToc";
@@ -8,11 +8,12 @@ import { DocumentTree } from "./DocumentTree";
 import { DocumentSidePanel } from "./DocumentSidePanel";
 import { DocumentShareDialog } from "./DocumentShareDialog";
 import { DocumentImportExportDialog } from "./DocumentImportExportDialog";
+import { DocumentPermissionDialog } from "./DocumentPermissionDialog";
 import { htmlToText } from "./document-utils";
 import { useDocumentMode } from "./useDocumentMode";
 
 type SidePanelMode = "meta" | "ai" | null;
-type ModalMode = "share" | "markdown" | null;
+type ModalMode = "share" | "markdown" | "permission" | null;
 
 export default function DocumentOnlyApp() {
   const store = useDocumentMode();
@@ -49,6 +50,9 @@ export default function DocumentOnlyApp() {
             </button>
             <button onClick={() => setModal("markdown")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
               <Download className="mr-1 inline h-4 w-4" />导入/导出
+            </button>
+            <button onClick={() => setModal("permission")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+              <LockKeyhole className="mr-1 inline h-4 w-4" />权限
             </button>
             <button onClick={() => setSidePanel(sidePanel === "meta" ? null : "meta")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
               <Clock3 className="mr-1 inline h-4 w-4" />历史/评论
@@ -121,6 +125,7 @@ export default function DocumentOnlyApp() {
 
       {doc && modal === "share" && <DocumentShareDialog documentId={doc.id} title={doc.title} onClose={() => setModal(null)} />}
       {doc && modal === "markdown" && <DocumentImportExportDialog documentId={doc.id} title={doc.title} onClose={() => setModal(null)} onImported={() => void store.reloadAll()} />}
+      {doc && modal === "permission" && <DocumentPermissionDialog documentId={doc.id} onClose={() => setModal(null)} onSaved={() => void store.reloadSelected()} />}
     </div>
   );
 }
