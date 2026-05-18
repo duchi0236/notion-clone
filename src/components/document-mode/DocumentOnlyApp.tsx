@@ -27,6 +27,7 @@ export default function DocumentOnlyApp() {
         selectedId={store.selectedId}
         onSelect={store.setSelectedId}
         onCreate={() => void store.createDocument()}
+        onMove={(id, parentId) => void store.moveDocument(id, parentId)}
       />
 
       <DocumentToc toc={store.toc} />
