@@ -2,18 +2,57 @@
 
 import Link from "next/link";
 import { Archive, Bot, ChevronDown, ChevronRight, Database, FileText, Folder, Inbox, KeyRound, Plus, Search, Settings, Sparkles, Upload } from "lucide-react";
-import { useState } from "react";
+import { DragEvent, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { DocNode } from "./document-types";
 
-function TreeNode({ node, selectedId, onSelect, level = 0 }: { node: DocNode; selectedId?: string; onSelect: (id: string) => void; level?: number }) {
+function TreeNode({
+  node,
+  selectedId,
+  onSelect,
+  onMove,
+  level = 0,
+}: {
+  node: DocNode;
+  selectedId?: string;
+  onSelect: (id: string) => void;
+  onMove?: (id: string, parentId: string | null) => void;
+  level?: number;
+}) {
   const [open, setOpen] = useState(true);
+  const [dragOver, setDragOver] = useState(false);
   const hasChildren = Boolean(node.children?.length);
+
+  function onDragStart(event: DragEvent<HTMLDivElement>) {
+    event.dataTransfer.setData("text/plain", node.id);
+    event.dataTransfer.effectAllowed = "move";
+  }
+
+  function onDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragOver(false);
+    const draggedId = event.dataTransfer.getData("text/plain");
+    if (!draggedId || draggedId === node.id) return;
+    onMove?.(draggedId, node.id);
+    setOpen(true);
+  }
 
   return (
     <div>
       <div
-        className={cn("group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100", selectedId === node.id && "bg-blue-50 text-blue-700")}
+        draggable
+        onDragStart={onDragStart}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        className={cn(
+          "group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100",
+          selectedId === node.id && "bg-blue-50 text-blue-700",
+          dragOver && "ring-2 ring-blue-200"
+        )}
         style={{ paddingLeft: 8 + level * 14 }}
       >
         <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-4 w-4 items-center justify-center text-slate-400">
@@ -22,7 +61,7 @@ function TreeNode({ node, selectedId, onSelect, level = 0 }: { node: DocNode; se
         {hasChildren ? <Folder className="h-4 w-4 text-amber-500" /> : <FileText className="h-4 w-4 text-blue-500" />}
         <button onClick={() => onSelect(node.id)} className="min-w-0 flex-1 truncate text-left">{node.title}</button>
       </div>
-      {hasChildren && open && <div>{node.children?.map((child) => <TreeNode key={child.id} node={child} selectedId={selectedId} onSelect={onSelect} level={level + 1} />)}</div>}
+      {hasChildren && open && <div>{node.children?.map((child) => <TreeNode key={child.id} node={child} selectedId={selectedId} onSelect={onSelect} onMove={onMove} level={level + 1} />)}</div>}
     </div>
   );
 }
@@ -31,7 +70,28 @@ function NavLink({ href, icon, label }: { href: string; icon: React.ReactNode; l
   return <Link href={href} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 [&_svg]:h-4 [&_svg]:w-4">{icon}<span>{label}</span></Link>;
 }
 
-export function DocumentTree({ tree, selectedId, onSelect, onCreate }: { tree: DocNode[]; selectedId?: string; onSelect: (id: string) => void; onCreate: () => void }) {
+export function DocumentTree({
+  tree,
+  selectedId,
+  onSelect,
+  onCreate,
+  onMove,
+}: {
+  tree: DocNode[];
+  selectedId?: string;
+  onSelect: (id: string) => void;
+  onCreate: () => void;
+  onMove?: (id: string, parentId: string | null) => void;
+}) {
+  const [rootDragOver, setRootDragOver] = useState(false);
+
+  function dropToRoot(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setRootDragOver(false);
+    const draggedId = event.dataTransfer.getData("text/plain");
+    if (draggedId) onMove?.(draggedId, null);
+  }
+
   return (
     <aside className="flex h-screen w-72 flex-col border-r border-slate-200 bg-white">
       <div className="border-b border-slate-100 p-4">
@@ -55,9 +115,18 @@ export function DocumentTree({ tree, selectedId, onSelect, onCreate }: { tree: D
         <NavLink href="/settings" icon={<Settings />} label="设置" />
       </div>
 
-      <div className="flex-1 overflow-auto p-3">
+      <div
+        onDragOver={(event) => {
+          event.preventDefault();
+          setRootDragOver(true);
+        }}
+        onDragLeave={() => setRootDragOver(false)}
+        onDrop={dropToRoot}
+        className={cn("flex-1 overflow-auto p-3", rootDragOver && "bg-blue-50/40")}
+      >
         <div className="mb-2 px-2 text-xs font-medium text-slate-400">文档树</div>
-        {tree.map((node) => <TreeNode key={node.id} node={node} selectedId={selectedId} onSelect={onSelect} />)}
+        {tree.map((node) => <TreeNode key={node.id} node={node} selectedId={selectedId} onSelect={onSelect} onMove={onMove} />)}
+        <div className="mt-3 rounded-xl border border-dashed border-slate-200 p-3 text-center text-xs text-slate-400">拖到这里移到根目录</div>
       </div>
 
       <div className="border-t border-slate-100 p-3">
