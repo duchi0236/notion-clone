@@ -38,14 +38,17 @@ export function useDocumentMode() {
   const tree = useMemo(() => buildTree(filteredDocuments), [filteredDocuments]);
   const toc = useMemo(() => extractToc(selected?.contentHtml ?? ""), [selected?.contentHtml]);
 
+  async function reloadAll() {
+    const response = await api<{ documents: unknown[] }>("/api/documents");
+    if (!response?.documents?.length) return;
+    const mapped = response.documents.map(mapDocument);
+    setDocuments(mapped);
+    const stillExists = mapped.find((item) => item.id === selectedId);
+    setSelectedId(stillExists?.id ?? mapped[0].id);
+  }
+
   useEffect(() => {
-    void (async () => {
-      const response = await api<{ documents: unknown[] }>("/api/documents");
-      if (!response?.documents?.length) return;
-      const mapped = response.documents.map(mapDocument);
-      setDocuments(mapped);
-      setSelectedId(mapped[0].id);
-    })();
+    void reloadAll();
   }, []);
 
   async function reloadSelected() {
@@ -146,5 +149,5 @@ export function useDocumentMode() {
     }
   }
 
-  return { documents, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, createDocument, deleteSelected, reloadSelected, askAi };
+  return { documents, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, createDocument, deleteSelected, reloadSelected, reloadAll, askAi };
 }
