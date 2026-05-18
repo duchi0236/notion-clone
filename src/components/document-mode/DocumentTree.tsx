@@ -73,12 +73,16 @@ function NavLink({ href, icon, label }: { href: string; icon: React.ReactNode; l
 export function DocumentTree({
   tree,
   selectedId,
+  query,
+  onQueryChange,
   onSelect,
   onCreate,
   onMove,
 }: {
   tree: DocNode[];
   selectedId?: string;
+  query?: string;
+  onQueryChange?: (query: string) => void;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onMove?: (id: string, parentId: string | null) => void;
@@ -101,7 +105,7 @@ export function DocumentTree({
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-300" placeholder="搜索文档 / 文件夹" />
+          <input value={query ?? ""} onChange={(event) => onQueryChange?.(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-300" placeholder="搜索文档 / 文件夹" />
         </div>
         <button onClick={onCreate} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"><Plus className="h-4 w-4" />新建</button>
       </div>
@@ -126,6 +130,7 @@ export function DocumentTree({
       >
         <div className="mb-2 px-2 text-xs font-medium text-slate-400">文档树</div>
         {tree.map((node) => <TreeNode key={node.id} node={node} selectedId={selectedId} onSelect={onSelect} onMove={onMove} />)}
+        {tree.length === 0 && <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">没有匹配的文档</div>}
         <div className="mt-3 rounded-xl border border-dashed border-slate-200 p-3 text-center text-xs text-slate-400">拖到这里移到根目录</div>
       </div>
 
