@@ -1,20 +1,24 @@
 "use client";
 
-import { Bot, Clock3, MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
+import { Bot, Clock3, Download, MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ClawTipTapEditor } from "@/components/editor/ClawTipTapEditor";
 import { DocumentToc } from "./DocumentToc";
 import { DocumentTree } from "./DocumentTree";
 import { DocumentSidePanel } from "./DocumentSidePanel";
+import { DocumentShareDialog } from "./DocumentShareDialog";
+import { DocumentImportExportDialog } from "./DocumentImportExportDialog";
 import { htmlToText } from "./document-utils";
 import { useDocumentMode } from "./useDocumentMode";
 
 type SidePanelMode = "meta" | "ai" | null;
+type ModalMode = "share" | "markdown" | null;
 
 export default function DocumentOnlyApp() {
   const store = useDocumentMode();
   const doc = store.selected;
   const [sidePanel, setSidePanel] = useState<SidePanelMode>(null);
+  const [modal, setModal] = useState<ModalMode>(null);
 
   return (
     <div className="flex min-h-screen bg-white text-slate-900">
@@ -39,8 +43,11 @@ export default function DocumentOnlyApp() {
             {store.aiMessage && <span className="ml-2 text-xs text-blue-600">{store.aiMessage}</span>}
           </div>
           <div className="flex items-center gap-2">
-            <button className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+            <button onClick={() => setModal("share")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
               <Share2 className="mr-1 inline h-4 w-4" />分享
+            </button>
+            <button onClick={() => setModal("markdown")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+              <Download className="mr-1 inline h-4 w-4" />导入/导出
             </button>
             <button onClick={() => setSidePanel(sidePanel === "meta" ? null : "meta")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
               <Clock3 className="mr-1 inline h-4 w-4" />历史/评论
@@ -110,6 +117,9 @@ export default function DocumentOnlyApp() {
           onRestored={() => void store.reloadSelected()}
         />
       )}
+
+      {doc && modal === "share" && <DocumentShareDialog documentId={doc.id} title={doc.title} onClose={() => setModal(null)} />}
+      {doc && modal === "markdown" && <DocumentImportExportDialog documentId={doc.id} title={doc.title} onClose={() => setModal(null)} onImported={() => void store.reloadAll()} />}
     </div>
   );
 }
