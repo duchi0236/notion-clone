@@ -6,7 +6,7 @@ export async function GET() {
   const { workspace } = await ensureWorkspace();
   const documents = await prisma.document.findMany({
     where: { workspaceId: workspace.id, isArchived: false },
-    orderBy: [{ sortIndex: "asc" }, { updatedAt: "desc" }],
+    orderBy: [{ parentId: "asc" }, { sortIndex: "asc" }, { updatedAt: "desc" }],
   });
   return NextResponse.json({ documents });
 }
@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const contentHtml = body.contentHtml ?? body.html ?? "<h1>Untitled</h1><p></p>";
   const contentText = body.contentText ?? htmlToText(contentHtml);
+  const siblingCount = await prisma.document.count({
+    where: { workspaceId: workspace.id, parentId: body.parentId ?? null, isArchived: false },
+  });
 
   const document = await prisma.document.create({
     data: {
@@ -24,6 +27,7 @@ export async function POST(req: NextRequest) {
       title: body.title ?? "Untitled",
       icon: body.icon ?? "📄",
       parentId: body.parentId ?? null,
+      sortIndex: siblingCount,
       type: body.type ?? "DOC",
       tags: Array.isArray(body.tags) ? body.tags : [],
       contentHtml,
