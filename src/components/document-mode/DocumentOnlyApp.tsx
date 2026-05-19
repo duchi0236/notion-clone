@@ -1,8 +1,9 @@
 "use client";
 
-import { Bot, Clock3, Download, LockKeyhole, MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
+import { Bot, Clock3, Download, Eye, LockKeyhole, MoreHorizontal, Pencil, Save, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { NotionGradeEditor } from "@/components/editor/notion-grade/NotionGradeEditor";
+import { AdvancedDocumentPreview } from "./AdvancedDocumentPreview";
 import { DocumentToc } from "./DocumentToc";
 import { DocumentTree } from "./DocumentTree";
 import { DocumentSidePanel } from "./DocumentSidePanel";
@@ -15,11 +16,14 @@ import { useDocumentMode } from "./useDocumentMode";
 type SidePanelMode = "meta" | "ai" | null;
 type ModalMode = "share" | "markdown" | "permission" | null;
 
+type ContentMode = "edit" | "preview";
+
 export default function DocumentOnlyApp() {
   const store = useDocumentMode();
   const doc = store.selected;
   const [sidePanel, setSidePanel] = useState<SidePanelMode>(null);
   const [modal, setModal] = useState<ModalMode>(null);
+  const [contentMode, setContentMode] = useState<ContentMode>("edit");
 
   return (
     <div className="flex min-h-screen bg-white text-slate-900">
@@ -45,6 +49,14 @@ export default function DocumentOnlyApp() {
             {store.aiMessage && <span className="ml-2 text-xs text-blue-600">{store.aiMessage}</span>}
           </div>
           <div className="flex items-center gap-2">
+            <div className="mr-1 flex rounded-xl border border-slate-200 p-0.5">
+              <button onClick={() => setContentMode("edit")} className={`rounded-lg px-2 py-1 text-xs ${contentMode === "edit" ? "bg-slate-900 text-white" : "text-slate-500"}`}>
+                <Pencil className="mr-1 inline h-3 w-3" />编辑
+              </button>
+              <button onClick={() => setContentMode("preview")} className={`rounded-lg px-2 py-1 text-xs ${contentMode === "preview" ? "bg-slate-900 text-white" : "text-slate-500"}`}>
+                <Eye className="mr-1 inline h-3 w-3" />预览
+              </button>
+            </div>
             <button onClick={() => setModal("share")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
               <Share2 className="mr-1 inline h-4 w-4" />分享
             </button>
@@ -88,15 +100,19 @@ export default function DocumentOnlyApp() {
               </div>
 
               <div className="document-only-editor">
-                <NotionGradeEditor
-                  content={doc.contentHtml}
-                  onChange={(html) => {
-                    const text = htmlToText(html);
-                    store.updateSelected({ contentHtml: html, contentText: text, summary: text.slice(0, 160) });
-                  }}
-                  onTextChange={(text) => store.updateSelected({ contentText: text, summary: text.slice(0, 160) })}
-                  onAiCommand={(command) => store.askAi(command === "tasks" ? "task" : command)}
-                />
+                {contentMode === "edit" ? (
+                  <NotionGradeEditor
+                    content={doc.contentHtml}
+                    onChange={(html) => {
+                      const text = htmlToText(html);
+                      store.updateSelected({ contentHtml: html, contentText: text, summary: text.slice(0, 160) });
+                    }}
+                    onTextChange={(text) => store.updateSelected({ contentText: text, summary: text.slice(0, 160) })}
+                    onAiCommand={(command) => store.askAi(command === "tasks" ? "task" : command)}
+                  />
+                ) : (
+                  <AdvancedDocumentPreview html={doc.contentHtml} />
+                )}
               </div>
             </article>
           ) : (
