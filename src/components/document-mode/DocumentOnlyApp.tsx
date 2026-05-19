@@ -2,7 +2,7 @@
 
 import { Bot, Clock3, Download, LockKeyhole, MoreHorizontal, Save, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { ClawTipTapEditor } from "@/components/editor/ClawTipTapEditor";
+import { NotionGradeEditor } from "@/components/editor/notion-grade/NotionGradeEditor";
 import { DocumentToc } from "./DocumentToc";
 import { DocumentTree } from "./DocumentTree";
 import { DocumentSidePanel } from "./DocumentSidePanel";
@@ -83,18 +83,19 @@ export default function DocumentOnlyApp() {
                   <span>创建者 Nana</span>
                   <span>字数 {doc.contentText.length.toLocaleString()}</span>
                   <span>阅读时长 约 {Math.max(1, Math.ceil(doc.contentText.length / 450))} 分钟</span>
-                  <span className="rounded-md bg-blue-50 px-2 py-1 text-blue-700">文档模式</span>
+                  <span className="rounded-md bg-blue-50 px-2 py-1 text-blue-700">Notion 级编辑器</span>
                 </div>
               </div>
 
               <div className="document-only-editor">
-                <ClawTipTapEditor
+                <NotionGradeEditor
                   content={doc.contentHtml}
                   onChange={(html) => {
                     const text = htmlToText(html);
                     store.updateSelected({ contentHtml: html, contentText: text, summary: text.slice(0, 160) });
                   }}
                   onTextChange={(text) => store.updateSelected({ contentText: text, summary: text.slice(0, 160) })}
+                  onAiCommand={(command) => store.askAi(command === "tasks" ? "task" : command)}
                 />
               </div>
             </article>
