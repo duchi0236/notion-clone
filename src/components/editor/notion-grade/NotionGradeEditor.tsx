@@ -21,6 +21,7 @@ import { insertUploadedFile, uploadEditorFile } from "./FileUpload";
 import { TableControls } from "./TableControls";
 import { EditorStatusBar } from "./EditorStatusBar";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
+import { BlockActionBar } from "./BlockActionBar";
 
 export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChange, onAiCommand }: NotionGradeEditorProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -145,6 +146,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
         <button type="button" onClick={() => setShortcutsOpen(true)} className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100"><Keyboard className="h-4 w-4" /></button>
       </div>
 
+      <BlockActionBar editor={editor} />
       <TableControls editor={editor} />
 
       <FloatingMenu editor={editor} tippyOptions={{ duration: 100 }}>
