@@ -22,6 +22,7 @@ import { TableControls } from "./TableControls";
 import { EditorStatusBar } from "./EditorStatusBar";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { BlockActionBar } from "./BlockActionBar";
+import { PageMentionDialog } from "./PageMentionDialog";
 
 export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChange, onAiCommand }: NotionGradeEditorProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -29,6 +30,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -117,7 +119,22 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
     removeSlash();
     setSlashOpen(false);
     setSlashQuery("");
+    if (command.id === "mention") {
+      setMentionOpen(true);
+      return;
+    }
     command.run();
+  }
+
+  function insertMention(document: { id: string; title: string; icon?: string | null }) {
+    if (!editor) return;
+    const icon = document.icon ?? "📄";
+    editor
+      .chain()
+      .focus()
+      .insertContent(`<a class="notion-page-mention" href="/clawnote?document=${document.id}">${icon} ${document.title}</a>`)
+      .run();
+    setMentionOpen(false);
   }
 
   const commands = useMemo(() => buildSlashCommands({ editor, onUpload: () => inputRef.current?.click(), onAiCommand }), [editor, onAiCommand]);
@@ -165,6 +182,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
       <EditorContent editor={editor} />
       <EditorStatusBar editor={editor} />
       {shortcutsOpen && <KeyboardShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+      <PageMentionDialog open={mentionOpen} onClose={() => setMentionOpen(false)} onSelect={insertMention} />
     </div>
   );
 }
