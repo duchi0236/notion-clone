@@ -11,7 +11,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Bold, CheckSquare, Italic, Link2, List, Paperclip, Plus, TableIcon } from "lucide-react";
+import { Bold, CheckSquare, Italic, Keyboard, Link2, List, Paperclip, Plus, TableIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NotionGradeEditorProps, SlashCommand } from "./types";
 import { ToolbarButton } from "./ToolbarButton";
@@ -20,12 +20,14 @@ import { buildSlashCommands } from "./useSlashCommands";
 import { insertUploadedFile, uploadEditorFile } from "./FileUpload";
 import { TableControls } from "./TableControls";
 import { EditorStatusBar } from "./EditorStatusBar";
+import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 
 export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChange, onAiCommand }: NotionGradeEditorProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -62,6 +64,11 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
           event.preventDefault();
           editor?.chain().focus().toggleItalic().run();
+          return true;
+        }
+        if ((event.metaKey || event.ctrlKey) && event.key === "?") {
+          event.preventDefault();
+          setShortcutsOpen(true);
           return true;
         }
         if (event.key === "/") {
@@ -135,6 +142,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
         <ToolbarButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><TableIcon className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton active={uploading} onClick={() => inputRef.current?.click()}><Paperclip className="h-4 w-4" /></ToolbarButton>
         <button type="button" onClick={() => setSlashOpen((value) => !value)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100">/ 命令</button>
+        <button type="button" onClick={() => setShortcutsOpen(true)} className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100"><Keyboard className="h-4 w-4" /></button>
       </div>
 
       <TableControls editor={editor} />
@@ -154,6 +162,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
       <SlashMenu open={slashOpen} query={slashQuery} setQuery={setSlashQuery} commands={filteredCommands} onRun={runCommand} />
       <EditorContent editor={editor} />
       <EditorStatusBar editor={editor} />
+      {shortcutsOpen && <KeyboardShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
     </div>
   );
 }
