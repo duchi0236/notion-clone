@@ -1,4 +1,5 @@
 export type AiCommand = "summary" | "memory" | "tasks" | "search";
+export type PickerCommand = "page-mention" | "database";
 
 export type SlashCommand = {
   id: string;
@@ -20,4 +21,5 @@ export type NotionGradeEditorProps = {
   onTextChange?: (text: string) => void;
   onJsonChange?: (json: unknown) => void;
   onAiCommand?: (command: AiCommand) => void;
+  onPickerCommand?: (command: PickerCommand) => void;
 };
