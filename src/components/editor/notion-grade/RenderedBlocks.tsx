@@ -1,7 +1,10 @@
 "use client";
 
+import "katex/dist/katex.min.css";
 import { useEffect, useMemo, useState } from "react";
 import { Database, ExternalLink } from "lucide-react";
+import katex from "katex";
+import mermaid from "mermaid";
 import { BoardView, CalendarView, GalleryView, TableView } from "@/components/database/DatabaseViews";
 import type { Collection } from "@/components/database/types";
 
@@ -19,28 +22,63 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function decodeHtml(value: string) {
+  if (typeof window === "undefined") return value;
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = value;
+  return textarea.value;
+}
+
 export function MermaidPreview({ code }: { code: string }) {
-  const preview = useMemo(() => {
-    const lines = code.split("\n").map((line) => line.trim()).filter(Boolean);
-    return lines.slice(0, 8);
-  }, [code]);
+  const [svg, setSvg] = useState("");
+  const [error, setError] = useState("");
+  const decoded = useMemo(() => decodeHtml(code).trim(), [code]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function render() {
+      setError("");
+      setSvg("");
+      if (!decoded) return;
+      try {
+        mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
+        const id = `mermaid-${Math.random().toString(36).slice(2)}`;
+        const result = await mermaid.render(id, decoded);
+        if (!cancelled) setSvg(result.svg);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Mermaid render failed");
+      }
+    }
+    void render();
+    return () => {
+      cancelled = true;
+    };
+  }, [decoded]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Mermaid Preview</div>
-      <div className="rounded-xl bg-white p-4 font-mono text-xs text-slate-600">
-        {preview.length ? preview.map((line, index) => <div key={`${line}-${index}`}>{line}</div>) : "空图表"}
-      </div>
-      <div className="mt-3 text-xs text-slate-400">当前为轻量预览；接入 mermaid runtime 后会渲染为正式图表。</div>
+      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Mermaid</div>
+      {svg ? <div className="rounded-xl bg-white p-4" dangerouslySetInnerHTML={{ __html: svg }} /> : null}
+      {!svg && <pre className="overflow-auto rounded-xl bg-white p-4 text-xs text-slate-600">{decoded || "空图表"}</pre>}
+      {error && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div>}
     </div>
   );
 }
 
 export function MathPreview({ expression }: { expression: string }) {
+  const decoded = useMemo(() => decodeHtml(expression).replace(/^\$\$|\$\$$/g, "").trim(), [expression]);
+  const html = useMemo(() => {
+    try {
+      return katex.renderToString(decoded || "E = mc^2", { throwOnError: false, displayMode: true });
+    } catch {
+      return "";
+    }
+  }, [decoded]);
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Formula</div>
-      <div className="font-mono text-lg text-slate-800">{expression || "E = mc^2"}</div>
+      {html ? <div className="text-slate-800" dangerouslySetInnerHTML={{ __html: html }} /> : <div className="font-mono text-lg text-slate-800">{decoded || "E = mc^2"}</div>}
     </div>
   );
 }
@@ -68,6 +106,16 @@ export function EmbeddedDatabasePreview({ collectionId }: { collectionId: string
     await load();
   }
 
+  async function createRow() {
+    if (!collection) return;
+    const rowData: Record<string, unknown> = {};
+    collection.schema.forEach((field) => {
+      rowData[field.id] = field.id === "name" ? "未命名记录" : "";
+    });
+    await api(`/api/collections/${collection.id}/rows`, { method: "POST", body: JSON.stringify({ data: rowData }) });
+    await load();
+  }
+
   if (!collection) {
     return <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">数据库 {collectionId} 加载中...</div>;
   }
@@ -86,6 +134,7 @@ export function EmbeddedDatabasePreview({ collectionId }: { collectionId: string
           {(["table", "board", "calendar", "gallery"] as const).map((item) => (
             <button key={item} onClick={() => setView(item)} className={`rounded-xl px-3 py-1.5 text-xs ${view === item ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-600"}`}>{item}</button>
           ))}
+          <button onClick={() => void createRow()} className="rounded-xl bg-blue-600 px-3 py-1.5 text-xs text-white">+ 记录</button>
           <a href="/database" className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-600"><ExternalLink className="mr-1 inline h-3 w-3" />打开</a>
         </div>
       </div>
