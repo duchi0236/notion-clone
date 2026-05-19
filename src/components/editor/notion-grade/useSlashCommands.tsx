@@ -2,16 +2,18 @@
 
 import { AlertCircle, CheckSquare, ChevronRight, Code, Database, Equal, Heading1, Heading2, Heading3, ImageIcon, LayoutPanelLeft, Link2, List, ListOrdered, Minus, Paperclip, Quote, TableIcon } from "lucide-react";
 import type { Editor } from "@tiptap/react";
-import type { AiCommand, SlashCommand } from "./types";
+import type { AiCommand, PickerCommand, SlashCommand } from "./types";
 
 export function buildSlashCommands({
   editor,
   onUpload,
   onAiCommand,
+  onPickerCommand,
 }: {
   editor: Editor | null;
   onUpload: () => void;
   onAiCommand?: (command: AiCommand) => void;
+  onPickerCommand?: (command: PickerCommand) => void;
 }): SlashCommand[] {
   if (!editor) return [];
 
@@ -32,8 +34,8 @@ export function buildSlashCommands({
     { id: "math", title: "数学公式", description: "插入 LaTeX 公式块", keywords: "math latex formula 公式 数学", run: () => editor.chain().focus().insertContent('<div class="notion-math">$$ E = mc^2 $$</div>').run() },
     { id: "divider", title: "分割线", description: "插入分割线", keywords: "divider line 分割线", run: () => editor.chain().focus().setHorizontalRule().run() },
     { id: "table", title: "表格", description: "插入 3x3 表格", keywords: "table 表格", run: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
-    { id: "database", title: "数据库块", description: "嵌入数据库占位块", keywords: "database collection table db 数据库", run: () => { const id = window.prompt("数据库 ID"); if (id) editor.chain().focus().insertContent(`<div class="notion-database-embed" data-collection-id="${id}">📊 数据库：${id}</div>`).run(); } },
-    { id: "mention", title: "页面引用", description: "插入页面链接引用", keywords: "mention page link reference 页面 引用", run: () => { const title = window.prompt("页面标题"); const id = window.prompt("页面 ID 或链接"); if (title) editor.chain().focus().insertContent(`<a class="notion-page-mention" href="${id ? `/clawnote?document=${id}` : '#'}">↗ ${title}</a>`).run(); } },
+    { id: "database", title: "数据库块", description: "从列表选择并嵌入数据库", keywords: "database collection table db 数据库", run: () => onPickerCommand?.("database") },
+    { id: "mention", title: "页面引用", description: "搜索页面并插入引用", keywords: "mention page link reference 页面 引用", run: () => onPickerCommand?.("page-mention") },
     { id: "image", title: "图片链接", description: "插入远程图片", keywords: "image 图片", run: () => { const url = window.prompt("图片 URL"); if (url) editor.chain().focus().setImage({ src: url }).run(); } },
     { id: "upload", title: "上传文件", description: "上传图片、PDF 或附件", keywords: "upload file attachment 上传 附件", run: onUpload },
     { id: "summary", title: "AI 摘要", description: "总结当前文档", keywords: "ai summary 摘要", run: () => onAiCommand?.("summary") },
