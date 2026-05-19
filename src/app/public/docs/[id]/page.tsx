@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { PublicDocumentRenderer } from "@/components/document-mode/PublicDocumentRenderer";
 
 export default async function PublicDocumentPage({ params }: { params: { id: string } }) {
   const document = await prisma.document.findFirst({
@@ -21,7 +22,7 @@ export default async function PublicDocumentPage({ params }: { params: { id: str
           <span>ClawNote Public Document</span>
           <span>{new Date(document.updatedAt).toLocaleDateString()}</span>
         </div>
-        <div className="prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: document.contentHtml }} />
+        <PublicDocumentRenderer html={document.contentHtml} />
       </article>
     </main>
   );
