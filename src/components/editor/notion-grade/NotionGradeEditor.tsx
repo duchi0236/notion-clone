@@ -18,6 +18,8 @@ import { ToolbarButton } from "./ToolbarButton";
 import { SlashMenu } from "./SlashMenu";
 import { buildSlashCommands } from "./useSlashCommands";
 import { insertUploadedFile, uploadEditorFile } from "./FileUpload";
+import { TableControls } from "./TableControls";
+import { EditorStatusBar } from "./EditorStatusBar";
 
 export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChange, onAiCommand }: NotionGradeEditorProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -47,6 +49,21 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
     editorProps: {
       attributes: { class: "notion-grade-content min-h-[620px] px-1 py-6 outline-none" },
       handleKeyDown: (_view, event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "/") {
+          event.preventDefault();
+          setSlashOpen((value) => !value);
+          return true;
+        }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+          event.preventDefault();
+          editor?.chain().focus().toggleBold().run();
+          return true;
+        }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
+          event.preventDefault();
+          editor?.chain().focus().toggleItalic().run();
+          return true;
+        }
         if (event.key === "/") {
           setSlashOpen(true);
           setSlashQuery("");
@@ -120,6 +137,8 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
         <button type="button" onClick={() => setSlashOpen((value) => !value)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100">/ 命令</button>
       </div>
 
+      <TableControls editor={editor} />
+
       <FloatingMenu editor={editor} tippyOptions={{ duration: 100 }}>
         <button onClick={() => setSlashOpen(true)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 shadow-sm hover:bg-slate-50"><Plus className="h-3 w-3" /> 添加块</button>
       </FloatingMenu>
@@ -134,6 +153,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
 
       <SlashMenu open={slashOpen} query={slashQuery} setQuery={setSlashQuery} commands={filteredCommands} onRun={runCommand} />
       <EditorContent editor={editor} />
+      <EditorStatusBar editor={editor} />
     </div>
   );
 }
