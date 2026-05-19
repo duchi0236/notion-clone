@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckSquare, Code, Heading1, Heading2, Heading3, ImageIcon, List, ListOrdered, Minus, Paperclip, Quote, TableIcon } from "lucide-react";
+import { AlertCircle, CheckSquare, ChevronRight, Code, Heading1, Heading2, Heading3, ImageIcon, List, ListOrdered, Minus, Paperclip, Quote, TableIcon } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { AiCommand, SlashCommand } from "./types";
 
@@ -21,6 +21,8 @@ export function buildSlashCommands({
     { id: "h2", title: "二级标题", description: "章节标题", keywords: "h2 heading subtitle 标题", run: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
     { id: "h3", title: "三级标题", description: "小节标题", keywords: "h3 heading 标题", run: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
     { id: "todo", title: "待办事项", description: "任务清单", keywords: "todo task checkbox 待办 任务", run: () => editor.chain().focus().toggleTaskList().run() },
+    { id: "toggle", title: "折叠块", description: "插入可折叠说明块", keywords: "toggle details collapse 折叠", run: () => editor.chain().focus().insertContent('<details class="notion-toggle" open><summary>折叠标题</summary><p>在这里输入内容...</p></details>').run() },
+    { id: "callout", title: "提示块", description: "插入强调提示块", keywords: "callout info warning 提示", run: () => editor.chain().focus().insertContent('<div class="notion-callout"><span>💡</span><p>在这里输入提示内容...</p></div>').run() },
     { id: "bullet", title: "无序列表", description: "项目符号列表", keywords: "bullet list 列表", run: () => editor.chain().focus().toggleBulletList().run() },
     { id: "number", title: "编号列表", description: "有序列表", keywords: "number ordered list 编号", run: () => editor.chain().focus().toggleOrderedList().run() },
     { id: "quote", title: "引用", description: "突出说明内容", keywords: "quote 引用", run: () => editor.chain().focus().toggleBlockquote().run() },
@@ -39,6 +41,8 @@ export const slashCommandIconMap = {
   h2: Heading2,
   h3: Heading3,
   todo: CheckSquare,
+  toggle: ChevronRight,
+  callout: AlertCircle,
   bullet: List,
   number: ListOrdered,
   quote: Quote,
