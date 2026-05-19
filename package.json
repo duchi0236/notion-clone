@@ -43,6 +43,8 @@
     "@tiptap/extension-task-list": "^2.4.0",
     "@tiptap/extension-task-item": "^2.4.0",
     "lowlight": "^3.1.0",
+    "katex": "^0.16.11",
+    "mermaid": "^11.4.1",
     "zustand": "^4.5.4",
     "lucide-react": "^0.412.0",
     "clsx": "^2.1.1",
