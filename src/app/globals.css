@@ -214,6 +214,15 @@ body {
 .notion-grade-editor .ProseMirror p {
   margin: 0.35rem 0;
   min-height: 1.85rem;
+  border-radius: 8px;
+}
+
+.notion-grade-editor .ProseMirror p:hover,
+.notion-grade-editor .ProseMirror li:hover,
+.notion-grade-editor .ProseMirror h1:hover,
+.notion-grade-editor .ProseMirror h2:hover,
+.notion-grade-editor .ProseMirror h3:hover {
+  background: linear-gradient(90deg, rgba(248, 250, 252, 0.8), rgba(255, 255, 255, 0));
 }
 
 .notion-grade-editor .ProseMirror h1 {
@@ -256,6 +265,7 @@ body {
 
 .notion-grade-editor .ProseMirror li {
   margin: 0.25rem 0;
+  border-radius: 8px;
 }
 
 .notion-grade-editor .ProseMirror pre {
@@ -335,4 +345,45 @@ body {
   color: #2563eb;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle {
+  margin: 0.8rem 0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #334155;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle p {
+  margin-left: 1.2rem;
+  color: #475569;
+}
+
+.notion-grade-editor .ProseMirror .notion-callout {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 1rem 0;
+  border-radius: 16px;
+  background: #eff6ff;
+  padding: 0.85rem 1rem;
+  color: #1e3a8a;
+}
+
+.notion-grade-editor .ProseMirror .notion-callout p {
+  margin: 0;
+}
+
+.notion-grade-editor .ProseMirror .selectedCell:after {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.notion-grade-editor .ProseMirror-focused {
+  outline: none;
 }
