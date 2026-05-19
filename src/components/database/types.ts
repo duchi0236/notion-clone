@@ -1,10 +1,14 @@
-export type FieldType = "text" | "select" | "date" | "number" | "people" | "checkbox";
+export type FieldType = "text" | "select" | "date" | "number" | "people" | "checkbox" | "relation" | "rollup" | "formula";
 
 export type FieldSchema = {
   id: string;
   name: string;
   type: FieldType;
   options?: string[];
+  relationCollectionId?: string;
+  relationFieldId?: string;
+  rollupFieldId?: string;
+  formula?: string;
 };
 
 export type CollectionRow = {
