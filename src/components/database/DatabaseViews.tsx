@@ -18,7 +18,7 @@ export function TableView({ schema, rows, updateRow, deleteRow }: { schema: Fiel
               <tr key={row.id} className="border-b border-slate-100 last:border-0">
                 {schema.map((field) => (
                   <td key={field.id} className="px-4 py-3">
-                    <Cell field={field} value={row.data?.[field.id]} onChange={(value) => updateRow(row, { ...row.data, [field.id]: value })} />
+                    <Cell field={field} row={row} value={row.data?.[field.id]} onChange={(value) => updateRow(row, { ...row.data, [field.id]: value })} />
                   </td>
                 ))}
                 <td className="px-4 py-3 text-right"><button onClick={() => deleteRow(row.id)} className="text-xs text-red-500">删除</button></td>
@@ -31,12 +31,36 @@ export function TableView({ schema, rows, updateRow, deleteRow }: { schema: Fiel
   );
 }
 
-function Cell({ field, value, onChange }: { field: FieldSchema; value: unknown; onChange: (value: string) => void }) {
+function evaluateFormula(formula: string | undefined, row: CollectionRow) {
+  if (!formula) return "";
+  try {
+    const replaced = formula.replace(/[a-zA-Z_][a-zA-Z0-9_]*/g, (key) => {
+      const value = row.data?.[key];
+      return typeof value === "number" || /^\d+(\.\d+)?$/.test(String(value)) ? String(value) : "0";
+    });
+    if (!/^[0-9+\-*/().\s]+$/.test(replaced)) return "公式无效";
+    // eslint-disable-next-line no-new-func
+    return String(Function(`return (${replaced})`)());
+  } catch {
+    return "公式错误";
+  }
+}
+
+function Cell({ field, row, value, onChange }: { field: FieldSchema; row: CollectionRow; value: unknown; onChange: (value: string) => void }) {
   if (field.type === "select") {
     return <select defaultValue={String(value ?? "")} onBlur={(event) => onChange(event.currentTarget.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1"><option value="">空</option>{field.options?.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
   }
   if (field.type === "checkbox") {
     return <input type="checkbox" defaultChecked={Boolean(value)} onChange={(event) => onChange(event.target.checked ? "true" : "false")} />;
+  }
+  if (field.type === "relation") {
+    return <input defaultValue={String(value ?? "")} onBlur={(event) => onChange(event.currentTarget.value)} placeholder="关联记录 ID" className="w-full rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 outline-none focus:border-blue-300" />;
+  }
+  if (field.type === "rollup") {
+    return <span className="text-slate-500">{String(value ?? "自动汇总")}</span>;
+  }
+  if (field.type === "formula") {
+    return <span className="font-mono text-blue-700">{evaluateFormula(field.formula, row)}</span>;
   }
   return <input defaultValue={String(value ?? "")} onBlur={(event) => onChange(event.currentTarget.value)} className="w-full rounded-lg border border-transparent px-2 py-1 outline-none hover:border-slate-200 focus:border-blue-300" />;
 }
