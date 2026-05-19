@@ -198,3 +198,141 @@ body {
   padding-right: 0 !important;
   background: rgba(255, 255, 255, 0.92) !important;
 }
+
+/* Notion-grade editor polish */
+.notion-grade-editor {
+  --editor-muted: #64748b;
+  --editor-border: #e2e8f0;
+}
+
+.notion-grade-editor .notion-grade-content {
+  line-height: 1.85;
+  color: #1f2937;
+  caret-color: #2563eb;
+}
+
+.notion-grade-editor .ProseMirror p {
+  margin: 0.35rem 0;
+  min-height: 1.85rem;
+}
+
+.notion-grade-editor .ProseMirror h1 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 2.05rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.notion-grade-editor .ProseMirror h2 {
+  margin-top: 1.75rem;
+  margin-bottom: 0.55rem;
+  font-size: 1.45rem;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.notion-grade-editor .ProseMirror h3 {
+  margin-top: 1.35rem;
+  margin-bottom: 0.4rem;
+  font-size: 1.1rem;
+  line-height: 1.45;
+}
+
+.notion-grade-editor .ProseMirror blockquote {
+  margin: 1rem 0;
+  border-left: 4px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 0 14px 14px 0;
+  padding: 0.7rem 1rem;
+  color: #475569;
+}
+
+.notion-grade-editor .ProseMirror ul,
+.notion-grade-editor .ProseMirror ol {
+  margin: 0.35rem 0;
+  padding-left: 1.5rem;
+}
+
+.notion-grade-editor .ProseMirror li {
+  margin: 0.25rem 0;
+}
+
+.notion-grade-editor .ProseMirror pre {
+  margin: 1rem 0;
+  border-radius: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.notion-grade-editor .ProseMirror code {
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 6px;
+}
+
+.notion-grade-editor .ProseMirror table {
+  display: table;
+  width: 100%;
+  overflow: hidden;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  font-size: 0.92rem;
+}
+
+.notion-grade-editor .ProseMirror th {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.notion-grade-editor .ProseMirror th,
+.notion-grade-editor .ProseMirror td {
+  border: 0;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.65rem 0.85rem;
+}
+
+.notion-grade-editor .ProseMirror tr:last-child td {
+  border-bottom: 0;
+}
+
+.notion-grade-editor .ProseMirror th:last-child,
+.notion-grade-editor .ProseMirror td:last-child {
+  border-right: 0;
+}
+
+.notion-grade-editor .ProseMirror img {
+  margin: 1rem 0;
+  max-height: 560px;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.notion-grade-editor .ProseMirror hr {
+  margin: 2rem 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.notion-grade-editor .ProseMirror ul[data-type="taskList"] {
+  padding-left: 0;
+}
+
+.notion-grade-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.55rem;
+  border-radius: 10px;
+}
+
+.notion-grade-editor .ProseMirror ul[data-type="taskList"] li:hover {
+  background: #f8fafc;
+}
+
+.notion-grade-editor .ProseMirror a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
