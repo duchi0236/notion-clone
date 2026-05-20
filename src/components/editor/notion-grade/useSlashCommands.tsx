@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CheckSquare, ChevronRight, Code, Database, Equal, Heading1, Heading2, Heading3, ImageIcon, LayoutPanelLeft, Link2, List, ListOrdered, Minus, Paperclip, Quote, TableIcon } from "lucide-react";
+import { AlertCircle, Bot, CheckSquare, ChevronRight, Code, Database, Equal, Heading1, Heading2, Heading3, ImageIcon, LayoutPanelLeft, Link2, List, ListOrdered, Minus, Paperclip, Quote, TableIcon } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { AiCommand, PickerCommand, SlashCommand } from "./types";
 
@@ -36,6 +36,7 @@ export function buildSlashCommands({
     { id: "table", title: "表格", description: "插入 3x3 表格", keywords: "table 表格", run: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
     { id: "database", title: "数据库块", description: "从列表选择并嵌入数据库", keywords: "database collection table db 数据库", run: () => onPickerCommand?.("database") },
     { id: "mention", title: "页面引用", description: "搜索页面并插入引用", keywords: "mention page link reference 页面 引用", run: () => onPickerCommand?.("page-mention") },
+    { id: "ai-block", title: "AI Block", description: "AI 生成一个内容块", keywords: "ai assistant block draft 自动生成", run: () => onPickerCommand?.("ai-block") },
     { id: "image", title: "图片链接", description: "插入远程图片", keywords: "image 图片", run: () => { const url = window.prompt("图片 URL"); if (url) editor.chain().focus().setImage({ src: url }).run(); } },
     { id: "upload", title: "上传文件", description: "上传图片、PDF 或附件", keywords: "upload file attachment 上传 附件", run: onUpload },
     { id: "summary", title: "AI 摘要", description: "总结当前文档", keywords: "ai summary 摘要", run: () => onAiCommand?.("summary") },
@@ -61,6 +62,7 @@ export const slashCommandIconMap = {
   table: TableIcon,
   database: Database,
   mention: Link2,
+  "ai-block": Bot,
   image: ImageIcon,
   upload: Paperclip,
 };
