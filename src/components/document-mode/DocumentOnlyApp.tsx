@@ -107,7 +107,6 @@ export default function DocumentOnlyApp() {
                       const text = htmlToText(html);
                       store.updateSelected({ contentHtml: html, contentText: text, summary: text.slice(0, 160) });
                     }}
-                    onTextChange={(text) => store.updateSelected({ contentText: text, summary: text.slice(0, 160) })}
                     onAiCommand={(command) => store.askAi(command === "tasks" ? "task" : command)}
                   />
                 ) : (

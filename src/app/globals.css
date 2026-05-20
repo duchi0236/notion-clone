@@ -199,6 +199,244 @@ body {
   background: rgba(255, 255, 255, 0.92) !important;
 }
 
+/* Markdown-like preview typography */
+.advanced-document-preview {
+  max-width: 860px;
+  padding: 16px 0 96px;
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.advanced-document-preview > div + div {
+  margin-top: 1.5rem;
+}
+
+.advanced-document-preview h1,
+.advanced-document-preview h2,
+.advanced-document-preview h3,
+.advanced-document-preview h4 {
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.25;
+  scroll-margin-top: 96px;
+}
+
+.advanced-document-preview h1 {
+  margin: 1.5rem 0 1rem;
+  font-size: 2.25rem;
+  letter-spacing: 0;
+}
+
+.advanced-document-preview h2 {
+  margin: 2.25rem 0 0.85rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.4rem;
+  font-size: 1.55rem;
+}
+
+.advanced-document-preview h3 {
+  margin: 1.75rem 0 0.7rem;
+  font-size: 1.25rem;
+}
+
+.advanced-document-preview h4 {
+  margin: 1.35rem 0 0.55rem;
+  font-size: 1.05rem;
+}
+
+.advanced-document-preview p {
+  margin: 0.8rem 0;
+}
+
+.advanced-document-preview a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.advanced-document-preview strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+.advanced-document-preview em {
+  color: #334155;
+}
+
+.advanced-document-preview ul,
+.advanced-document-preview ol {
+  margin: 0.8rem 0;
+  padding-left: 1.5rem;
+}
+
+.advanced-document-preview ul {
+  list-style: disc;
+}
+
+.advanced-document-preview ol {
+  list-style: decimal;
+}
+
+.advanced-document-preview li {
+  margin: 0.35rem 0;
+  padding-left: 0.2rem;
+}
+
+.advanced-document-preview li > p {
+  margin: 0.25rem 0;
+}
+
+.advanced-document-preview blockquote {
+  margin: 1.25rem 0;
+  border-left: 4px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0.85rem 1rem;
+  color: #475569;
+}
+
+.advanced-document-preview code {
+  border-radius: 0.35rem;
+  background: #f1f5f9;
+  padding: 0.15rem 0.35rem;
+  color: #be123c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+.advanced-document-preview pre {
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  background: #0f172a;
+  padding: 1rem;
+  color: #e2e8f0;
+}
+
+.advanced-document-preview pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.9rem;
+}
+
+.advanced-document-preview table {
+  width: 100%;
+  margin: 1.25rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  font-size: 0.92rem;
+}
+
+.advanced-document-preview th,
+.advanced-document-preview td {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.advanced-document-preview th {
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.advanced-document-preview tr:last-child td {
+  border-bottom: 0;
+}
+
+.advanced-document-preview th:last-child,
+.advanced-document-preview td:last-child {
+  border-right: 0;
+}
+
+.advanced-document-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+
+.advanced-document-preview hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.advanced-document-preview ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.advanced-document-preview ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.55rem;
+  padding-left: 0;
+}
+
+.advanced-document-preview ul[data-type="taskList"] input[type="checkbox"] {
+  margin-top: 0.55rem;
+}
+
+.advanced-document-preview details.notion-toggle {
+  margin: 1rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  padding: 0.8rem 1rem;
+}
+
+.advanced-document-preview details.notion-toggle summary {
+  cursor: pointer;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.advanced-document-preview .notion-callout {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  border: 1px solid #dbeafe;
+  border-radius: 0.9rem;
+  background: #eff6ff;
+  padding: 0.85rem 1rem;
+  color: #1e3a8a;
+}
+
+.advanced-document-preview .notion-callout p {
+  margin: 0;
+}
+
+.advanced-document-preview .notion-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.advanced-document-preview .notion-columns > div {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  background: #f8fafc;
+  padding: 0.9rem;
+}
+
+.advanced-document-preview .notion-page-mention,
+.advanced-document-preview .notion-database-embed {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  padding: 0.15rem 0.45rem;
+  color: #1e40af;
+  text-decoration: none;
+}
+
 /* Notion-grade editor polish */
 .notion-grade-editor {
   --editor-muted: #64748b;
@@ -467,6 +705,15 @@ body {
   .document-only-editor .ProseMirror {
     max-width: 100%;
     font-size: 15px;
+  }
+
+  .advanced-document-preview {
+    max-width: 100%;
+    font-size: 15px;
+  }
+
+  .advanced-document-preview .notion-columns {
+    grid-template-columns: 1fr;
   }
 
   .notion-grade-editor .ProseMirror .notion-columns {

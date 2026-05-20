@@ -29,8 +29,13 @@ export function useDocumentMode() {
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const documentsRef = useRef<DocumentRecord[]>(fallbackDocs);
 
   const selected = documents.find((item) => item.id === selectedId) ?? documents[0];
+
+  useEffect(() => {
+    documentsRef.current = documents;
+  }, [documents]);
 
   useEffect(() => {
     try {
@@ -107,9 +112,12 @@ export function useDocumentMode() {
   }
 
   function updateSelected(patch: Partial<DocumentRecord>) {
-    if (!selected) return;
-    const next = { ...selected, ...patch };
-    setDocuments((items) => items.map((item) => item.id === selected.id ? next : item));
+    const current = documentsRef.current.find((item) => item.id === selectedId);
+    if (!current) return;
+    const next = { ...current, ...patch };
+    const nextDocuments = documentsRef.current.map((item) => item.id === selectedId ? next : item);
+    documentsRef.current = nextDocuments;
+    setDocuments(nextDocuments);
     persist(next);
   }
 

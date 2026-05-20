@@ -27,6 +27,8 @@ import { AiBlockDialog } from "./AiBlockDialog";
 
 export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChange, onAiCommand }: NotionGradeEditorProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const applyingExternalContentRef = useRef(false);
+  const lastEmittedHtmlRef = useRef(content);
   const [uploading, setUploading] = useState(false);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
@@ -48,8 +50,12 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
       TableHeader,
     ],
     content,
+    immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      if (applyingExternalContentRef.current) return;
+      const html = editor.getHTML();
+      lastEmittedHtmlRef.current = html;
+      onChange(html);
       onTextChange?.(editor.getText());
       onJsonChange?.(editor.getJSON());
     },
@@ -105,7 +111,16 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
 
   useEffect(() => {
     if (!editor) return;
-    if (content && content !== editor.getHTML()) editor.commands.setContent(content, false);
+    if (content === lastEmittedHtmlRef.current) return;
+    if (content !== editor.getHTML()) {
+      applyingExternalContentRef.current = true;
+      try {
+        editor.commands.setContent(content, false);
+        lastEmittedHtmlRef.current = content;
+      } finally {
+        applyingExternalContentRef.current = false;
+      }
+    }
   }, [content, editor]);
 
   async function upload(file: File) {
@@ -173,6 +188,21 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
     <div className="notion-grade-editor quiet-workspace relative">
       <input ref={inputRef} type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
 
+      <FloatingMenu editor={editor} tippyOptions={{ duration: 100 }}>
+        <button type="button" onClick={() => setSlashOpen(true)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 shadow-sm hover:bg-slate-50"><Plus className="h-3 w-3" /> 添加块</button>
+      </FloatingMenu>
+
+      <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+        <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+          <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton active={editor.isActive("link")} onClick={() => { const url = window.prompt("URL"); if (url) editor.chain().focus().setLink({ href: url }).run(); }}><Link2 className="h-4 w-4" /></ToolbarButton>
+          <span className="mx-1 h-5 w-px bg-slate-100" />
+          <button type="button" onClick={() => onAiCommand?.("summary")} className="rounded-lg px-2 py-1.5 text-xs text-blue-700 hover:bg-blue-50"><Bot className="mr-1 inline h-3.5 w-3.5" />总结</button>
+          <button type="button" onClick={() => setPicker("ai-block")} className="rounded-lg px-2 py-1.5 text-xs text-violet-700 hover:bg-violet-50"><Sparkles className="mr-1 inline h-3.5 w-3.5" />改写</button>
+        </div>
+      </BubbleMenu>
+
       <div className="quiet-editor-quickbar mb-3 flex items-center justify-between text-xs text-slate-400">
         <button type="button" onClick={() => setSlashOpen(true)} className="rounded-lg px-2 py-1 hover:bg-slate-100 hover:text-slate-700">/ 命令</button>
         <div className="flex items-center gap-1 opacity-40 transition hover:opacity-100">
@@ -197,21 +227,6 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
 
       {showUtilities && <BlockActionBar editor={editor} />}
       <TableControls editor={editor} />
-
-      <FloatingMenu editor={editor} tippyOptions={{ duration: 100 }}>
-        <button onClick={() => setSlashOpen(true)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500 shadow-sm hover:bg-slate-50"><Plus className="h-3 w-3" /> 添加块</button>
-      </FloatingMenu>
-
-      <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
-        <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></ToolbarButton>
-          <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></ToolbarButton>
-          <ToolbarButton active={editor.isActive("link")} onClick={() => { const url = window.prompt("URL"); if (url) editor.chain().focus().setLink({ href: url }).run(); }}><Link2 className="h-4 w-4" /></ToolbarButton>
-          <span className="mx-1 h-5 w-px bg-slate-100" />
-          <button onClick={() => onAiCommand?.("summary")} className="rounded-lg px-2 py-1.5 text-xs text-blue-700 hover:bg-blue-50"><Bot className="mr-1 inline h-3.5 w-3.5" />总结</button>
-          <button onClick={() => setPicker("ai-block")} className="rounded-lg px-2 py-1.5 text-xs text-violet-700 hover:bg-violet-50"><Sparkles className="mr-1 inline h-3.5 w-3.5" />改写</button>
-        </div>
-      </BubbleMenu>
 
       <SlashMenu open={slashOpen} query={slashQuery} setQuery={setSlashQuery} commands={filteredCommands} onRun={runCommand} />
       <EditorContent editor={editor} />

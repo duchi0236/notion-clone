@@ -1,33 +1,36 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
+import type { MouseEvent } from "react";
 import { Columns3, Rows3, Trash2 } from "lucide-react";
 
 export function TableControls({ editor }: { editor: Editor }) {
   if (!editor.isActive("table")) return null;
 
+  const keepEditorSelection = (event: MouseEvent<HTMLButtonElement>) => event.preventDefault();
+
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
       <span className="px-2 font-medium text-slate-500">表格</span>
-      <button className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onClick={() => editor.chain().focus().addColumnBefore().run()}>
+      <button type="button" className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onMouseDown={keepEditorSelection} onClick={() => editor.chain().focus().addColumnBefore().run()}>
         <Columns3 className="mr-1 inline h-3 w-3" />左侧列
       </button>
-      <button className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onClick={() => editor.chain().focus().addColumnAfter().run()}>
+      <button type="button" className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onMouseDown={keepEditorSelection} onClick={() => editor.chain().focus().addColumnAfter().run()}>
         <Columns3 className="mr-1 inline h-3 w-3" />右侧列
       </button>
-      <button className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onClick={() => editor.chain().focus().addRowBefore().run()}>
+      <button type="button" className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onMouseDown={keepEditorSelection} onClick={() => editor.chain().focus().addRowBefore().run()}>
         <Rows3 className="mr-1 inline h-3 w-3" />上方行
       </button>
-      <button className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onClick={() => editor.chain().focus().addRowAfter().run()}>
+      <button type="button" className="rounded-xl bg-white px-3 py-1.5 hover:bg-blue-50" onMouseDown={keepEditorSelection} onClick={() => editor.chain().focus().addRowAfter().run()}>
         <Rows3 className="mr-1 inline h-3 w-3" />下方行
       </button>
-      <button className="rounded-xl bg-white px-3 py-1.5 hover:bg-red-50 hover:text-red-600" onClick={() => editor.chain().focus().deleteColumn().run()}>
+      <button type="button" className="rounded-xl bg-white px-3 py-1.5 hover:bg-red-50 hover:text-red-600" onMouseDown={keepEditorSelection} onClick={() => editor.chain().focus().deleteColumn().run()}>
         删除列
       </button>
-      <button className="rounded-xl bg-white px-3 py-1.5 hover:bg-red-50 hover:text-red-600" onClick={() => editor.chain().focus().deleteRow().run()}>
+      <button type="button" className="rounded-xl bg-white px-3 py-1.5 hover:bg-red-50 hover:text-red-600" onMouseDown={keepEditorSelection} onClick={() => editor.chain().focus().deleteRow().run()}>
         删除行
       </button>
-      <button className="rounded-xl bg-white px-3 py-1.5 hover:bg-red-50 hover:text-red-600" onClick={() => editor.chain().focus().deleteTable().run()}>
+      <button type="button" className="rounded-xl bg-white px-3 py-1.5 hover:bg-red-50 hover:text-red-600" onMouseDown={keepEditorSelection} onClick={() => editor.chain().focus().deleteTable().run()}>
         <Trash2 className="mr-1 inline h-3 w-3" />删除表格
       </button>
     </div>
