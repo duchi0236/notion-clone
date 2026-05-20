@@ -13,7 +13,7 @@ import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import { Bold, CheckSquare, Italic, Keyboard, Link2, List, Paperclip, Plus, TableIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { NotionGradeEditorProps, SlashCommand } from "./types";
+import type { NotionGradeEditorProps, PickerCommand, SlashCommand } from "./types";
 import { ToolbarButton } from "./ToolbarButton";
 import { SlashMenu } from "./SlashMenu";
 import { buildSlashCommands } from "./useSlashCommands";
@@ -22,7 +22,7 @@ import { TableControls } from "./TableControls";
 import { EditorStatusBar } from "./EditorStatusBar";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { BlockActionBar } from "./BlockActionBar";
-import { PageMentionDialog } from "./PageMentionDialog";
+import { DatabasePicker, PageMentionPicker } from "./InsertPickers";
 
 export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChange, onAiCommand }: NotionGradeEditorProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -30,7 +30,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [mentionOpen, setMentionOpen] = useState(false);
+  const [picker, setPicker] = useState<PickerCommand | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -78,7 +78,10 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
           setSlashOpen(true);
           setSlashQuery("");
         }
-        if (event.key === "Escape") setSlashOpen(false);
+        if (event.key === "Escape") {
+          setSlashOpen(false);
+          setPicker(null);
+        }
         return false;
       },
       handleDrop: (_view, event) => {
@@ -119,25 +122,31 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
     removeSlash();
     setSlashOpen(false);
     setSlashQuery("");
-    if (command.id === "mention") {
-      setMentionOpen(true);
-      return;
-    }
     command.run();
+  }
+
+  function openPicker(command: PickerCommand) {
+    removeSlash();
+    setSlashOpen(false);
+    setSlashQuery("");
+    setPicker(command);
   }
 
   function insertMention(document: { id: string; title: string; icon?: string | null }) {
     if (!editor) return;
     const icon = document.icon ?? "📄";
-    editor
-      .chain()
-      .focus()
-      .insertContent(`<a class="notion-page-mention" href="/clawnote?document=${document.id}">${icon} ${document.title}</a>`)
-      .run();
-    setMentionOpen(false);
+    editor.chain().focus().insertContent(`<a class="notion-page-mention" href="/clawnote?document=${document.id}">${icon} ${document.title}</a>`).run();
+    setPicker(null);
   }
 
-  const commands = useMemo(() => buildSlashCommands({ editor, onUpload: () => inputRef.current?.click(), onAiCommand }), [editor, onAiCommand]);
+  function insertDatabase(collection: { id: string; name: string; icon?: string | null }) {
+    if (!editor) return;
+    const icon = collection.icon ?? "📊";
+    editor.chain().focus().insertContent(`<div class="notion-database-embed" data-collection-id="${collection.id}">${icon} 数据库：${collection.name}</div>`).run();
+    setPicker(null);
+  }
+
+  const commands = useMemo(() => buildSlashCommands({ editor, onUpload: () => inputRef.current?.click(), onAiCommand, onPickerCommand: openPicker }), [editor, onAiCommand]);
   const filteredCommands = commands.filter((command) => {
     const q = slashQuery.toLowerCase();
     if (!q) return true;
@@ -182,7 +191,8 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
       <EditorContent editor={editor} />
       <EditorStatusBar editor={editor} />
       {shortcutsOpen && <KeyboardShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
-      <PageMentionDialog open={mentionOpen} onClose={() => setMentionOpen(false)} onSelect={insertMention} />
+      {picker === "page-mention" && <PageMentionPicker onClose={() => setPicker(null)} onSelect={insertMention} />}
+      {picker === "database" && <DatabasePicker onClose={() => setPicker(null)} onSelect={insertDatabase} />}
     </div>
   );
 }
