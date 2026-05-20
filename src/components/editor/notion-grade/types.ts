@@ -1,5 +1,5 @@
 export type AiCommand = "summary" | "memory" | "tasks" | "search";
-export type PickerCommand = "page-mention" | "database";
+export type PickerCommand = "page-mention" | "database" | "ai-block";
 
 export type SlashCommand = {
   id: string;
