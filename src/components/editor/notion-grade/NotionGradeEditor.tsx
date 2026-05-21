@@ -11,7 +11,7 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { Bold, CheckSquare, Italic, Keyboard, Link2, List, Paperclip, Plus, TableIcon } from "lucide-react";
+import { Bold, Bot, CheckSquare, Italic, Keyboard, Link2, List, Paperclip, Plus, Sparkles, TableIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NotionGradeEditorProps, PickerCommand, SlashCommand } from "./types";
 import { ToolbarButton } from "./ToolbarButton";
@@ -23,6 +23,7 @@ import { EditorStatusBar } from "./EditorStatusBar";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { BlockActionBar } from "./BlockActionBar";
 import { DatabasePicker, PageMentionPicker } from "./InsertPickers";
+import { AiBlockDialog } from "./AiBlockDialog";
 
 export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChange, onAiCommand }: NotionGradeEditorProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -30,6 +31,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [showUtilities, setShowUtilities] = useState(false);
   const [picker, setPicker] = useState<PickerCommand | null>(null);
 
   const editor = useEditor({
@@ -74,6 +76,12 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
           setShortcutsOpen(true);
           return true;
         }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+          event.preventDefault();
+          setSlashOpen(true);
+          setSlashQuery("");
+          return true;
+        }
         if (event.key === "/") {
           setSlashOpen(true);
           setSlashQuery("");
@@ -81,6 +89,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
         if (event.key === "Escape") {
           setSlashOpen(false);
           setPicker(null);
+          setShowUtilities(false);
         }
         return false;
       },
@@ -146,6 +155,11 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
     setPicker(null);
   }
 
+  function insertAiBlock(html: string) {
+    if (!editor) return;
+    editor.chain().focus().insertContent(html).run();
+  }
+
   const commands = useMemo(() => buildSlashCommands({ editor, onUpload: () => inputRef.current?.click(), onAiCommand, onPickerCommand: openPicker }), [editor, onAiCommand]);
   const filteredCommands = commands.filter((command) => {
     const q = slashQuery.toLowerCase();
@@ -156,23 +170,32 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
   if (!editor) return null;
 
   return (
-    <div className="notion-grade-editor relative">
+    <div className="notion-grade-editor quiet-workspace relative">
       <input ref={inputRef} type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
 
-      <div className="sticky top-14 z-20 mb-4 flex flex-wrap items-center gap-1 border-b border-slate-100 bg-white/95 py-2 backdrop-blur">
-        <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>H1</ToolbarButton>
-        <ToolbarButton active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</ToolbarButton>
-        <ToolbarButton active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}><List className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton active={editor.isActive("taskList")} onClick={() => editor.chain().focus().toggleTaskList().run()}><CheckSquare className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><TableIcon className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton active={uploading} onClick={() => inputRef.current?.click()}><Paperclip className="h-4 w-4" /></ToolbarButton>
-        <button type="button" onClick={() => setSlashOpen((value) => !value)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100">/ 命令</button>
-        <button type="button" onClick={() => setShortcutsOpen(true)} className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100"><Keyboard className="h-4 w-4" /></button>
+      <div className="quiet-editor-quickbar mb-3 flex items-center justify-between text-xs text-slate-400">
+        <button type="button" onClick={() => setSlashOpen(true)} className="rounded-lg px-2 py-1 hover:bg-slate-100 hover:text-slate-700">/ 命令</button>
+        <div className="flex items-center gap-1 opacity-40 transition hover:opacity-100">
+          <button type="button" onClick={() => setShowUtilities((value) => !value)} className="rounded-lg px-2 py-1 hover:bg-slate-100">工具</button>
+          <button type="button" onClick={() => setPicker("ai-block")} className="rounded-lg px-2 py-1 hover:bg-blue-50 hover:text-blue-700"><Sparkles className="mr-1 inline h-3.5 w-3.5" />AI</button>
+          <button type="button" onClick={() => setShortcutsOpen(true)} className="rounded-lg px-2 py-1 hover:bg-slate-100"><Keyboard className="h-3.5 w-3.5" /></button>
+        </div>
       </div>
 
-      <BlockActionBar editor={editor} />
+      {showUtilities && (
+        <div className="mb-4 flex flex-wrap items-center gap-1 rounded-2xl border border-slate-100 bg-slate-50/80 p-2">
+          <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>H1</ToolbarButton>
+          <ToolbarButton active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</ToolbarButton>
+          <ToolbarButton active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}><List className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton active={editor.isActive("taskList")} onClick={() => editor.chain().focus().toggleTaskList().run()}><CheckSquare className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><TableIcon className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton active={uploading} onClick={() => inputRef.current?.click()}><Paperclip className="h-4 w-4" /></ToolbarButton>
+        </div>
+      )}
+
+      {showUtilities && <BlockActionBar editor={editor} />}
       <TableControls editor={editor} />
 
       <FloatingMenu editor={editor} tippyOptions={{ duration: 100 }}>
@@ -184,15 +207,19 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
           <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></ToolbarButton>
           <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></ToolbarButton>
           <ToolbarButton active={editor.isActive("link")} onClick={() => { const url = window.prompt("URL"); if (url) editor.chain().focus().setLink({ href: url }).run(); }}><Link2 className="h-4 w-4" /></ToolbarButton>
+          <span className="mx-1 h-5 w-px bg-slate-100" />
+          <button onClick={() => onAiCommand?.("summary")} className="rounded-lg px-2 py-1.5 text-xs text-blue-700 hover:bg-blue-50"><Bot className="mr-1 inline h-3.5 w-3.5" />总结</button>
+          <button onClick={() => setPicker("ai-block")} className="rounded-lg px-2 py-1.5 text-xs text-violet-700 hover:bg-violet-50"><Sparkles className="mr-1 inline h-3.5 w-3.5" />改写</button>
         </div>
       </BubbleMenu>
 
       <SlashMenu open={slashOpen} query={slashQuery} setQuery={setSlashQuery} commands={filteredCommands} onRun={runCommand} />
       <EditorContent editor={editor} />
-      <EditorStatusBar editor={editor} />
+      {showUtilities && <EditorStatusBar editor={editor} />}
       {shortcutsOpen && <KeyboardShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       {picker === "page-mention" && <PageMentionPicker onClose={() => setPicker(null)} onSelect={insertMention} />}
       {picker === "database" && <DatabasePicker onClose={() => setPicker(null)} onSelect={insertDatabase} />}
+      {picker === "ai-block" && <AiBlockDialog onClose={() => setPicker(null)} onInsert={insertAiBlock} />}
     </div>
   );
 }
