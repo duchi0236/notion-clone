@@ -5,7 +5,7 @@ import type { DocumentRecord } from "./document-types";
 import { api, buildTree, extractToc, htmlToText, mapDocument } from "./document-utils";
 import { templateToPayload } from "./document-templates";
 
-const fallbackHtml = "<h1>产品需求文档 PRD</h1><p>这里是文档正文。你可以像语雀或 Notion 一样专注写作。</p><h2>产品概述</h2><p>ClawNote 是一个独立文档管理系统，AI 是可选外挂能力。</p><h2>核心功能</h2><p>文档树、目录、编辑器、版本、评论、文件和知识库索引。</p>";
+const fallbackHtml = "<p>这里是文档正文。你可以像语雀或 Notion 一样专注写作。</p><h2>产品概述</h2><p>ClawNote 是一个独立文档管理系统，AI 是可选外挂能力。</p><h2>核心功能</h2><p>文档树、目录、编辑器、版本、评论、文件和知识库索引。</p>";
 
 const fallbackDocs: DocumentRecord[] = [
   {

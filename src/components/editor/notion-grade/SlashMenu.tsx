@@ -11,6 +11,10 @@ function categoryFor(commandId: string) {
   return "AI";
 }
 
+function normalizeQuery(value: string) {
+  return value.replace(/^\/+/, "");
+}
+
 export function SlashMenu({
   open,
   query,
@@ -39,7 +43,7 @@ export function SlashMenu({
         <Search className="h-4 w-4 text-slate-400" />
         <input
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => setQuery(normalizeQuery(event.target.value))}
           autoFocus
           className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           placeholder="搜索命令，例如：标题、表格、上传..."

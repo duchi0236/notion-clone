@@ -81,17 +81,17 @@ export default function DocumentOnlyApp() {
           </div>
         </header>
 
-        <section className="mx-auto w-full max-w-5xl flex-1 px-10 py-10">
+        <section className="mx-auto w-full max-w-5xl flex-1 px-10 py-6">
           {doc ? (
             <article>
-              <div className="mb-8">
+              <div className="mb-5">
                 <input
                   value={doc.title}
                   onChange={(event) => store.updateSelected({ title: event.target.value })}
-                  className="w-full border-0 bg-transparent text-5xl font-bold tracking-tight text-slate-950 outline-none"
+                  className="w-full border-0 bg-transparent text-4xl font-bold leading-tight text-slate-950 outline-none"
                   placeholder="Untitled"
                 />
-                <div className="mt-5 flex flex-wrap items-center gap-5 border-b border-slate-100 pb-5 text-sm text-slate-500">
+                <div className="mt-3 flex flex-wrap items-center gap-5 border-b border-slate-100 pb-3 text-sm text-slate-500">
                   <span>创建者 Nana</span>
                   <span>字数 {doc.contentText.length.toLocaleString()}</span>
                   <span>阅读时长 约 {Math.max(1, Math.ceil(doc.contentText.length / 450))} 分钟</span>
