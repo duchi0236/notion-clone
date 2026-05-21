@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentRecord } from "./document-types";
 import { api, buildTree, extractToc, htmlToText, mapDocument } from "./document-utils";
+import { templateToPayload } from "./document-templates";
 
 const fallbackHtml = "<h1>产品需求文档 PRD</h1><p>这里是文档正文。你可以像语雀或 Notion 一样专注写作。</p><h2>产品概述</h2><p>ClawNote 是一个独立文档管理系统，AI 是可选外挂能力。</p><h2>核心功能</h2><p>文档树、目录、编辑器、版本、评论、文件和知识库索引。</p>";
 
@@ -25,9 +26,33 @@ export function useDocumentMode() {
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const selected = documents.find((item) => item.id === selectedId) ?? documents[0];
+
+  useEffect(() => {
+    try {
+      setRecentIds(JSON.parse(localStorage.getItem("clawnote:recent-docs") ?? "[]"));
+      setPinnedIds(JSON.parse(localStorage.getItem("clawnote:pinned-docs") ?? "[]"));
+    } catch {
+      setRecentIds([]);
+      setPinnedIds([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setRecentIds((ids) => {
+      const next = [selectedId, ...ids.filter((id) => id !== selectedId)].slice(0, 8);
+      localStorage.setItem("clawnote:recent-docs", JSON.stringify(next));
+      return next;
+    });
+  }, [selectedId]);
+
+  const recentDocuments = useMemo(() => recentIds.map((id) => documents.find((doc) => doc.id === id)).filter(Boolean) as DocumentRecord[], [documents, recentIds]);
+  const pinnedDocuments = useMemo(() => pinnedIds.map((id) => documents.find((doc) => doc.id === id)).filter(Boolean) as DocumentRecord[], [documents, pinnedIds]);
 
   const filteredDocuments = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -88,6 +113,14 @@ export function useDocumentMode() {
     persist(next);
   }
 
+  function togglePin(id: string) {
+    setPinnedIds((ids) => {
+      const next = ids.includes(id) ? ids.filter((item) => item !== id) : [id, ...ids].slice(0, 8);
+      localStorage.setItem("clawnote:pinned-docs", JSON.stringify(next));
+      return next;
+    });
+  }
+
   async function moveDocument(id: string, parentId: string | null, sortIndex?: number) {
     if (id === parentId) return;
     setDocuments((items) => items.map((item) => item.id === id ? { ...item, parentId } : item));
@@ -98,28 +131,24 @@ export function useDocumentMode() {
     await reloadAll();
   }
 
-  async function createDocument(parentId?: string | null) {
-    const html = "<h1>Untitled</h1><p>开始写作...</p>";
+  async function createDocument(parentId?: string | null, templateId?: string) {
+    const payload = templateToPayload(templateId);
     const response = await api<{ document: unknown }>("/api/documents", {
       method: "POST",
       body: JSON.stringify({
-        title: "Untitled",
-        icon: "📄",
+        ...payload,
         parentId: parentId ?? null,
-        contentHtml: html,
-        contentText: htmlToText(html),
-        tags: [],
       }),
     });
     const doc = response?.document ? mapDocument(response.document) : {
       id: crypto.randomUUID(),
-      title: "Untitled",
-      icon: "📄",
+      title: payload.title,
+      icon: payload.icon,
       parentId: parentId ?? null,
-      contentHtml: html,
-      contentText: htmlToText(html),
-      summary: "",
-      tags: [],
+      contentHtml: payload.contentHtml,
+      contentText: payload.contentText,
+      summary: payload.summary,
+      tags: payload.tags,
     } satisfies DocumentRecord;
     setDocuments((items) => [doc, ...items]);
     setSelectedId(doc.id);
@@ -159,5 +188,5 @@ export function useDocumentMode() {
     }
   }
 
-  return { documents, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, moveDocument, createDocument, deleteSelected, reloadSelected, reloadAll, askAi };
+  return { documents, recentDocuments, pinnedDocuments, pinnedIds, togglePin, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, moveDocument, createDocument, deleteSelected, reloadSelected, reloadAll, askAi };
 }
