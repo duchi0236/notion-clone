@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { FlatList, SafeAreaView, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, SafeAreaView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { api } from "@/lib/api";
 
 type Field = { id: string; name: string; type: string };
@@ -12,6 +12,8 @@ export default function DatabaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string>>({});
 
   async function load() {
     setLoading(true);
@@ -23,6 +25,21 @@ export default function DatabaseDetailScreen() {
     }
   }
 
+  async function createRow() {
+    if (!collection) return;
+    const data: Record<string, unknown> = {};
+    collection.schema.forEach((field) => {
+      data[field.id] = draft[field.id] ?? "";
+    });
+    await api(`/api/collections/${collection.id}/rows`, {
+      method: "POST",
+      body: JSON.stringify({ data }),
+    });
+    setDraft({});
+    setCreating(false);
+    await load();
+  }
+
   useEffect(() => {
     void load();
   }, [id]);
@@ -32,7 +49,7 @@ export default function DatabaseDetailScreen() {
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, backgroundColor: "white" }}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color="#0f172a" /></TouchableOpacity>
         <Text style={{ fontWeight: "700", color: "#0f172a" }}>{collection?.name ?? "数据库"}</Text>
-        <TouchableOpacity onPress={() => void load()}><Ionicons name="refresh-outline" size={22} color="#2563eb" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => setCreating((value) => !value)}><Ionicons name="add-circle-outline" size={24} color="#2563eb" /></TouchableOpacity>
       </View>
 
       <FlatList
@@ -45,6 +62,20 @@ export default function DatabaseDetailScreen() {
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 28, fontWeight: "700", color: "#0f172a" }}>{collection?.name ?? "加载中..."}</Text>
             <Text style={{ marginTop: 6, color: "#64748b" }}>{collection?.rows?.length ?? 0} 条记录</Text>
+            {creating && collection && (
+              <View style={{ marginTop: 16, borderRadius: 22, backgroundColor: "white", padding: 16 }}>
+                <Text style={{ fontSize: 17, fontWeight: "700", color: "#0f172a" }}>新增记录</Text>
+                {collection.schema.slice(0, 8).map((field) => (
+                  <View key={field.id} style={{ marginTop: 12 }}>
+                    <Text style={{ marginBottom: 6, color: "#64748b" }}>{field.name}</Text>
+                    <TextInput value={draft[field.id] ?? ""} onChangeText={(value) => setDraft((prev) => ({ ...prev, [field.id]: value }))} placeholder={field.name} style={{ borderRadius: 14, backgroundColor: "#f8fafc", padding: 12, color: "#0f172a" }} />
+                  </View>
+                ))}
+                <TouchableOpacity onPress={() => void createRow()} style={{ marginTop: 16, borderRadius: 16, backgroundColor: "#2563eb", padding: 14, alignItems: "center" }}>
+                  <Text style={{ color: "white", fontWeight: "700" }}>保存记录</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         }
         renderItem={({ item }) => (
