@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:collab": "tsx packages/collab-server/src/server.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:collab\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -54,6 +56,9 @@
     "@hello-pangea/dnd": "^16.6.0",
     "nanoid": "^5.0.7",
     "yjs": "^13.6.18",
+    "y-websocket": "^2.0.4",
+    "@hocuspocus/server": "^2.13.7",
+    "concurrently": "^8.2.2",
     "next-auth": "^4.24.7",
     "bcryptjs": "^2.4.3"
   },
