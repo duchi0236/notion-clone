@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, SafeAreaView, Text, TouchableOpacity, View } from "react-native";
 import { api } from "@/lib/api";
@@ -42,7 +43,7 @@ export default function DatabaseScreen() {
           onRefresh={load}
           contentContainerStyle={{ paddingTop: 18, paddingBottom: 90 }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={{ marginBottom: 12, borderRadius: 22, backgroundColor: "white", padding: 18 }}>
+            <TouchableOpacity onPress={() => router.push(`/database/${item.id}`)} style={{ marginBottom: 12, borderRadius: 22, backgroundColor: "white", padding: 18 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                 <View style={{ height: 42, width: 42, borderRadius: 16, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center" }}>
                   <Ionicons name="grid-outline" size={20} color="#2563eb" />
@@ -51,6 +52,7 @@ export default function DatabaseScreen() {
                   <Text style={{ fontSize: 17, fontWeight: "700", color: "#0f172a" }}>{item.name}</Text>
                   <Text style={{ marginTop: 4, color: "#64748b" }}>{item.rows?.length ?? 0} 条记录</Text>
                 </View>
+                <Ionicons name="chevron-forward-outline" size={18} color="#94a3b8" />
               </View>
             </TouchableOpacity>
           )}
