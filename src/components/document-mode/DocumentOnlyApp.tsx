@@ -1,8 +1,9 @@
 "use client";
 
-import { Bot, Clock3, Download, Eye, LockKeyhole, MoreHorizontal, Pencil, Save, Share2, Trash2 } from "lucide-react";
+import { Bot, Clock3, Download, Eye, LockKeyhole, MoreHorizontal, Pencil, Save, Share2, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { NotionGradeEditor } from "@/components/editor/notion-grade/NotionGradeEditor";
+import { CollaborativeEditor } from "@/components/editor/collaboration/CollaborativeEditor";
 import { AdvancedDocumentPreview } from "./AdvancedDocumentPreview";
 import { DocumentToc } from "./DocumentToc";
 import { DocumentTree } from "./DocumentTree";
@@ -15,8 +16,7 @@ import { useDocumentMode } from "./useDocumentMode";
 
 type SidePanelMode = "meta" | "ai" | null;
 type ModalMode = "share" | "markdown" | "permission" | null;
-
-type ContentMode = "edit" | "preview";
+type ContentMode = "edit" | "preview" | "collab";
 
 export default function DocumentOnlyApp() {
   const store = useDocumentMode();
@@ -52,6 +52,9 @@ export default function DocumentOnlyApp() {
             <div className="mr-1 flex rounded-xl border border-slate-200 p-0.5">
               <button onClick={() => setContentMode("edit")} className={`rounded-lg px-2 py-1 text-xs ${contentMode === "edit" ? "bg-slate-900 text-white" : "text-slate-500"}`}>
                 <Pencil className="mr-1 inline h-3 w-3" />编辑
+              </button>
+              <button onClick={() => setContentMode("collab")} className={`rounded-lg px-2 py-1 text-xs ${contentMode === "collab" ? "bg-blue-600 text-white" : "text-slate-500"}`}>
+                <Users className="mr-1 inline h-3 w-3" />协同
               </button>
               <button onClick={() => setContentMode("preview")} className={`rounded-lg px-2 py-1 text-xs ${contentMode === "preview" ? "bg-slate-900 text-white" : "text-slate-500"}`}>
                 <Eye className="mr-1 inline h-3 w-3" />预览
@@ -96,11 +99,12 @@ export default function DocumentOnlyApp() {
                   <span>字数 {doc.contentText.length.toLocaleString()}</span>
                   <span>阅读时长 约 {Math.max(1, Math.ceil(doc.contentText.length / 450))} 分钟</span>
                   <span className="rounded-md bg-blue-50 px-2 py-1 text-blue-700">Notion 级编辑器</span>
+                  {contentMode === "collab" && <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">多人实时协同</span>}
                 </div>
               </div>
 
               <div className="document-only-editor">
-                {contentMode === "edit" ? (
+                {contentMode === "edit" && (
                   <NotionGradeEditor
                     content={doc.contentHtml}
                     onChange={(html) => {
@@ -109,9 +113,18 @@ export default function DocumentOnlyApp() {
                     }}
                     onAiCommand={(command) => store.askAi(command === "tasks" ? "task" : command)}
                   />
-                ) : (
-                  <AdvancedDocumentPreview html={doc.contentHtml} />
                 )}
+                {contentMode === "collab" && (
+                  <CollaborativeEditor
+                    documentId={doc.id}
+                    content={doc.contentHtml}
+                    userName="Nana"
+                    onChange={(html, text) => {
+                      store.updateSelected({ contentHtml: html, contentText: text, summary: text.slice(0, 160) });
+                    }}
+                  />
+                )}
+                {contentMode === "preview" && <AdvancedDocumentPreview html={doc.contentHtml} />}
               </div>
             </article>
           ) : (
@@ -125,7 +138,7 @@ export default function DocumentOnlyApp() {
         </section>
 
         <footer className="border-t border-slate-100 px-8 py-3 text-xs text-slate-400">
-          <Save className="mr-1 inline h-3 w-3" />文档功能独立可用，AI 知识库作为可选外挂层。
+          <Save className="mr-1 inline h-3 w-3" />文档功能独立可用，协同编辑需要启动 WebSocket 同步服务。
         </footer>
       </main>
 
