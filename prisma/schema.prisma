@@ -1,5 +1,5 @@
 // ClawNote - Personal AI knowledge and document workspace
-// PostgreSQL + Prisma schema for Notion/Yuque-like documents, tables, memories, inbox, and OpenClaw integration.
+// PostgreSQL + Prisma schema for Notion/Yuque-like documents, tables, memories, inbox, calendar, and OpenClaw integration.
 
 generator client {
   provider = "prisma-client-js"
@@ -25,6 +25,7 @@ model User {
   comments        Comment[]
   memories        AgentMemory[]
   apiTokens       ApiToken[]
+  calendarEvents  CalendarEvent[]   @relation("CalendarEventCreator")
 }
 
 model Workspace {
@@ -37,15 +38,16 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members      WorkspaceMember[]
-  documents    Document[]
-  collections  Collection[]
-  objects      KnowledgeObject[]
-  memories     AgentMemory[]
-  inboxItems   InboxItem[]
-  agentRuns    AgentRun[]
-  templates    Template[]
-  apiTokens    ApiToken[]
+  members        WorkspaceMember[]
+  documents      Document[]
+  collections    Collection[]
+  calendarEvents CalendarEvent[]
+  objects        KnowledgeObject[]
+  memories       AgentMemory[]
+  inboxItems     InboxItem[]
+  agentRuns      AgentRun[]
+  templates      Template[]
+  apiTokens      ApiToken[]
 }
 
 model WorkspaceMember {
@@ -106,6 +108,7 @@ model Document {
   objects        KnowledgeObject[]
   collectionRows CollectionRow[]
   searchIndex    SearchIndex?
+  calendarEvents CalendarEvent[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -215,6 +218,49 @@ model CollectionRow {
   updatedAt    DateTime   @updatedAt
 
   @@index([collectionId, sortIndex])
+}
+
+model CalendarEvent {
+  id          String              @id @default(cuid())
+  title       String
+  description String?             @db.Text
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime
+  allDay      Boolean             @default(false)
+  color       String              @default("blue")
+  status      CalendarEventStatus @default(CONFIRMED)
+  source      CalendarEventSource @default(MANUAL)
+  sourceId    String?
+  metadata    Json?
+
+  workspaceId String
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documentId  String?
+  document    Document?           @relation(fields: [documentId], references: [id])
+  createdById String?
+  createdBy   User?               @relation("CalendarEventCreator", fields: [createdById], references: [id])
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([workspaceId, startsAt])
+  @@index([workspaceId, source])
+}
+
+enum CalendarEventStatus {
+  TENTATIVE
+  CONFIRMED
+  CANCELLED
+  DONE
+}
+
+enum CalendarEventSource {
+  MANUAL
+  TASK
+  DOCUMENT
+  IMPORTED
+  AI
 }
 
 model KnowledgeObject {
