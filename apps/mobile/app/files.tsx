@@ -27,16 +27,16 @@ export default function FilesScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f7f7fb" }}>
       <View style={{ padding: 20, flex: 1 }}>
-        <Text style={{ fontSize: 30, fontWeight: "700", color: "#0f172a" }}>文件</Text>
-        <Text style={{ marginTop: 4, color: "#64748b" }}>上传图片、PDF 和附件到 ClawNote</Text>
+        <Text style={{ fontSize: 30, fontWeight: "700", color: "#0f172a" }}>附件</Text>
+        <Text style={{ marginTop: 4, color: "#64748b" }}>保存图片、PDF 和常用资料</Text>
         <View style={{ marginTop: 22, borderRadius: 28, backgroundColor: "white", padding: 24, alignItems: "center" }}>
           <View style={{ height: 72, width: 72, borderRadius: 24, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center" }}>
-            <Ionicons name="cloud-upload-outline" size={34} color="#2563eb" />
+            <Ionicons name="attach-outline" size={34} color="#2563eb" />
           </View>
-          <Text style={{ marginTop: 16, fontSize: 18, fontWeight: "700", color: "#0f172a" }}>上传文件</Text>
-          <Text style={{ marginTop: 8, textAlign: "center", color: "#64748b", lineHeight: 22 }}>文件会上传到 Web 服务，可后续插入文档或作为知识库素材。</Text>
+          <Text style={{ marginTop: 16, fontSize: 18, fontWeight: "700", color: "#0f172a" }}>添加附件</Text>
+          <Text style={{ marginTop: 8, textAlign: "center", color: "#64748b", lineHeight: 22 }}>上传后可以在文档里引用，也可以作为资料长期保存。</Text>
           <TouchableOpacity onPress={() => void upload()} style={{ marginTop: 18, borderRadius: 16, backgroundColor: "#2563eb", paddingHorizontal: 22, paddingVertical: 14 }}>
-            <Text style={{ color: "white", fontWeight: "700" }}>选择文件</Text>
+            <Text style={{ color: "white", fontWeight: "700" }}>选择附件</Text>
           </TouchableOpacity>
         </View>
       </View>
