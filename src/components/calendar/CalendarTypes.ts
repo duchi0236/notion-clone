@@ -13,4 +13,4 @@ export type CalendarEvent = {
   documentId?: string | null;
 };
 
-export type CalendarViewMode = "month" | "agenda";
+export type CalendarViewMode = "month" | "week" | "agenda";
