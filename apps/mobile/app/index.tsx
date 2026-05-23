@@ -1,15 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlatList, Modal, SafeAreaView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { api } from "@/lib/api";
 
 type DocumentItem = {
   id: string;
   title: string;
+  icon?: string | null;
   summary?: string;
   updatedAt?: string;
+  isFavorite?: boolean;
 };
+
+type HomeFilter = "recent" | "favorite" | "all";
 
 const templates = [
   { id: "blank", icon: "📄", title: "空白文档", html: "<h1>Untitled</h1><p>开始写作...</p>", text: "Untitled\n开始写作...", tags: [] },
@@ -23,6 +27,7 @@ export default function HomeScreen() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [filter, setFilter] = useState<HomeFilter>("recent");
 
   async function load() {
     setLoading(true);
@@ -49,30 +54,51 @@ export default function HomeScreen() {
     void load();
   }, []);
 
-  const filtered = documents.filter((item) => `${item.title} ${item.summary ?? ""}`.toLowerCase().includes(query.toLowerCase()));
+  const sortedDocuments = useMemo(() => {
+    return [...documents].sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
+  }, [documents]);
+
+  const favoriteDocuments = sortedDocuments.filter((item) => item.isFavorite);
+  const recentDocuments = sortedDocuments.slice(0, 8);
+  const source = filter === "favorite" ? favoriteDocuments : filter === "all" ? sortedDocuments : recentDocuments;
+  const filtered = source.filter((item) => `${item.title} ${item.summary ?? ""}`.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f7f7fb" }}>
       <View style={{ padding: 20, paddingTop: 16, flex: 1 }}>
         <Text style={{ fontSize: 32, fontWeight: "700", color: "#0f172a" }}>ClawNote</Text>
-        <Text style={{ marginTop: 4, color: "#64748b" }}>{loading ? "正在同步文档..." : "移动文档工作台"}</Text>
+        <Text style={{ marginTop: 4, color: "#64748b" }}>{loading ? "正在同步文档..." : "个人文档工作台"}</Text>
 
         <View style={{ marginTop: 18, flexDirection: "row", alignItems: "center", borderRadius: 16, backgroundColor: "white", paddingHorizontal: 14, paddingVertical: 12 }}>
           <Ionicons name="search-outline" size={18} color="#64748b" />
           <TextInput value={query} onChangeText={setQuery} placeholder="搜索文档" style={{ marginLeft: 8, flex: 1 }} />
         </View>
 
+        <View style={{ marginTop: 16, flexDirection: "row", gap: 8 }}>
+          <FilterChip title="最近" active={filter === "recent"} onPress={() => setFilter("recent")} />
+          <FilterChip title="收藏" active={filter === "favorite"} onPress={() => setFilter("favorite")} />
+          <FilterChip title="全部" active={filter === "all"} onPress={() => setFilter("all")} />
+        </View>
+
+        <View style={{ marginTop: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: "#0f172a" }}>{filter === "favorite" ? "收藏文档" : filter === "all" ? "全部文档" : "最近打开"}</Text>
+          <Text style={{ color: "#94a3b8" }}>{filtered.length} 篇</Text>
+        </View>
+
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingTop: 18, paddingBottom: 120 }}
+          contentContainerStyle={{ paddingTop: 12, paddingBottom: 120 }}
           refreshing={loading}
           onRefresh={load}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => router.push(`/document/${item.id}`)} style={{ marginBottom: 12, borderRadius: 22, backgroundColor: "white", padding: 18 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text numberOfLines={1} style={{ flex: 1, fontSize: 18, fontWeight: "600", color: "#0f172a" }}>{item.title}</Text>
-                <Ionicons name="chevron-forward-outline" size={18} color="#94a3b8" />
+                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                  <Text style={{ marginRight: 10, fontSize: 22 }}>{item.icon ?? "📄"}</Text>
+                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 18, fontWeight: "600", color: "#0f172a" }}>{item.title}</Text>
+                </View>
+                {item.isFavorite ? <Ionicons name="star" size={16} color="#f59e0b" /> : <Ionicons name="chevron-forward-outline" size={18} color="#94a3b8" />}
               </View>
               <Text numberOfLines={2} style={{ marginTop: 8, color: "#64748b", lineHeight: 22 }}>{item.summary ?? "暂无摘要"}</Text>
             </TouchableOpacity>
@@ -108,5 +134,13 @@ export default function HomeScreen() {
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+function FilterChip({ title, active, onPress }: { title: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={{ borderRadius: 999, backgroundColor: active ? "#2563eb" : "white", paddingHorizontal: 14, paddingVertical: 8 }}>
+      <Text style={{ color: active ? "white" : "#475569", fontWeight: "600" }}>{title}</Text>
+    </TouchableOpacity>
   );
 }
