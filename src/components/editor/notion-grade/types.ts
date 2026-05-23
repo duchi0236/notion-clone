@@ -1,11 +1,15 @@
 export type AiCommand = "summary" | "memory" | "tasks" | "search";
 export type PickerCommand = "page-mention" | "database" | "ai-block";
 
+export type SlashCommandCategory = "常用" | "文本" | "清单" | "媒体" | "高级" | "AI";
+
 export type SlashCommand = {
   id: string;
   title: string;
   description: string;
   keywords: string;
+  category?: SlashCommandCategory;
+  shortcut?: string;
   run: () => void;
 };
 
