@@ -34,8 +34,8 @@ export default function DatabaseScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f7f7fb" }}>
       <View style={{ padding: 20, flex: 1 }}>
-        <Text style={{ fontSize: 30, fontWeight: "700", color: "#0f172a" }}>数据库</Text>
-        <Text style={{ marginTop: 4, color: "#64748b" }}>移动端查看 Collection 和记录</Text>
+        <Text style={{ fontSize: 30, fontWeight: "700", color: "#0f172a" }}>清单</Text>
+        <Text style={{ marginTop: 4, color: "#64748b" }}>管理任务、项目、客户和旅行计划</Text>
         <FlatList
           data={collections}
           keyExtractor={(item) => item.id}
@@ -46,17 +46,17 @@ export default function DatabaseScreen() {
             <TouchableOpacity onPress={() => router.push(`/database/${item.id}`)} style={{ marginBottom: 12, borderRadius: 22, backgroundColor: "white", padding: 18 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                 <View style={{ height: 42, width: 42, borderRadius: 16, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center" }}>
-                  <Ionicons name="grid-outline" size={20} color="#2563eb" />
+                  <Ionicons name="list-outline" size={20} color="#2563eb" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 17, fontWeight: "700", color: "#0f172a" }}>{item.name}</Text>
-                  <Text style={{ marginTop: 4, color: "#64748b" }}>{item.rows?.length ?? 0} 条记录</Text>
+                  <Text style={{ marginTop: 4, color: "#64748b" }}>{item.rows?.length ?? 0} 个条目</Text>
                 </View>
                 <Ionicons name="chevron-forward-outline" size={18} color="#94a3b8" />
               </View>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={{ marginTop: 30, textAlign: "center", color: "#94a3b8" }}>暂无数据库</Text>}
+          ListEmptyComponent={<Text style={{ marginTop: 30, textAlign: "center", color: "#94a3b8" }}>暂无清单</Text>}
         />
       </View>
     </SafeAreaView>
