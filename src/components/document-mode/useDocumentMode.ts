@@ -8,34 +8,30 @@ import { templateToPayload } from "./document-templates";
 const fallbackHtml = "<p>这里是文档正文。你可以像语雀或 Notion 一样专注写作。</p><h2>产品概述</h2><p>ClawNote 是一个独立文档管理系统，AI 是可选外挂能力。</p><h2>核心功能</h2><p>文档树、目录、编辑器、版本、评论、文件和知识库索引。</p>";
 
 const fallbackDocs: DocumentRecord[] = [
-  {
-    id: "local-doc-1",
-    title: "产品需求文档 PRD",
-    icon: "📄",
-    contentHtml: fallbackHtml,
-    contentText: htmlToText(fallbackHtml),
-    summary: "纯文档模式，专注文章内容。",
-    tags: ["PRD"],
-    parentId: null,
-  },
+  { id: "local-doc-1", title: "产品需求文档 PRD", icon: "📄", contentHtml: fallbackHtml, contentText: htmlToText(fallbackHtml), summary: "纯文档模式，专注文章内容。", tags: ["PRD"], parentId: null },
 ];
+
+type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "error";
 
 export function useDocumentMode() {
   const [documents, setDocuments] = useState<DocumentRecord[]>(fallbackDocs);
   const [selectedId, setSelectedId] = useState(fallbackDocs[0].id);
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [saveError, setSaveError] = useState("");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState("");
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const saveAttempts = useRef<Record<string, number>>({});
+  const pendingSaves = useRef<Record<string, DocumentRecord>>({});
   const documentsRef = useRef<DocumentRecord[]>(fallbackDocs);
 
   const selected = documents.find((item) => item.id === selectedId) ?? documents[0];
 
-  useEffect(() => {
-    documentsRef.current = documents;
-  }, [documents]);
+  useEffect(() => { documentsRef.current = documents; }, [documents]);
 
   useEffect(() => {
     try {
@@ -77,9 +73,7 @@ export function useDocumentMode() {
     setSelectedId(stillExists?.id ?? mapped[0].id);
   }
 
-  useEffect(() => {
-    void reloadAll();
-  }, []);
+  useEffect(() => { void reloadAll(); }, []);
 
   async function reloadSelected() {
     if (!selected) return;
@@ -91,24 +85,47 @@ export function useDocumentMode() {
     }
   }
 
-  function persist(doc: DocumentRecord) {
-    clearTimeout(saveTimers.current[doc.id]);
+  async function flushSave(docId: string) {
+    const doc = pendingSaves.current[docId];
+    if (!doc) return;
     setSaving(true);
-    saveTimers.current[doc.id] = setTimeout(async () => {
+    setSaveStatus("saving");
+    setSaveError("");
+
+    try {
       await api(`/api/documents/${doc.id}`, {
         method: "PUT",
-        body: JSON.stringify({
-          title: doc.title,
-          icon: doc.icon,
-          parentId: doc.parentId,
-          contentHtml: doc.contentHtml,
-          contentText: doc.contentText,
-          summary: doc.summary,
-          tags: doc.tags,
-        }),
+        body: JSON.stringify({ title: doc.title, icon: doc.icon, parentId: doc.parentId, contentHtml: doc.contentHtml, contentText: doc.contentText, summary: doc.summary, tags: doc.tags }),
       });
+      delete pendingSaves.current[docId];
+      saveAttempts.current[docId] = 0;
       setSaving(false);
-    }, 600);
+      setSaveStatus("saved");
+      setLastSavedAt(new Date().toISOString());
+    } catch (error) {
+      const attempts = (saveAttempts.current[docId] ?? 0) + 1;
+      saveAttempts.current[docId] = attempts;
+      setSaving(false);
+      setSaveStatus("error");
+      setSaveError("自动保存失败，内容已保留在当前页面，可点击重试。");
+      if (attempts < 3) {
+        clearTimeout(saveTimers.current[docId]);
+        saveTimers.current[docId] = setTimeout(() => void flushSave(docId), 1200 * attempts);
+      }
+    }
+  }
+
+  function persist(doc: DocumentRecord) {
+    if (doc.id.startsWith("local-")) return;
+    pendingSaves.current[doc.id] = doc;
+    setSaveStatus("dirty");
+    clearTimeout(saveTimers.current[doc.id]);
+    saveTimers.current[doc.id] = setTimeout(() => void flushSave(doc.id), 700);
+  }
+
+  function retrySave() {
+    if (!selected) return;
+    void flushSave(selected.id);
   }
 
   function updateSelected(patch: Partial<DocumentRecord>) {
@@ -132,32 +149,14 @@ export function useDocumentMode() {
   async function moveDocument(id: string, parentId: string | null, sortIndex?: number) {
     if (id === parentId) return;
     setDocuments((items) => items.map((item) => item.id === id ? { ...item, parentId } : item));
-    await api(`/api/documents/${id}/move`, {
-      method: "POST",
-      body: JSON.stringify({ parentId, sortIndex }),
-    });
+    await api(`/api/documents/${id}/move`, { method: "POST", body: JSON.stringify({ parentId, sortIndex }) });
     await reloadAll();
   }
 
   async function createDocument(parentId?: string | null, templateId?: string) {
     const payload = templateToPayload(templateId);
-    const response = await api<{ document: unknown }>("/api/documents", {
-      method: "POST",
-      body: JSON.stringify({
-        ...payload,
-        parentId: parentId ?? null,
-      }),
-    });
-    const doc = response?.document ? mapDocument(response.document) : {
-      id: crypto.randomUUID(),
-      title: payload.title,
-      icon: payload.icon,
-      parentId: parentId ?? null,
-      contentHtml: payload.contentHtml,
-      contentText: payload.contentText,
-      summary: payload.summary,
-      tags: payload.tags,
-    } satisfies DocumentRecord;
+    const response = await api<{ document: unknown }>("/api/documents", { method: "POST", body: JSON.stringify({ ...payload, parentId: parentId ?? null }) });
+    const doc = response?.document ? mapDocument(response.document) : { id: crypto.randomUUID(), title: payload.title, icon: payload.icon, parentId: parentId ?? null, contentHtml: payload.contentHtml, contentText: payload.contentText, summary: payload.summary, tags: payload.tags } satisfies DocumentRecord;
     setDocuments((items) => [doc, ...items]);
     setSelectedId(doc.id);
   }
@@ -196,5 +195,5 @@ export function useDocumentMode() {
     }
   }
 
-  return { documents, recentDocuments, pinnedDocuments, pinnedIds, togglePin, selected, selectedId, setSelectedId, query, setQuery, saving, aiMessage, tree, toc, updateSelected, moveDocument, createDocument, deleteSelected, reloadSelected, reloadAll, askAi };
+  return { documents, recentDocuments, pinnedDocuments, pinnedIds, togglePin, selected, selectedId, setSelectedId, query, setQuery, saving, saveStatus, saveError, lastSavedAt, retrySave, aiMessage, tree, toc, updateSelected, moveDocument, createDocument, deleteSelected, reloadSelected, reloadAll, askAi };
 }
