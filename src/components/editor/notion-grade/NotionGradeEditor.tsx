@@ -25,6 +25,7 @@ import { TableControls } from "./TableControls";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { DatabasePicker, PageMentionPicker } from "./InsertPickers";
 import { AiBlockDialog } from "./AiBlockDialog";
+import { BlockHoverToolbar } from "./BlockHoverToolbar";
 
 function getStats(text: string) {
   const trimmed = text.trim();
@@ -81,58 +82,16 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
           setSlashOpen((value) => !value);
           return true;
         }
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
-          event.preventDefault();
-          editor?.chain().focus().toggleBold().run();
-          return true;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
-          event.preventDefault();
-          editor?.chain().focus().toggleItalic().run();
-          return true;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "u") {
-          event.preventDefault();
-          editor?.chain().focus().toggleUnderline().run();
-          return true;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "h") {
-          event.preventDefault();
-          editor?.chain().focus().toggleHighlight().run();
-          return true;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") {
-          event.preventDefault();
-          setFocusMode((value) => !value);
-          return true;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "t") {
-          event.preventDefault();
-          setTypewriterMode((value) => !value);
-          return true;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.key === "?") {
-          event.preventDefault();
-          setShortcutsOpen(true);
-          return true;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-          event.preventDefault();
-          setSlashOpen(true);
-          setSlashQuery("");
-          return true;
-        }
-        if (event.key === "/") {
-          event.preventDefault();
-          setSlashOpen(true);
-          setSlashQuery("");
-          return true;
-        }
-        if (event.key === "Escape") {
-          setSlashOpen(false);
-          setPicker(null);
-          if (focusMode) setFocusMode(false);
-        }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") { event.preventDefault(); editor?.chain().focus().toggleBold().run(); return true; }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") { event.preventDefault(); editor?.chain().focus().toggleItalic().run(); return true; }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "u") { event.preventDefault(); editor?.chain().focus().toggleUnderline().run(); return true; }
+        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "h") { event.preventDefault(); editor?.chain().focus().toggleHighlight().run(); return true; }
+        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "f") { event.preventDefault(); setFocusMode((value) => !value); return true; }
+        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "t") { event.preventDefault(); setTypewriterMode((value) => !value); return true; }
+        if ((event.metaKey || event.ctrlKey) && event.key === "?") { event.preventDefault(); setShortcutsOpen(true); return true; }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSlashOpen(true); setSlashQuery(""); return true; }
+        if (event.key === "/") { event.preventDefault(); setSlashOpen(true); setSlashQuery(""); return true; }
+        if (event.key === "Escape") { setSlashOpen(false); setPicker(null); if (focusMode) setFocusMode(false); }
         return false;
       },
       handleDrop: (_view, event) => {
@@ -223,6 +182,7 @@ export function NotionGradeEditor({ content, onChange, onTextChange, onJsonChang
   return (
     <div className={cn("notion-grade-editor quiet-workspace relative", focusMode && "editor-focus-mode", typewriterMode && "editor-typewriter-mode")}>
       <input ref={inputRef} type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
+      <BlockHoverToolbar editor={editor} onAiCommand={onAiCommand} />
 
       <BubbleMenu editor={editor} pluginKey="textFormattingMenu" tippyOptions={{ duration: 100, placement: "top" }} shouldShow={({ editor, from, to }) => from !== to && !editor.isActive("table")}>
         <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-xl ring-1 ring-slate-950/5">
