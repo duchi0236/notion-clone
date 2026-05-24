@@ -14,6 +14,19 @@ type HoverBlock = {
 
 const blockSelector = ["p", "h1", "h2", "h3", "li", "blockquote", "pre", "table", "img", "details.notion-toggle", ".notion-callout", ".notion-columns", ".notion-database-embed"].join(",");
 
+function ToolButton({ children, title, onClick, danger = false }: { children: React.ReactNode; title: string; onClick?: () => void; danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`rounded-xl p-2 transition ${danger ? "text-slate-400 hover:bg-red-50 hover:text-red-500" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function BlockHoverToolbar({ editor, onAiCommand }: { editor: Editor; onAiCommand?: (command: AiCommand) => void }) {
   const [hoverBlock, setHoverBlock] = useState<HoverBlock | null>(null);
   const [pinned, setPinned] = useState(false);
@@ -91,20 +104,26 @@ export function BlockHoverToolbar({ editor, onAiCommand }: { editor: Editor; onA
   }
 
   return (
-    <div ref={toolbarRef} className="editor-block-hover-toolbar" style={{ top: hoverBlock.top, left: hoverBlock.left }} onMouseEnter={() => setPinned(true)} onMouseLeave={() => setPinned(false)}>
-      <button className="editor-block-handle" title="拖拽块">
+    <div
+      ref={toolbarRef}
+      className="absolute z-30 flex items-center gap-1 rounded-2xl border border-slate-200 bg-white/95 p-1 shadow-xl ring-1 ring-slate-950/5 backdrop-blur transition"
+      style={{ top: hoverBlock.top, left: hoverBlock.left }}
+      onMouseEnter={() => setPinned(true)}
+      onMouseLeave={() => setPinned(false)}
+    >
+      <button type="button" className="cursor-grab rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" title="拖拽块">
         <GripVertical className="h-4 w-4" />
       </button>
-      <div className="editor-block-menu">
-        <button onClick={() => turnInto("paragraph")} title="转为正文"><Pilcrow className="h-4 w-4" /></button>
-        <button onClick={() => turnInto("h1")} title="一级标题"><Heading1 className="h-4 w-4" /></button>
-        <button onClick={() => turnInto("h2")} title="二级标题"><Heading2 className="h-4 w-4" /></button>
-        <button onClick={() => turnInto("todo")} title="待办"><CheckSquare className="h-4 w-4" /></button>
-        <button onClick={() => turnInto("quote")} title="引用"><Quote className="h-4 w-4" /></button>
-        <span />
-        <button onClick={() => onAiCommand?.("summary")} title="AI 处理"><Bot className="h-4 w-4" /></button>
-        <button onClick={duplicateBlock} title="复制块"><Copy className="h-4 w-4" /></button>
-        <button onClick={deleteBlock} title="删除块" className="danger"><Trash2 className="h-4 w-4" /></button>
+      <div className="flex items-center gap-0.5 rounded-xl bg-white">
+        <ToolButton onClick={() => turnInto("paragraph")} title="转为正文"><Pilcrow className="h-4 w-4" /></ToolButton>
+        <ToolButton onClick={() => turnInto("h1")} title="一级标题"><Heading1 className="h-4 w-4" /></ToolButton>
+        <ToolButton onClick={() => turnInto("h2")} title="二级标题"><Heading2 className="h-4 w-4" /></ToolButton>
+        <ToolButton onClick={() => turnInto("todo")} title="待办"><CheckSquare className="h-4 w-4" /></ToolButton>
+        <ToolButton onClick={() => turnInto("quote")} title="引用"><Quote className="h-4 w-4" /></ToolButton>
+        <span className="mx-1 h-5 w-px bg-slate-100" />
+        <ToolButton onClick={() => onAiCommand?.("summary")} title="AI 处理"><Bot className="h-4 w-4" /></ToolButton>
+        <ToolButton onClick={duplicateBlock} title="复制块"><Copy className="h-4 w-4" /></ToolButton>
+        <ToolButton onClick={deleteBlock} title="删除块" danger><Trash2 className="h-4 w-4" /></ToolButton>
       </div>
     </div>
   );
