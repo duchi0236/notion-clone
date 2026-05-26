@@ -2,6 +2,7 @@
 
 import { AlertCircle, Bot, CheckCircle2, Download, Eye, Info, LockKeyhole, MoreHorizontal, Pencil, RefreshCcw, Save, Share2, Star, Trash2, Users } from "lucide-react";
 import { useState } from "react";
+import { AccountMenu } from "@/components/auth/AccountMenu";
 import { NotionGradeEditor } from "@/components/editor/notion-grade/NotionGradeEditor";
 import { CollaborativeEditor } from "@/components/editor/collaboration/CollaborativeEditor";
 import { AdvancedDocumentPreview } from "./AdvancedDocumentPreview";
@@ -20,12 +21,8 @@ type ModalMode = "share" | "markdown" | "permission" | "template" | null;
 type ContentMode = "edit" | "preview" | "collab";
 
 function SaveIndicator({ status, error, lastSavedAt, onRetry }: { status: string; error?: string; lastSavedAt?: string | null; onRetry: () => void }) {
-  if (status === "error") {
-    return <button onClick={onRetry} className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-600"><AlertCircle className="h-3 w-3" />保存失败，重试</button>;
-  }
-  if (status === "saving" || status === "dirty") {
-    return <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-600"><RefreshCcw className="h-3 w-3 animate-spin" />保存中</span>;
-  }
+  if (status === "error") return <button onClick={onRetry} className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-600"><AlertCircle className="h-3 w-3" />保存失败，重试</button>;
+  if (status === "saving" || status === "dirty") return <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-600"><RefreshCcw className="h-3 w-3 animate-spin" />保存中</span>;
   return <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-600"><CheckCircle2 className="h-3 w-3" />已保存{lastSavedAt ? ` ${new Date(lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</span>;
 }
 
@@ -45,7 +42,6 @@ export default function DocumentOnlyApp() {
     <div className="flex min-h-screen bg-white text-slate-900">
       <DocumentTree tree={store.tree} selectedId={store.selectedId} query={store.query} onQueryChange={store.setQuery} onSelect={store.setSelectedId} onCreate={() => setModal("template")} onMove={(id, parentId) => void store.moveDocument(id, parentId)} recentDocuments={store.recentDocuments} pinnedDocuments={store.pinnedDocuments} />
       <DocumentToc toc={store.toc} />
-
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-100 bg-white/95 px-8 backdrop-blur">
           <div className="min-w-0 flex items-center gap-2 text-sm text-slate-500">
@@ -67,11 +63,10 @@ export default function DocumentOnlyApp() {
             <button onClick={() => setSidePanel(sidePanel === "ai" ? null : "ai")} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"><Bot className="mr-1 inline h-4 w-4" />AI</button>
             <button onClick={() => void store.deleteSelected()} className="rounded-xl border border-slate-200 p-1.5 text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
             <button className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"><MoreHorizontal className="h-4 w-4" /></button>
+            <AccountMenu />
           </div>
         </header>
-
         {store.saveStatus === "error" && <div className="border-b border-red-100 bg-red-50 px-8 py-2 text-sm text-red-700">{store.saveError}</div>}
-
         <section className="mx-auto w-full max-w-5xl flex-1 px-10 py-6">
           {doc ? (
             <article>
@@ -91,10 +86,8 @@ export default function DocumentOnlyApp() {
             </article>
           ) : <div className="rounded-3xl border border-dashed border-slate-200 p-12 text-center"><p className="text-slate-500">暂无文档</p><button onClick={() => setModal("template")} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm text-white">新建文档</button></div>}
         </section>
-
         <footer className="border-t border-slate-100 px-8 py-3 text-xs text-slate-400"><Save className="mr-1 inline h-3 w-3" />自动保存已开启，失败时会保留页面内容并提示重试</footer>
       </main>
-
       {doc && sidePanel && <DocumentSidePanel documentId={doc.id} mode={sidePanel} onClose={() => setSidePanel(null)} onAskAi={(mode) => void store.askAi(mode)} onRestored={() => void store.reloadSelected()} />}
       {doc && modal === "share" && <DocumentShareDialog documentId={doc.id} title={doc.title} onClose={() => setModal(null)} />}
       {doc && modal === "markdown" && <DocumentImportExportDialog documentId={doc.id} title={doc.title} onClose={() => setModal(null)} onImported={() => void store.reloadAll()} />}
