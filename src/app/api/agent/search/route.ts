@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureWorkspace } from "@/lib/clawnote-store";
 import { verifyAgentRequest } from "@/lib/agent-auth";
+import { searchKnowledge } from "@/lib/knowledge-service";
 
 export async function POST(req: NextRequest) {
   const unauthorized = await verifyAgentRequest(req);
@@ -12,42 +13,52 @@ export async function POST(req: NextRequest) {
   const q = String(body.query ?? body.q ?? "").trim();
   const limit = Number(body.limit ?? 8);
 
-  if (!q) return NextResponse.json({ context: [] });
+  if (!q) return NextResponse.json({ context: [], mode: "decoupled-knowledge-layer" });
 
-  const documents = await prisma.document.findMany({
-    where: {
+  const [knowledgeResults, memories] = await Promise.all([
+    searchKnowledge({
       workspaceId: workspace.id,
-      isArchived: false,
-      agentReadable: true,
-      OR: [
-        { title: { contains: q, mode: "insensitive" } },
-        { contentText: { contains: q, mode: "insensitive" } },
-        { summary: { contains: q, mode: "insensitive" } },
-        { tags: { has: q } },
-      ],
-    },
-    take: limit,
-    orderBy: { updatedAt: "desc" },
-  });
-
-  const memories = await prisma.agentMemory.findMany({
-    where: {
-      workspaceId: workspace.id,
-      status: "ACCEPTED",
-      OR: [
-        { content: { contains: q, mode: "insensitive" } },
-        { summary: { contains: q, mode: "insensitive" } },
-        { tags: { has: q } },
-      ],
-    },
-    take: limit,
-    orderBy: { updatedAt: "desc" },
-  });
+      query: q,
+      limit,
+      requireAiReadable: true,
+      tags: Array.isArray(body.tags) ? body.tags : undefined,
+    }),
+    prisma.agentMemory.findMany({
+      where: {
+        workspaceId: workspace.id,
+        status: "ACCEPTED",
+        OR: [
+          { content: { contains: q, mode: "insensitive" } },
+          { summary: { contains: q, mode: "insensitive" } },
+          { tags: { has: q } },
+        ],
+      },
+      take: limit,
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
 
   return NextResponse.json({
+    mode: "decoupled-knowledge-layer",
     context: [
-      ...documents.map((d) => ({ type: "document", id: d.id, title: d.title, summary: d.summary, text: d.contentText, tags: d.tags, updatedAt: d.updatedAt })),
-      ...memories.map((m) => ({ type: "memory", id: m.id, content: m.content, summary: m.summary, tags: m.tags, confidence: m.confidence })),
-    ],
+      ...knowledgeResults.map((item) => ({
+        type: item.citation.sourceType,
+        id: item.citation.sourceId,
+        title: item.citation.title,
+        summary: item.chunk.summary,
+        text: item.chunk.text,
+        score: item.score,
+        citation: item.citation,
+        metadata: item.chunk.metadata,
+      })),
+      ...memories.map((m) => ({
+        type: "memory",
+        id: m.id,
+        content: m.content,
+        summary: m.summary,
+        tags: m.tags,
+        confidence: m.confidence,
+      })),
+    ].slice(0, limit * 2),
   });
 }
