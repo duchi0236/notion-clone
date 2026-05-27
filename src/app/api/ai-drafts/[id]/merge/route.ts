@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     summary: document.summary,
     tags: document.tags,
   });
-  await updateAIDraftStatus(draftRecord.id, "merged");
+  await updateAIDraftStatus({ id: draftRecord.id, workspaceId: workspace.id, status: "merged" });
 
   return NextResponse.json({ document, draftId: draftRecord.id, mode });
 }
