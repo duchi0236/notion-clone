@@ -1,6 +1,6 @@
 name: clawnote
-version: 0.1.0
-description: Persistent personal document, task, inbox, and memory workspace for OpenClaw.
+version: 0.2.0
+description: Draft-first personal document and knowledge workspace for OpenClaw agents.
 base_url: http://localhost:3000
 headers:
   Authorization: Bearer ${CLAWNOTE_AGENT_TOKEN}
@@ -9,9 +9,14 @@ permissions:
   - network:http
   - storage:read
   - storage:write
+principles:
+  - Documents are the source of truth.
+  - Knowledge indexes are derived and can be rebuilt.
+  - Agents should create drafts or pending memories by default, not directly mutate formal documents.
+  - Direct document writes require explicit user or policy approval.
 tools:
   - name: search_context
-    description: Search readable ClawNote documents and accepted memories for task context.
+    description: Search AI-readable ClawNote knowledge chunks and accepted memories for task context.
     method: POST
     path: /api/agent/search
     input_schema:
@@ -24,8 +29,45 @@ tools:
         limit:
           type: number
           description: Maximum number of results.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Optional tag filter.
+  - name: create_ai_draft
+    description: Create a pending AI draft for user review instead of directly modifying a formal document.
+    method: POST
+    path: /api/agent/create-draft
+    input_schema:
+      type: object
+      required: [content]
+      properties:
+        title:
+          type: string
+          description: Draft title.
+        content:
+          type: string
+          description: Plain text draft content.
+        contentHtml:
+          type: string
+          description: Optional HTML draft content.
+        targetType:
+          type: string
+          enum: [document, task, memory, inbox]
+          description: What the draft is intended to update or create.
+        targetId:
+          type: string
+          description: Optional target document/task/memory/inbox id.
+        prompt:
+          type: string
+          description: Original user or agent instruction that produced the draft.
+        sourceIds:
+          type: array
+          items:
+            type: string
+          description: Source document, chunk, memory, or inbox ids used to generate the draft.
   - name: write_document
-    description: Persist an execution note, research output, or structured document to ClawNote.
+    description: Persist an execution note, research output, or structured document to ClawNote. Use only when direct writes are explicitly approved.
     method: POST
     path: /api/agent/write-document
     input_schema:
@@ -88,11 +130,17 @@ tools:
 workflow:
   before_task:
     - search_context
+  during_task:
+    - create_ai_draft
   after_task:
-    - write_document
+    - create_ai_draft
     - create_memory
     - log_run
+  direct_write_only_when_explicitly_approved:
+    - write_document
 safety:
   - Memories should remain pending unless the user explicitly approves them.
-  - Prefer documents for execution summaries and memories for stable reusable facts.
+  - Prefer AI drafts for generated or edited content.
+  - Prefer documents for accepted execution summaries and memories for stable reusable facts.
   - Include source metadata whenever possible.
+  - Do not overwrite formal documents unless the user or workspace policy explicitly allows it.
