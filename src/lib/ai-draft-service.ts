@@ -1,21 +1,37 @@
 import { prisma } from "@/lib/prisma";
 import { fallbackSummary, fallbackTags } from "@/lib/ai-fallback";
 import { htmlToText } from "@/lib/clawnote-store";
-import type { AIDraft, AIDraftTargetType } from "@/lib/domain";
+import type { AIDraft, AIDraftStatus, AIDraftTargetType } from "@/lib/domain";
+
+const TARGET_TYPES: AIDraftTargetType[] = ["document", "task", "memory", "inbox"];
+const DRAFT_STATUSES: AIDraftStatus[] = ["pending", "accepted", "rejected", "merged"];
+
+function normalizeTargetType(value: unknown): AIDraftTargetType {
+  return TARGET_TYPES.includes(value as AIDraftTargetType) ? value as AIDraftTargetType : "document";
+}
+
+function normalizeStatus(value: unknown): AIDraftStatus {
+  return DRAFT_STATUSES.includes(value as AIDraftStatus) ? value as AIDraftStatus : "pending";
+}
+
+function normalizeGeneratedBy(value: unknown): AIDraft["generatedBy"] {
+  return value === "user" || value === "system" || value === "agent" ? value : "agent";
+}
 
 function toDraft(record: any): AIDraft {
+  const props = record.properties as Record<string, any>;
   return {
     id: record.id,
     workspaceId: record.workspaceId,
-    targetType: record.targetType,
-    targetId: record.targetId ?? undefined,
+    targetType: normalizeTargetType(props.targetType),
+    targetId: props.targetId ? String(props.targetId) : undefined,
     title: record.title,
-    contentHtml: record.contentHtml,
-    contentText: record.contentText,
-    status: record.status,
-    prompt: record.prompt ?? undefined,
-    sourceIds: record.sourceIds ?? [],
-    generatedBy: record.generatedBy,
+    contentHtml: String(props.contentHtml ?? ""),
+    contentText: String(props.contentText ?? ""),
+    status: normalizeStatus(props.status),
+    prompt: props.prompt ? String(props.prompt) : undefined,
+    sourceIds: Array.isArray(props.sourceIds) ? props.sourceIds.map(String) : [],
+    generatedBy: normalizeGeneratedBy(props.generatedBy),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
@@ -55,21 +71,7 @@ export async function createAIDraft(input: {
     },
   });
 
-  return {
-    id: record.id,
-    workspaceId: record.workspaceId,
-    targetType: input.targetType,
-    targetId: input.targetId,
-    title: record.title,
-    contentHtml: html,
-    contentText: text,
-    status: "pending",
-    prompt: input.prompt,
-    sourceIds: input.sourceIds ?? [],
-    generatedBy: input.generatedBy ?? "agent",
-    createdAt: record.createdAt.toISOString(),
-    updatedAt: record.updatedAt.toISOString(),
-  } satisfies AIDraft;
+  return toDraft(record);
 }
 
 export async function listAIDrafts(workspaceId: string) {
@@ -78,37 +80,30 @@ export async function listAIDrafts(workspaceId: string) {
     orderBy: { updatedAt: "desc" },
   });
 
-  return records.map((record) => {
-    const props = record.properties as Record<string, any>;
-    return {
-      id: record.id,
-      workspaceId: record.workspaceId,
-      targetType: props.targetType ?? "document",
-      targetId: props.targetId,
-      title: record.title,
-      contentHtml: props.contentHtml ?? "",
-      contentText: props.contentText ?? "",
-      status: props.status ?? "pending",
-      prompt: props.prompt,
-      sourceIds: props.sourceIds ?? [],
-      generatedBy: props.generatedBy ?? "agent",
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    } satisfies AIDraft;
-  });
+  return records.map(toDraft);
 }
 
-export async function updateAIDraftStatus(id: string, status: "pending" | "accepted" | "rejected" | "merged") {
-  const existing = await prisma.knowledgeObject.findUnique({ where: { id } });
+export async function updateAIDraftStatus(input: {
+  id: string;
+  workspaceId: string;
+  status: AIDraftStatus;
+}) {
+  const existing = await prisma.knowledgeObject.findFirst({
+    where: {
+      id: input.id,
+      workspaceId: input.workspaceId,
+      type: "AI_DRAFT",
+    },
+  });
   if (!existing) return null;
-  const props = existing.properties as Record<string, any>;
 
+  const props = existing.properties as Record<string, any>;
   const record = await prisma.knowledgeObject.update({
-    where: { id },
+    where: { id: existing.id },
     data: {
-      properties: { ...props, status },
+      properties: { ...props, status: input.status },
     },
   });
 
-  return record;
+  return toDraft(record);
 }
