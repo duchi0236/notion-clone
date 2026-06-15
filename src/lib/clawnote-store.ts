@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import type { InboxSource, MemoryStatus, Prisma } from "@prisma/client";
 
 const DEMO_EMAIL = "local@clawnote.dev";
-const DEMO_WORKSPACE_NAME = "Personal OpenClaw Workspace";
+const DEMO_WORKSPACE_NAME = "ClawNote 文档空间";
 
 export async function ensureWorkspace() {
   const session = await getServerSession(authOptions).catch(() => null);
@@ -26,8 +26,8 @@ export async function ensureWorkspace() {
     workspace = await prisma.workspace.create({
       data: {
         name: user.email === DEMO_EMAIL ? DEMO_WORKSPACE_NAME : `${user.name || "我的"} 的知识库`,
-        icon: "🧠",
-        description: "Personal OpenClaw knowledge workspace",
+        icon: "📄",
+        description: "个人文档与知识库",
         ownerId: user.id,
         members: {
           create: {
@@ -175,7 +175,7 @@ export async function ensureTaskCollection(workspaceId: string) {
         create: [
           { sortIndex: 0, data: { name: "重构 Prisma 数据模型", owner: "Lily", status: "已完成", priority: "高", progress: 100, dueDate: new Date().toISOString().slice(0, 10) } },
           { sortIndex: 1, data: { name: "实现文档工作台 UI", owner: "Tom", status: "进行中", priority: "高", progress: 75, dueDate: new Date().toISOString().slice(0, 10) } },
-          { sortIndex: 2, data: { name: "接入 OpenClaw API", owner: "Alex", status: "未开始", priority: "中", progress: 20, dueDate: new Date().toISOString().slice(0, 10) } }
+          { sortIndex: 2, data: { name: "整理接口文档", owner: "Alex", status: "未开始", priority: "中", progress: 20, dueDate: new Date().toISOString().slice(0, 10) } }
         ],
       },
     },

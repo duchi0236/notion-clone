@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { Copy, File, Loader2, Trash2, Upload } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
 
 type StoredFile = {
   filename: string;
@@ -93,7 +94,7 @@ export default function FilesPage() {
                 <span className="truncate">{file.filename}</span>
               </a>
               <span className="text-slate-500">{formatSize(file.size)}</span>
-              <span className="text-slate-500">{new Date(file.updatedAt).toLocaleString()}</span>
+              <span className="text-slate-500">{formatDateTime(file.updatedAt)}</span>
               <span className="flex gap-2">
                 <button onClick={() => copy(file.url)} className="rounded-xl border border-slate-200 p-2 hover:border-violet-300"><Copy className="h-4 w-4" /></button>
                 <button onClick={() => remove(file.filename)} className="rounded-xl border border-slate-200 p-2 text-red-500 hover:border-red-300"><Trash2 className="h-4 w-4" /></button>

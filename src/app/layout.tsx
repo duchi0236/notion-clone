@@ -1,13 +1,31 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { PWARegister } from "@/components/PWARegister";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Notion Clone",
-  description: "A Notion-like productivity app",
+  title: "ClawNote · 超级文档空间",
+  description: "文档、表格、日历与 AI 助手的个人知识工作台",
+  manifest: "/manifest.webmanifest",
+  applicationName: "ClawNote",
+  appleWebApp: {
+    capable: true,
+    title: "ClawNote",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -16,9 +34,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        {/* 在水合前应用主题，避免深色模式闪白 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('clawnote.theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);var g=localStorage.getItem('clawnote.glass');document.documentElement.classList.toggle('glass',g===null?true:g==='1');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className={cn(inter.className, "min-h-screen antialiased")}>
         {children}
+        <PWARegister />
       </body>
     </html>
   );

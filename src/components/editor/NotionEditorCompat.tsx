@@ -7,7 +7,6 @@ export function NotionEditorCompat(props: {
   onChange?: (html: string) => void;
   onJsonChange?: (json: unknown) => void;
   onTextChange?: (text: string) => void;
-  onAiCommand?: (command: "summary" | "memory" | "tasks" | "search") => void;
 }) {
   return (
     <ClawTipTapEditor
@@ -15,7 +14,6 @@ export function NotionEditorCompat(props: {
       onChange={(html) => props.onChange?.(html)}
       onTextChange={props.onTextChange}
       onJsonChange={props.onJsonChange}
-      onAiCommand={props.onAiCommand}
     />
   );
 }

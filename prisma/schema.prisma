@@ -25,6 +25,7 @@ model User {
   comments        Comment[]
   memories        AgentMemory[]
   apiTokens       ApiToken[]
+  calendarEvents  CalendarEvent[]   @relation("CalendarEventCreator")
 }
 
 model Workspace {
@@ -46,6 +47,10 @@ model Workspace {
   agentRuns    AgentRun[]
   templates    Template[]
   apiTokens    ApiToken[]
+  calendars      Calendar[]
+  calendarEvents CalendarEvent[]
+  bitableBases   BitableBase[]
+  aiConfig       AiConfig?
 }
 
 model WorkspaceMember {
@@ -105,6 +110,7 @@ model Document {
   versions       DocumentVersion[]
   objects        KnowledgeObject[]
   collectionRows CollectionRow[]
+  calendarEvents CalendarEvent[]
   searchIndex    SearchIndex?
 
   createdAt      DateTime       @default(now())
@@ -185,10 +191,35 @@ model Collection {
   schema      Json
   views       Json
   type        CollectionType @default(TABLE)
+  sortIndex   Int       @default(0)
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  // When set, this collection is a data table inside a Bitable base.
+  baseId      String?
+  base        BitableBase? @relation(fields: [baseId], references: [id], onDelete: Cascade)
+
   rows        CollectionRow[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([baseId])
+}
+
+// A Bitable "base" (多维表格) groups several data tables (Collections).
+model BitableBase {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String   @default("🗂️")
+  description String?
+  sortIndex   Int      @default(0)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  tables      Collection[]
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -385,4 +416,99 @@ model ApiToken {
   createdAt   DateTime @default(now())
 
   @@index([workspaceId])
+}
+
+// One AI configuration per workspace: model provider settings + enabled skills.
+model AiConfig {
+  id            String   @id @default(cuid())
+  workspaceId   String   @unique
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  provider      String   @default("none") // none | claude | openai | custom
+  model         String   @default("")
+  apiKey        String   @default("")
+  baseUrl       String   @default("")
+  temperature   Float    @default(0.7)
+  maxTokens     Int      @default(2048)
+  enabledSkills String[] @default(["search", "create", "summarize"])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Calendar (Apple Calendar-style events)
+// ---------------------------------------------------------------------------
+
+model Calendar {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("blue")
+  isDefault   Boolean  @default(false)
+  sortIndex   Int      @default(0)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  events      CalendarEvent[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId])
+}
+
+model CalendarEvent {
+  id          String              @id @default(cuid())
+  title       String
+  description String?
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime
+  allDay      Boolean             @default(false)
+  color       String              @default("blue")
+  status      CalendarEventStatus @default(CONFIRMED)
+  source      CalendarEventSource @default(MANUAL)
+  sourceId    String?
+  metadata    Json?
+
+  // Recurrence (preset rules expanded on the client)
+  repeat          String?   // none | daily | weekly | biweekly | monthly | yearly
+  repeatUntil     DateTime?
+  // Reminder: minutes before start to notify (null = no reminder)
+  reminderMinutes Int?
+
+  calendarId  String?
+  calendar    Calendar?  @relation(fields: [calendarId], references: [id], onDelete: SetNull)
+
+  workspaceId String
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  documentId  String?
+  document    Document?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?      @relation("CalendarEventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([workspaceId, startsAt])
+  @@index([workspaceId, source])
+  @@index([calendarId])
+}
+
+enum CalendarEventStatus {
+  TENTATIVE
+  CONFIRMED
+  CANCELLED
+  DONE
+}
+
+enum CalendarEventSource {
+  MANUAL
+  TASK
+  DOCUMENT
+  IMPORTED
+  AI
 }

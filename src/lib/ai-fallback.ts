@@ -34,7 +34,7 @@ export function fallbackTags(input: string, limit = 8) {
   const explicit = ["OpenClaw", "ClawNote", "Notion", "语雀", "Word", "Excel", "Memory", "Agent", "AI"]
     .filter((item) => text.toLowerCase().includes(item.toLowerCase()));
 
-  const ranked = [...scores.entries()]
+  const ranked = Array.from(scores)
     .sort((a, b) => b[1] - a[1])
     .map(([word]) => word)
     .filter((word) => !explicit.includes(word));

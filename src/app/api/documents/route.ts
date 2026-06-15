@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createDocumentVersion, ensureWorkspace, htmlToText, summarize, upsertSearchIndex } from "@/lib/clawnote-store";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { workspace } = await ensureWorkspace();
+  const archived = new URL(req.url).searchParams.get("archived");
+  const archivedWhere =
+    archived === "all"
+      ? {}
+      : archived === "true"
+        ? { isArchived: true }
+        : { isArchived: false };
   const documents = await prisma.document.findMany({
-    where: { workspaceId: workspace.id, isArchived: false },
+    where: { workspaceId: workspace.id, ...archivedWhere },
     orderBy: [{ sortIndex: "asc" }, { updatedAt: "desc" }],
   });
   return NextResponse.json({ documents });
@@ -14,7 +21,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const { user, workspace } = await ensureWorkspace();
   const body = await req.json().catch(() => ({}));
-  const contentHtml = body.contentHtml ?? body.html ?? "<h1>Untitled</h1><p></p>";
+  const contentHtml = body.contentHtml ?? body.html ?? "<p></p>";
   const contentText = body.contentText ?? htmlToText(contentHtml);
 
   const document = await prisma.document.create({
@@ -24,6 +31,7 @@ export async function POST(req: NextRequest) {
       title: body.title ?? "Untitled",
       icon: body.icon ?? "📄",
       parentId: body.parentId ?? null,
+      sortIndex: Number(body.sortIndex ?? 0),
       type: body.type ?? "DOC",
       tags: Array.isArray(body.tags) ? body.tags : [],
       contentHtml,

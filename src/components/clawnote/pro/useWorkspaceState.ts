@@ -1,159 +1,391 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Doc, InboxItem, Memory, Task, Template } from "./types";
+import type { Doc, Memory } from "./types";
 import { api, htmlToText, summarize, today, uid } from "./api";
-import { seedDocs, seedInbox, seedMemories, seedTasks } from "./seeds";
+import { seedDocs, seedMemories } from "./seeds";
 
-type ApiDoc = { id: string; title?: string; icon?: string; contentHtml?: string; contentText?: string; summary?: string; tags?: string[]; isFavorite?: boolean };
-type ApiTaskRow = { id: string; data?: Partial<Task> };
+type ApiDoc = {
+  id: string;
+  title?: string;
+  icon?: string | null;
+  parentId?: string | null;
+  sortIndex?: number;
+  coverImage?: string | null;
+  contentHtml?: string;
+  contentText?: string;
+  summary?: string | null;
+  tags?: string[];
+  isFavorite?: boolean;
+  isPublished?: boolean;
+  isArchived?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-const seedTemplates: Template[] = [
-  { id: "tpl1", title: "会议纪要", icon: "📋", desc: "会议目标、讨论要点、行动项", tags: ["会议"], html: "<h1>会议纪要</h1><h2>会议目标</h2><p></p><h2>讨论要点</h2><ul><li></li></ul><h2>行动项</h2><ul><li>[ ] </li></ul>" },
-  { id: "tpl2", title: "项目计划", icon: "🚀", desc: "目标、里程碑、风险、任务", tags: ["项目"], html: "<h1>项目计划</h1><h2>目标</h2><p></p><h2>里程碑</h2><ul><li></li></ul><h2>风险</h2><p></p>" },
-  { id: "tpl3", title: "SOP 模板", icon: "🧭", desc: "将重复流程沉淀为标准方法", tags: ["SOP"], html: "<h1>SOP</h1><h2>适用场景</h2><p></p><h2>步骤</h2><ol><li></li></ol>" },
-];
+type ApiMemory = {
+  id: string;
+  content: string;
+  status: string;
+  confidence: number;
+  tags?: string[];
+};
 
-function fromApiDoc(doc: ApiDoc): Doc {
-  const html = doc.contentHtml ?? "<h1>Untitled</h1><p></p>";
-  const text = doc.contentText ?? htmlToText(html);
-  return { id: doc.id, title: doc.title ?? "Untitled", icon: doc.icon ?? "📄", html, text, summary: doc.summary ?? summarize(text), tags: doc.tags ?? [] };
+type CreateDocInput = {
+  parentId?: string | null;
+  title?: string;
+  icon?: string;
+  html?: string;
+  tags?: string[];
+};
+
+function normalizeTitle(title?: string) {
+  if (!title || title === "Untitled") return "无标题";
+  return title;
 }
 
-function fromApiTask(row: ApiTaskRow): Task {
-  const data = row.data ?? {};
+function normalizeStarterHtml(html: string) {
+  const value = html.trim();
+  if (value === "<h1>Untitled</h1><p>开始写作...</p>") return "<p></p>";
+  if (value === "<h1>Untitled</h1><p></p>") return "<p></p>";
+  return html;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripDuplicateTitleHeading(html: string, title: string) {
+  const normalizedTitle = normalizeTitle(title).trim();
+  if (!normalizedTitle) return html;
+  const pattern = new RegExp(`^\\s*<h1[^>]*>\\s*${escapeRegExp(normalizedTitle)}\\s*<\\/h1>\\s*`, "i");
+  const next = html.replace(pattern, "").trim();
+  return next || "<p></p>";
+}
+
+function fromApiDoc(doc: ApiDoc): Doc {
+  const title = normalizeTitle(doc.title);
+  const html = stripDuplicateTitleHeading(normalizeStarterHtml(doc.contentHtml ?? "<p></p>"), title);
+  const text = htmlToText(html);
   return {
-    id: row.id,
-    name: data.name ?? "新任务",
-    owner: data.owner ?? "Me",
-    status: data.status ?? "未开始",
-    priority: data.priority ?? "中",
-    progress: Number(data.progress ?? 0),
-    dueDate: data.dueDate ?? today(),
+    id: doc.id,
+    title,
+    icon: doc.icon ?? "📄",
+    parentId: doc.parentId ?? null,
+    sortIndex: doc.sortIndex ?? 0,
+    coverImage: doc.coverImage ?? null,
+    html,
+    text,
+    summary: doc.summary ?? summarize(text),
+    tags: doc.tags ?? [],
+    isFavorite: doc.isFavorite ?? false,
+    isPublished: doc.isPublished ?? false,
+    isArchived: doc.isArchived ?? false,
+    createdAt: doc.createdAt ?? today(),
+    updatedAt: doc.updatedAt ?? today(),
   };
+}
+
+function fromApiMemory(memory: ApiMemory): Memory {
+  return {
+    id: memory.id,
+    content: memory.content,
+    status: String(memory.status).toLowerCase() as Memory["status"],
+    confidence: memory.confidence,
+    tags: memory.tags ?? [],
+  };
+}
+
+function descendantIds(docs: Doc[], rootId: string) {
+  const ids = new Set<string>([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const doc of docs) {
+      if (doc.parentId && ids.has(doc.parentId) && !ids.has(doc.id)) {
+        ids.add(doc.id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
 }
 
 export function useWorkspaceState() {
   const [docs, setDocs] = useState<Doc[]>(seedDocs);
-  const [tasks, setTasks] = useState<Task[]>(seedTasks);
-  const [inbox, setInbox] = useState<InboxItem[]>(seedInbox);
   const [memories, setMemories] = useState<Memory[]>(seedMemories);
-  const [templates, setTemplates] = useState<Template[]>(seedTemplates);
   const [selectedDocId, setSelectedDocId] = useState(seedDocs[0]?.id ?? "");
   const [query, setQuery] = useState("");
-  const [aiLog, setAiLog] = useState<string[]>(["已连接 ClawNote 工作台，可总结、提取任务、写入 Memory。"]);
+  // 自动保存状态（用于头部指示器）与"刚新建的文档"标记（用于自动聚焦标题）
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastCreatedKey, setLastCreatedKey] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const selectedDoc = docs.find((item) => item.id === selectedDocId) ?? docs[0];
-  const filteredDocs = useMemo(() => docs.filter((item) => `${item.title} ${item.text} ${item.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [docs, query]);
+  const activeDocs = useMemo(() => docs.filter((item) => !item.isArchived), [docs]);
+  const archivedDocs = useMemo(() => docs.filter((item) => item.isArchived), [docs]);
+  const favoriteDocs = useMemo(() => activeDocs.filter((item) => item.isFavorite), [activeDocs]);
+  const selectedDoc = activeDocs.find((item) => item.id === selectedDocId) ?? activeDocs[0];
+  const filteredDocs = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (!value) return activeDocs;
+    return activeDocs.filter((item) => `${item.title} ${item.text} ${item.tags.join(" ")}`.toLowerCase().includes(value));
+  }, [activeDocs, query]);
 
   useEffect(() => {
     void (async () => {
-      const [docRes, taskRes, inboxRes, memoryRes, templateRes] = await Promise.all([
-        api<{ documents: ApiDoc[] }>("/api/documents"),
-        api<{ rows: ApiTaskRow[] }>("/api/collections/tasks"),
-        api<{ items: InboxItem[] }>("/api/inbox"),
-        api<{ memories: Array<{ id: string; content: string; status: string; confidence: number; tags: string[] }> }>("/api/memory"),
-        api<{ templates: Array<{ id: string; title: string; icon: string; description?: string; contentHtml: string; tags: string[] }> }>("/api/templates"),
+      const [docRes, memoryRes] = await Promise.all([
+        api<{ documents: ApiDoc[] }>("/api/documents?archived=all"),
+        api<{ memories: ApiMemory[] }>("/api/memory"),
       ]);
+
       if (docRes?.documents?.length) {
         const mapped = docRes.documents.map(fromApiDoc);
         setDocs(mapped);
         setSelectedDocId(mapped[0].id);
       }
-      if (taskRes?.rows?.length) setTasks(taskRes.rows.map(fromApiTask));
-      if (inboxRes?.items) setInbox(inboxRes.items.map((item) => ({ id: item.id, source: item.source, title: item.title, content: item.content })));
-      if (memoryRes?.memories) setMemories(memoryRes.memories.map((item) => ({ id: item.id, content: item.content, status: item.status.toLowerCase() as Memory["status"], confidence: item.confidence, tags: item.tags ?? [] })));
-      if (templateRes?.templates) setTemplates(templateRes.templates.map((item) => ({ id: item.id, title: item.title, icon: item.icon, desc: item.description ?? "", html: item.contentHtml, tags: item.tags ?? [] })));
+      if (memoryRes?.memories) setMemories(memoryRes.memories.map(fromApiMemory));
     })();
   }, []);
 
   function persistDoc(next: Doc) {
     clearTimeout(saveTimers.current[next.id]);
     saveTimers.current[next.id] = setTimeout(() => {
-      void api(`/api/documents/${next.id}`, { method: "PUT", body: JSON.stringify({ title: next.title, icon: next.icon, contentHtml: next.html, contentText: next.text, summary: next.summary, tags: next.tags }) });
+      void (async () => {
+        const payload = {
+          title: next.title,
+          icon: next.icon,
+          parentId: next.parentId,
+          contentHtml: next.html,
+          contentText: next.text,
+          summary: next.summary,
+          tags: next.tags,
+          changedBy: "user",
+          reason: "autosave",
+        };
+        const updated = await api(`/api/documents/${next.id}`, { method: "PUT", body: JSON.stringify(payload) });
+        if (updated) {
+          setSaveState("saved");
+          return;
+        }
+        // 兜底：PUT 失败（如本地残留过期 id → 404）则重建服务器文档，
+        // 内容绝不静默丢失。clientKey 稳定，id 替换不会重挂载编辑器。
+        console.warn(`[clawnote] autosave PUT failed for ${next.id}, recreating on server`);
+        const created = await api<{ document: { id: string } }>("/api/documents", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        if (created?.document?.id) {
+          const newId = created.document.id;
+          setDocs((items) =>
+            items.map((item) => (item.id === next.id ? { ...item, id: newId, clientKey: item.clientKey ?? item.id } : item)),
+          );
+          setSelectedDocId((cur) => (cur === next.id ? newId : cur));
+          setSaveState("saved");
+        } else {
+          console.error(`[clawnote] autosave fallback POST also failed for ${next.id}; content kept in memory`);
+          setSaveState("error");
+        }
+      })();
     }, 650);
   }
 
   function updateDoc(patch: Partial<Doc>) {
     if (!selectedDoc) return;
-    const next = { ...selectedDoc, ...patch };
-    setDocs((items) => items.map((item) => item.id === next.id ? next : item));
+    const next = { ...selectedDoc, ...patch, updatedAt: today() };
+    setDocs((items) => items.map((item) => (item.id === next.id ? next : item)));
+    setSaveState("saving");
     persistDoc(next);
   }
 
-  async function createDoc(template?: Template) {
-    const html = template?.html ?? "<h1>Untitled</h1><p>开始写作...</p>";
+  async function createDoc(input: CreateDocInput = {}) {
+    const title = normalizeTitle(input.title);
+    const html = input.html ?? "<p></p>";
     const text = htmlToText(html);
-    const draft: Doc = { id: uid("doc"), title: template?.title ?? "Untitled", icon: template?.icon ?? "📄", html, text, summary: summarize(text), tags: template?.tags ?? [] };
+    const siblingCount = docs.filter((doc) => (doc.parentId ?? null) === (input.parentId ?? null)).length;
+    const draftId = uid("doc");
+    const draft: Doc = {
+      id: draftId,
+      clientKey: draftId,
+      title,
+      icon: input.icon ?? "📄",
+      parentId: input.parentId ?? null,
+      sortIndex: siblingCount,
+      coverImage: null,
+      html,
+      text,
+      summary: summarize(text),
+      tags: input.tags ?? [],
+      isFavorite: false,
+      isPublished: false,
+      isArchived: false,
+      createdAt: today(),
+      updatedAt: today(),
+    };
+
     setDocs((items) => [draft, ...items]);
     setSelectedDocId(draft.id);
-    const saved = await api<{ document: ApiDoc }>("/api/documents", { method: "POST", body: JSON.stringify({ title: draft.title, icon: draft.icon, tags: draft.tags, contentHtml: draft.html, contentText: draft.text, summary: draft.summary }) });
+    setLastCreatedKey(draftId); // clientKey 稳定，id 替换后仍可识别"刚新建"
+
+    const saved = await api<{ document: ApiDoc }>("/api/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: draft.title,
+        icon: draft.icon,
+        parentId: draft.parentId,
+        tags: draft.tags,
+        contentHtml: draft.html,
+        contentText: draft.text,
+        summary: draft.summary,
+      }),
+    });
+
     if (saved?.document) {
       const mapped = fromApiDoc(saved.document);
-      setDocs((items) => items.map((item) => item.id === draft.id ? mapped : item));
+      // POST 返回前用户可能已在草稿里继续编辑（打字、插图、画图）。
+      // 只接管服务器身份与元数据，内容字段一律以本地为准，避免被初始空文档覆盖。
+      setDocs((items) =>
+        items.map((item) => {
+          if (item.id !== draft.id) return item;
+          const merged: Doc = {
+            ...mapped,
+            clientKey: item.clientKey ?? item.id,
+            title: item.title,
+            icon: item.icon,
+            parentId: item.parentId,
+            sortIndex: item.sortIndex,
+            html: item.html,
+            text: item.text,
+            summary: item.summary,
+            tags: item.tags,
+            isFavorite: item.isFavorite,
+          };
+          // 本地已被编辑过 → 把本地内容写回服务器（否则服务器仍是初始内容）
+          if (item.html !== draft.html || item.title !== draft.title) persistDoc(merged);
+          return merged;
+        }),
+      );
       setSelectedDocId(mapped.id);
     }
   }
 
-  function deleteDoc() {
+  // 归档目标文档（含子树）。不传 id 时归档当前选中文档。
+  // 返回被归档的 id 列表，供「撤销」恢复。
+  function deleteDoc(targetId?: string): string[] {
+    const root = targetId ? docs.find((item) => item.id === targetId) : selectedDoc;
+    if (!root) return [];
+    const ids = descendantIds(docs, root.id);
+    void Promise.all(Array.from(ids).map((id) => api(`/api/documents/${id}`, { method: "DELETE" })));
+    setDocs((items) => items.map((item) => ids.has(item.id) ? { ...item, isArchived: true, updatedAt: today() } : item));
+    if (ids.has(selectedDocId)) {
+      const remaining = activeDocs.filter((item) => !ids.has(item.id));
+      setSelectedDocId(remaining[0]?.id ?? "");
+    }
+    return Array.from(ids);
+  }
+
+  function restoreDoc(id: string) {
+    setDocs((items) => items.map((item) => item.id === id ? { ...item, isArchived: false, updatedAt: today() } : item));
+    setSelectedDocId(id);
+    void api(`/api/documents/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ isArchived: false, status: "ACTIVE", changedBy: "user", reason: "restore-from-trash" }),
+    });
+  }
+
+  // 彻底删除（不可恢复）。仅对回收站里的文档使用。
+  function purgeDoc(id: string) {
+    setDocs((items) => items.filter((item) => item.id !== id));
+    void api(`/api/documents/${id}?permanent=true`, { method: "DELETE" });
+  }
+
+  function emptyTrash() {
+    const ids = docs.filter((item) => item.isArchived).map((item) => item.id);
+    setDocs((items) => items.filter((item) => !item.isArchived));
+    void Promise.all(ids.map((id) => api(`/api/documents/${id}?permanent=true`, { method: "DELETE" })));
+  }
+
+  function toggleFavorite(id: string) {
+    const doc = docs.find((item) => item.id === id);
+    if (!doc) return;
+    const next = { ...doc, isFavorite: !doc.isFavorite, updatedAt: today() };
+    setDocs((items) => items.map((item) => item.id === id ? next : item));
+    void api(`/api/documents/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ isFavorite: next.isFavorite, changedBy: "user", reason: "toggle-favorite" }),
+    });
+  }
+
+  function moveDoc(id: string, parentId: string | null) {
+    if (id === parentId) return;
+    const descendants = descendantIds(docs, id);
+    if (parentId && descendants.has(parentId)) return;
+    const sortIndex = docs.filter((doc) => (doc.parentId ?? null) === parentId && doc.id !== id && !doc.isArchived).length;
+    setDocs((items) => items.map((item) => item.id === id ? { ...item, parentId, sortIndex, updatedAt: today() } : item));
+    void api(`/api/pages/${id}/move`, {
+      method: "POST",
+      body: JSON.stringify({ parentId, sortIndex }),
+    });
+  }
+
+  async function duplicateDoc(id: string) {
+    const source = docs.find((item) => item.id === id);
+    if (!source) return;
+    await createDoc({
+      parentId: source.parentId,
+      title: `${source.title} 副本`,
+      icon: source.icon,
+      html: source.html,
+      tags: source.tags,
+    });
+  }
+
+  async function reloadSelectedDoc() {
     if (!selectedDoc) return;
-    void api(`/api/documents/${selectedDoc.id}`, { method: "DELETE" });
-    setDocs((items) => items.filter((item) => item.id !== selectedDoc.id));
+    const res = await api<{ document: ApiDoc }>(`/api/documents/${selectedDoc.id}`);
+    if (!res?.document) return;
+    const mapped = fromApiDoc(res.document);
+    setDocs((items) => items.map((item) => (item.id === mapped.id ? mapped : item)));
+    setSelectedDocId(mapped.id);
   }
 
-  async function createTask(name = "新任务") {
-    const draft: Task = { id: uid("task"), name, owner: "Me", status: "未开始", priority: "中", progress: 0, dueDate: today() };
-    setTasks((items) => [...items, draft]);
-    const saved = await api<{ row: ApiTaskRow }>("/api/collections/tasks", { method: "POST", body: JSON.stringify(draft) });
-    if (saved?.row) setTasks((items) => items.map((item) => item.id === draft.id ? fromApiTask(saved.row) : item));
-  }
-
-  function updateTask(id: string, patch: Partial<Task>) {
-    setTasks((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
-    void api(`/api/collections/tasks/${id}`, { method: "PUT", body: JSON.stringify(patch) });
-  }
-
-  function deleteTask(id: string) {
-    setTasks((items) => items.filter((item) => item.id !== id));
-    void api(`/api/collections/tasks/${id}`, { method: "DELETE" });
-  }
-
-  async function createMemory(content: string, tags: string[] = []) {
-    const draft: Memory = { id: uid("memory"), content, status: "pending", confidence: 0.92, tags };
-    setMemories((items) => [draft, ...items]);
-    const saved = await api<{ memory: Memory }>("/api/memory", { method: "POST", body: JSON.stringify({ content, tags, confidence: 0.92, status: "PENDING" }) });
-    if (saved?.memory) setMemories((items) => items.map((item) => item.id === draft.id ? { ...saved.memory, status: String(saved.memory.status).toLowerCase() as Memory["status"] } : item));
+  // Re-fetch the full document list (e.g. after the agent creates a doc) without
+  // changing the current selection.
+  async function reloadDocs() {
+    const res = await api<{ documents: ApiDoc[] }>("/api/documents?archived=all");
+    if (res?.documents) setDocs(res.documents.map(fromApiDoc));
   }
 
   function reviewMemory(id: string, status: Memory["status"]) {
-    setMemories((items) => items.map((item) => item.id === id ? { ...item, status } : item));
+    setMemories((items) => items.map((item) => (item.id === id ? { ...item, status } : item)));
     void api(`/api/memory/${id}`, { method: "PUT", body: JSON.stringify({ status: status.toUpperCase() }) });
   }
 
-  async function askAi(mode: "summary" | "task" | "memory" | "search") {
-    if (!selectedDoc) return;
-    if (mode === "summary") {
-      const result = await api<{ summary: string }>("/api/ai/summarize", { method: "POST", body: JSON.stringify({ html: selectedDoc.html, text: selectedDoc.text }) });
-      const value = result?.summary ?? summarize(selectedDoc.text);
-      updateDoc({ summary: value });
-      setAiLog((items) => [`已总结《${selectedDoc.title}》：${value}`, ...items]);
-    }
-    if (mode === "task") {
-      const result = await api<{ tasks: Array<{ name: string }> }>("/api/ai/extract-tasks", { method: "POST", body: JSON.stringify({ text: selectedDoc.text, html: selectedDoc.html }) });
-      await createTask(result?.tasks?.[0]?.name ?? selectedDoc.title);
-      setAiLog((items) => ["已从当前文档提取任务并加入项目表格。", ...items]);
-    }
-    if (mode === "memory") {
-      await createMemory(summarize(selectedDoc.text), selectedDoc.tags);
-      setAiLog((items) => ["已写入待审核 Memory。", ...items]);
-    }
-    if (mode === "search") {
-      const result = await api<{ results: Array<{ document: { title: string } }> }>("/api/search/semantic", { method: "POST", body: JSON.stringify({ query: selectedDoc.title, limit: 5 }) });
-      const related = result?.results?.map((item) => item.document.title).join("、") || "暂无";
-      setAiLog((items) => [`相关文档：${related}`, ...items]);
-    }
-  }
-
-  return { docs, tasks, inbox, memories, templates, selectedDoc, selectedDocId, setSelectedDocId, filteredDocs, query, setQuery, aiLog, updateDoc, createDoc, deleteDoc, createTask, updateTask, deleteTask, createMemory, reviewMemory, askAi };
+  return {
+    docs,
+    activeDocs,
+    archivedDocs,
+    favoriteDocs,
+    memories,
+    selectedDoc,
+    selectedDocId,
+    setSelectedDocId,
+    filteredDocs,
+    query,
+    setQuery,
+    updateDoc,
+    createDoc,
+    deleteDoc,
+    restoreDoc,
+    toggleFavorite,
+    moveDoc,
+    duplicateDoc,
+    reloadSelectedDoc,
+    reloadDocs,
+    reviewMemory,
+    saveState,
+    lastCreatedKey,
+    clearLastCreated: () => setLastCreatedKey(null),
+    purgeDoc,
+    emptyTrash,
+  };
 }

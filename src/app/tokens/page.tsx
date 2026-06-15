@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { Copy, KeyRound, Plus, Trash2 } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
 
 type AccessRecord = {
   id: string;
@@ -99,7 +100,7 @@ export default function TokensPage() {
             <div key={record.id} className="grid grid-cols-[1fr_1fr_180px_100px] items-center border-b border-slate-100 px-4 py-3 text-sm last:border-0">
               <span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-violet-600" />{record.name}</span>
               <span className="truncate text-slate-500">{record.scopes.join(", ")}</span>
-              <span className="text-slate-500">{record.lastUsedAt ? new Date(record.lastUsedAt).toLocaleString() : "未使用"}</span>
+              <span className="text-slate-500">{record.lastUsedAt ? formatDateTime(record.lastUsedAt) : "未使用"}</span>
               <button type="button" onClick={() => remove(record.id)} className="rounded-xl border border-slate-200 p-2 text-red-500 hover:border-red-300"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}

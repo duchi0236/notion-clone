@@ -1,0 +1,17 @@
+{
+  "name": "ClawNote 超级文档空间",
+  "short_name": "ClawNote",
+  "description": "文档、表格、日历与 AI 助手的个人知识工作台",
+  "start_url": "/clawnote",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "categories": ["productivity"],
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

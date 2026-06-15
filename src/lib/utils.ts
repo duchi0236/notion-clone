@@ -9,13 +9,27 @@ export function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
+const DATE_TIME_ZONE = "Asia/Shanghai";
+
 export function formatDate(date: Date | string) {
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
+  return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
-  });
+    month: "numeric",
+    day: "numeric",
+    timeZone: DATE_TIME_ZONE,
+  }).format(new Date(date));
+}
+
+export function formatDateTime(date: Date | string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: DATE_TIME_ZONE,
+  }).format(new Date(date));
 }
 
 export function formatRelativeTime(date: Date | string) {

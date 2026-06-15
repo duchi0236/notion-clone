@@ -30,3 +30,11 @@ export function today() {
 export function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 }
+
+// 无标题文档在树/面包屑里回退显示正文摘要，避免满屏「无标题」。
+export function docDisplayTitle(doc: { title: string; text?: string }) {
+  const title = (doc.title || "").trim();
+  if (title && title !== "无标题") return title;
+  const snippet = (doc.text || "").trim().replace(/\s+/g, " ").slice(0, 16);
+  return snippet || "无标题";
+}

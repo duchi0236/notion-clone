@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Clock3, MessageSquare, RotateCcw, Send } from "lucide-react";
+import { RotateCcw, Send } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
 
 type Version = {
   id: string;
@@ -18,7 +19,15 @@ type Comment = {
   author?: { name?: string | null; email?: string | null };
 };
 
-export function DocumentMetaPanel({ documentId, onRestored }: { documentId: string; onRestored?: () => void }) {
+export function DocumentMetaPanel({
+  documentId,
+  mode,
+  onRestored,
+}: {
+  documentId: string;
+  mode: "versions" | "comments";
+  onRestored?: () => void;
+}) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [comment, setComment] = useState("");
@@ -86,44 +95,45 @@ export function DocumentMetaPanel({ documentId, onRestored }: { documentId: stri
   }
 
   return (
-    <div className="mt-8 grid grid-cols-2 gap-5">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 font-bold"><Clock3 className="h-4 w-4" />版本历史</h3>
-          <button onClick={createSnapshot} className="rounded-xl bg-violet-600 px-3 py-1.5 text-xs text-white">创建快照</button>
-        </div>
-        {message && <div className="mb-3 rounded-xl bg-violet-50 px-3 py-2 text-xs text-violet-700">{message}</div>}
-        <div className="max-h-72 space-y-2 overflow-auto">
+    <div className="p-4">
+      {message && <div className="mb-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">{message}</div>}
+
+      {mode === "versions" && (
+        <section>
+          <button onClick={createSnapshot} className="mb-4 w-full rounded-lg bg-slate-950 px-3 py-2 text-sm text-white hover:bg-slate-800">创建快照</button>
+          <div className="space-y-2">
           {versions.length === 0 && <p className="text-sm text-slate-500">暂无版本记录</p>}
           {versions.map((item) => (
-            <div key={item.id} className="rounded-2xl bg-slate-50 p-3 text-sm">
+            <div key={item.id} className="rounded-lg bg-white p-3 text-sm shadow-sm ring-1 ring-slate-200">
               <div className="flex items-center justify-between">
                 <b>v{item.version}</b>
-                <button onClick={() => restore(item.version)} className="rounded-lg bg-white p-1.5 text-violet-700"><RotateCcw className="h-4 w-4" /></button>
+                <button onClick={() => restore(item.version)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-950"><RotateCcw className="h-4 w-4" /></button>
               </div>
-              <div className="mt-1 text-xs text-slate-500">{item.reason ?? "snapshot"} · {new Date(item.createdAt).toLocaleString()}</div>
+              <div className="mt-1 text-xs text-slate-500">{item.reason ?? "snapshot"} · {formatDateTime(item.createdAt)}</div>
             </div>
           ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5">
-        <h3 className="mb-4 flex items-center gap-2 font-bold"><MessageSquare className="h-4 w-4" />评论</h3>
-        <form onSubmit={submitComment} className="mb-4 flex gap-2">
-          <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="写评论或批注..." className="min-w-0 flex-1 rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400" />
-          <button className="rounded-2xl bg-violet-600 px-3 py-2 text-white"><Send className="h-4 w-4" /></button>
+      {mode === "comments" && (
+        <section>
+          <form onSubmit={submitComment} className="mb-4 flex gap-2">
+          <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="写评论或批注..." className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
+          <button className="rounded-lg bg-slate-950 px-3 py-2 text-white hover:bg-slate-800"><Send className="h-4 w-4" /></button>
         </form>
-        <div className="max-h-72 space-y-2 overflow-auto">
+        <div className="space-y-2">
           {comments.length === 0 && <p className="text-sm text-slate-500">暂无评论</p>}
           {comments.map((item) => (
-            <div key={item.id} className="rounded-2xl bg-slate-50 p-3 text-sm">
+            <div key={item.id} className="rounded-lg bg-white p-3 text-sm shadow-sm ring-1 ring-slate-200">
               <div className="font-medium">{item.author?.name ?? item.author?.email ?? "User"}</div>
               <p className="mt-1 text-slate-700">{item.content}</p>
-              <div className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</div>
+              <div className="mt-1 text-xs text-slate-500">{formatDateTime(item.createdAt)}</div>
             </div>
           ))}
         </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

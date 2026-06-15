@@ -18,9 +18,9 @@ async function main() {
     update: {},
     create: {
       id: "clawnote_default_workspace",
-      name: "Personal OpenClaw Workspace",
-      icon: "🧠",
-      description: "A personal AI knowledge and document workspace for OpenClaw.",
+      name: "ClawNote 文档空间",
+      icon: "📄",
+      description: "个人文档与知识库。",
       ownerId: user.id,
       members: { create: { userId: user.id, role: "OWNER" } },
     },
@@ -28,22 +28,22 @@ async function main() {
 
   const documents = [
     {
-      title: "OpenClaw 个人部署方案",
-      icon: "🧠",
-      tags: ["OpenClaw", "部署", "知识库"],
-      html: "<h1>OpenClaw 个人部署方案</h1><p>部署一个可长期沉淀知识、记录任务、管理文档的个人 AI 工作台。</p><h2>核心模块</h2><ul><li>文档编辑器</li><li>知识库</li><li>Agent Memory</li><li>Inbox 收集中心</li></ul>",
+      title: "产品需求文档 PRD",
+      icon: "📄",
+      tags: ["产品", "文档"],
+      html: "<h1>产品需求文档 PRD</h1><p>这里是文档正文。你可以像语雀或 Notion 一样专注写作。</p><h2>产品概述</h2><p>ClawNote 是一个独立文档管理系统。</p><h2>核心功能</h2><ul><li>文档树</li><li>富文本编辑器</li><li>版本历史</li><li>评论</li></ul>",
     },
     {
-      title: "产品设计原则",
+      title: "会议纪要",
       icon: "📘",
-      tags: ["产品", "原则"],
-      html: "<h1>产品设计原则</h1><p>ClawNote 不是后台系统，而是类似 Notion、语雀、Word、Excel 的知识工作台。</p><blockquote>文档优先，Agent 辅助；人负责判断，AI 负责整理。</blockquote>",
+      tags: ["会议"],
+      html: "<h1>会议纪要</h1><h2>会议目标</h2><p></p><h2>讨论要点</h2><ul><li></li></ul><h2>行动项</h2><ul><li></li></ul>",
     },
     {
-      title: "用户访谈记录",
+      title: "学习笔记",
       icon: "📝",
-      tags: ["访谈", "需求"],
-      html: "<h1>用户访谈记录</h1><p>用户希望文档体验接近语雀和 Notion，同时保留 Excel 式表格能力。</p>",
+      tags: ["笔记"],
+      html: "<h1>学习笔记</h1><p>记录资料、想法和结论。</p><h2>要点</h2><ul><li></li></ul>",
     },
   ];
 
@@ -98,7 +98,7 @@ async function main() {
           create: [
             { sortIndex: 0, data: { name: "重构 Prisma 数据模型", owner: "Lily", status: "已完成", priority: "高", progress: 100, dueDate: new Date().toISOString().slice(0, 10) } },
             { sortIndex: 1, data: { name: "实现文档工作台 UI", owner: "Tom", status: "进行中", priority: "高", progress: 75, dueDate: new Date().toISOString().slice(0, 10) } },
-            { sortIndex: 2, data: { name: "接入 OpenClaw API", owner: "Alex", status: "未开始", priority: "中", progress: 20, dueDate: new Date().toISOString().slice(0, 10) } }
+            { sortIndex: 2, data: { name: "整理接口文档", owner: "Alex", status: "未开始", priority: "中", progress: 20, dueDate: new Date().toISOString().slice(0, 10) } }
           ],
         },
       },
@@ -113,8 +113,8 @@ async function main() {
       workspaceId: workspace.id,
       createdById: user.id,
       scope: "WORKSPACE",
-      content: "产品形态应类似 Notion、语雀、Word、Excel，而不是后台系统。",
-      tags: ["产品定位"],
+      content: "CLI 后续可以通过 Agent API 读取和写入 ClawNote 的文档内容。",
+      tags: ["CLI"],
       sourceType: "seed",
       confidence: 0.98,
       status: "ACCEPTED",
@@ -123,8 +123,8 @@ async function main() {
 
   await prisma.inboxItem.createMany({
     data: [
-      { workspaceId: workspace.id, source: "OPENCLAW", title: "OpenClaw Chat 记录", content: "用户要求 ClawNote 更像 Notion / 语雀 / Word / Excel，而不是后台系统。" },
-      { workspaceId: workspace.id, source: "GITHUB", title: "notion-clone 仓库分析", content: "项目已有 TipTap、Prisma、Next.js 基础，但大量功能仍是 mock。" },
+      { workspaceId: workspace.id, source: "CHAT", title: "文档写入示例", content: "外部工具可以通过接口写入文档或长期记忆。" },
+      { workspaceId: workspace.id, source: "GITHUB", title: "仓库记录", content: "项目已有 TipTap、Prisma、Next.js 基础，可继续补齐文档管理体验。" },
     ],
     skipDuplicates: true,
   });

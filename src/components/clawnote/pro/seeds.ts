@@ -4,21 +4,35 @@ import { today } from "./api";
 export const seedDocs: Doc[] = [
   {
     id: "d1",
-    title: "OpenClaw 个人部署方案",
-    icon: "🧠",
-    html: "<h1>OpenClaw 个人部署方案</h1><p>部署一个可长期沉淀知识、记录任务、管理文档的个人 AI 工作台。</p><h2>核心模块</h2><ul><li>文档编辑器</li><li>知识库</li><li>Agent Memory</li><li>Inbox 收集中心</li></ul>",
-    text: "OpenClaw 个人部署方案",
-    summary: "部署个人 OpenClaw，并通过 ClawNote 做长期知识、任务和文档沉淀。",
-    tags: ["OpenClaw", "部署"],
+    title: "产品需求文档 PRD",
+    icon: "📄",
+    parentId: null,
+    sortIndex: 0,
+    html: "<h1>产品需求文档 PRD</h1><p>这里是文档正文。你可以像语雀或 Notion 一样专注写作。</p><h2>产品概述</h2><p>ClawNote 是一个独立文档管理系统。</p><h2>核心功能</h2><ul><li>文档树</li><li>富文本编辑器</li><li>版本历史</li><li>评论</li></ul>",
+    text: "产品需求文档 PRD",
+    summary: "ClawNote 是一个独立文档管理系统。",
+    tags: ["产品", "文档"],
+    isFavorite: true,
+    isPublished: false,
+    isArchived: false,
+    createdAt: today(),
+    updatedAt: today(),
   },
   {
     id: "d2",
-    title: "产品设计原则",
+    title: "会议纪要",
     icon: "📘",
-    html: "<h1>产品设计原则</h1><p>ClawNote 不是后台系统，而是类似 Notion、语雀、Word、Excel 的知识工作台。</p>",
-    text: "ClawNote 不是后台系统",
-    summary: "产品形态类似 Notion、语雀、Word、Excel。",
-    tags: ["产品"],
+    parentId: "d1",
+    sortIndex: 0,
+    html: "<h1>会议纪要</h1><h2>会议目标</h2><p></p><h2>讨论要点</h2><ul><li></li></ul><h2>行动项</h2><ul><li></li></ul>",
+    text: "会议纪要",
+    summary: "用于记录会议目标、讨论要点和行动项。",
+    tags: ["会议"],
+    isFavorite: false,
+    isPublished: false,
+    isArchived: false,
+    createdAt: today(),
+    updatedAt: today(),
   },
 ];
 
@@ -29,9 +43,9 @@ export const seedTasks: Task[] = [
 ];
 
 export const seedInbox: InboxItem[] = [
-  { id: "i1", source: "OpenClaw", title: "产品反馈", content: "用户希望 ClawNote 更像 Notion / 语雀 / Word / Excel，而不是后台系统。" },
+  { id: "i1", source: "CLI", title: "文档写入示例", content: "外部工具可以通过接口写入文档或长期记忆。" },
 ];
 
 export const seedMemories: Memory[] = [
-  { id: "m1", content: "产品形态应类似 Notion、语雀、Word、Excel，而不是后台系统。", status: "accepted", confidence: 0.98, tags: ["产品定位"] },
+  { id: "m1", content: "CLI 后续可以通过 Agent API 读取和写入 ClawNote 的文档内容。", status: "pending", confidence: 0.92, tags: ["CLI"] },
 ];

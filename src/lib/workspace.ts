@@ -16,8 +16,8 @@ export async function getDefaultWorkspace() {
   const workspace = await prisma.workspace.create({
     data: {
       name: "个人知识库",
-      icon: "🧠",
-      description: "ClawNote default personal OpenClaw workspace",
+      icon: "📄",
+      description: "ClawNote 默认个人文档空间",
       ownerId: user.id,
       members: {
         create: {
