@@ -176,6 +176,33 @@ export function Toolbar({
         </Popover>
       )}
 
+      {/* Group (grid 行分组) */}
+      {view.type === "grid" && (
+        <Popover label={view.rowGroupFieldId ? "分组 1" : "分组"} icon={<Group className="h-4 w-4" />} active={!!view.rowGroupFieldId}>
+          <div className="space-y-0.5">
+            <p className="mb-1 text-xs text-slate-400">按字段分组（含每组小计）</p>
+            <button
+              onClick={() => onPatchView({ rowGroupFieldId: null })}
+              className={cn("flex w-full items-center justify-between rounded px-2 py-1 text-sm hover:bg-slate-50", !view.rowGroupFieldId && "text-blue-600")}
+            >
+              不分组 {!view.rowGroupFieldId && <span>✓</span>}
+            </button>
+            {schema
+              .filter((f) => !["longText", "link", "lookup", "attachment"].includes(f.type))
+              .map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => onPatchView({ rowGroupFieldId: f.id })}
+                  className={cn("flex w-full items-center justify-between rounded px-2 py-1 text-sm hover:bg-slate-50", view.rowGroupFieldId === f.id && "text-blue-600")}
+                >
+                  {f.name}
+                  {view.rowGroupFieldId === f.id && <span>✓</span>}
+                </button>
+              ))}
+          </div>
+        </Popover>
+      )}
+
       {/* Hidden fields */}
       <Popover label={hidden.length ? `隐藏 ${hidden.length}` : "字段"} icon={<EyeOff className="h-4 w-4" />} active={hidden.length > 0}>
         <div className="space-y-1">

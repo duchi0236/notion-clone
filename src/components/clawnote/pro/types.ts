@@ -1,4 +1,4 @@
-export type View = "docs" | "calendar" | "bitable" | "ai" | "settings";
+export type View = "home" | "docs" | "calendar" | "bitable" | "ai" | "settings";
 export type TaskView = "table" | "board" | "gallery" | "calendar";
 
 export type Doc = {

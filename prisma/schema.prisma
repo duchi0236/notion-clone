@@ -431,6 +431,8 @@ model AiConfig {
   temperature   Float    @default(0.7)
   maxTokens     Int      @default(2048)
   enabledSkills String[] @default(["search", "create", "summarize"])
+  // 按能力存的供应商配置：{ image|video|edit: { provider, model, apiKey, baseUrl } }
+  mediaProviders Json    @default("{}")
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

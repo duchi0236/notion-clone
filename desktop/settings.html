@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ClawNote 设置</title>
+<style>
+  :root { --bg:#f6f7f9; --surface:#fff; --border:#e3e6eb; --text:#0f172a; --muted:#64748b; --faint:#94a3b8; --primary:#0f172a; --accent:#4f6bed; --accentSoft:#eaeefe; --danger:#dc2626; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); -webkit-user-select:none; }
+  .wrap { max-width:560px; margin:0 auto; padding:48px 28px; }
+  .logo { width:56px; height:56px; border-radius:16px; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:800; }
+  h1 { font-size:22px; margin:18px 0 4px; }
+  .sub { color:var(--muted); font-size:14px; margin-bottom:24px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; box-shadow:0 4px 16px rgba(15,23,42,.05); }
+  label { display:block; font-size:13px; font-weight:700; color:var(--text); margin:16px 0 6px; }
+  label:first-of-type { margin-top:0; }
+  input[type=text] { width:100%; padding:11px 13px; border:1px solid var(--border); border-radius:10px; font-size:14px; color:var(--text); background:var(--surface); -webkit-user-select:text; }
+  input[type=text]:focus { outline:none; border-color:var(--accent); }
+  .hint { font-size:12px; color:var(--faint); margin-top:6px; line-height:1.5; }
+  .row { display:flex; align-items:center; gap:10px; margin-top:16px; }
+  .row input[type=checkbox] { width:18px; height:18px; }
+  .row label { margin:0; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab { flex:1; text-align:center; padding:9px; border-radius:10px; background:var(--bg); border:1px solid var(--border); font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; }
+  .tab.on { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .actions { display:flex; gap:10px; margin-top:24px; }
+  button.primary { flex:1; padding:12px; border:none; border-radius:10px; background:var(--primary); color:#fff; font-size:14px; font-weight:700; cursor:pointer; }
+  button.ghost { flex:1; padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font-size:14px; font-weight:700; cursor:pointer; }
+  .status { margin-top:14px; font-size:13px; min-height:18px; }
+  .status.err { color:var(--danger); }
+  .hidden { display:none; }
+  .examples { font-size:12px; color:var(--faint); margin-top:8px; }
+  code { background:var(--bg); padding:1px 6px; border-radius:5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">C</div>
+  <h1 id="title">连接到 ClawNote</h1>
+  <div class="sub" id="subtitle">填写你的 ClawNote 服务器地址，开始使用桌面客户端。</div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab on" id="tab-remote" onclick="switchMode('remote')">连接服务器</div>
+      <div class="tab" id="tab-local" onclick="switchMode('local')">本地内置服务</div>
+    </div>
+
+    <div id="pane-remote">
+      <label>服务器地址</label>
+      <input type="text" id="serverUrl" placeholder="https://clawnote.example.com" />
+      <div class="examples">例如部署实例 <code>https://your-domain</code>，或本机 <code>http://localhost:3001</code>。</div>
+    </div>
+
+    <div id="pane-local" class="hidden">
+      <label>ClawNote 项目目录</label>
+      <input type="text" id="localDir" placeholder="/path/to/clawnote" />
+      <div class="hint">需已 <code>npm run build</code> 并配置好 <code>DATABASE_URL</code>（PostgreSQL）。应用会在该目录运行 <code>next start</code>。</div>
+      <label>端口</label>
+      <input type="text" id="localPort" placeholder="3001" />
+    </div>
+
+    <div class="actions">
+      <button class="ghost" id="cancelBtn" onclick="cancel()">取消</button>
+      <button class="primary" id="saveBtn" onclick="save()">连接</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const firstRun = params.get("firstRun") === "1";
+  let mode = "remote";
+
+  function switchMode(m) {
+    mode = m;
+    document.getElementById("tab-remote").classList.toggle("on", m === "remote");
+    document.getElementById("tab-local").classList.toggle("on", m === "local");
+    document.getElementById("pane-remote").classList.toggle("hidden", m !== "remote");
+    document.getElementById("pane-local").classList.toggle("hidden", m !== "local");
+  }
+
+  async function load() {
+    if (firstRun) document.getElementById("cancelBtn").classList.add("hidden");
+    try {
+      const cfg = await window.clawnoteHost.getConfig();
+      document.getElementById("serverUrl").value = cfg.serverUrl || "";
+      document.getElementById("localDir").value = cfg.localServer?.dir || "";
+      document.getElementById("localPort").value = cfg.localServer?.port || 3001;
+      if (cfg.localServer?.enabled) switchMode("local");
+    } catch (e) {}
+  }
+
+  async function save() {
+    const status = document.getElementById("status");
+    status.className = "status";
+    status.textContent = "正在连接…";
+    document.getElementById("saveBtn").disabled = true;
+    let payload;
+    if (mode === "local") {
+      const dir = document.getElementById("localDir").value.trim();
+      const port = parseInt(document.getElementById("localPort").value.trim(), 10) || 3001;
+      if (!dir) { fail("请填写项目目录"); return; }
+      payload = { localServer: { enabled: true, dir, port } };
+    } else {
+      let url = document.getElementById("serverUrl").value.trim();
+      if (!url) { fail("请填写服务器地址"); return; }
+      if (!/^https?:\/\//.test(url)) url = "http://" + url;
+      payload = { serverUrl: url, localServer: { enabled: false } };
+    }
+    try {
+      const res = await window.clawnoteHost.saveConfig(payload);
+      if (!res.ok) fail(res.reason || "连接失败");
+    } catch (e) { fail(e.message || String(e)); }
+  }
+
+  function fail(msg) {
+    const status = document.getElementById("status");
+    status.className = "status err";
+    status.textContent = msg;
+    document.getElementById("saveBtn").disabled = false;
+  }
+
+  function cancel() { window.clawnoteHost.retry(); }
+
+  load();
+</script>
+</body>
+</html>

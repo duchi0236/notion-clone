@@ -10,7 +10,11 @@
     "lint": "next lint",
     "desktop": "electron .",
     "desktop:dev": "concurrently -k -n next,electron -c blue,magenta \"next dev -p 3001\" \"wait-on http://localhost:3001 && electron .\"",
+    "desktop:dist": "electron-builder",
+    "desktop:dist:dir": "electron-builder --dir",
     "mobile": "npm --prefix mobile run start",
+    "mobile:dev": "concurrently -k -n next,expo -c blue,magenta \"next dev -p 3001\" \"npm --prefix mobile run start\"",
+    "mobile:tunnel": "concurrently -k -n next,expo -c blue,magenta \"next dev -p 3001\" \"npm --prefix mobile run start -- --tunnel\"",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -24,9 +28,44 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "build": {
+    "appId": "dev.clawnote.app",
+    "productName": "ClawNote",
+    "copyright": "ClawNote",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "build", "to": "build", "filter": ["tray*.png", "icon.png"] }
+    ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office",
+      "icon": "build/icon.png"
+    }
+  },
   "dependencies": {
     "@hello-pangea/dnd": "^16.6.0",
     "@prisma/client": "^5.17.0",
+    "electron-updater": "^6.3.9",
     "@tiptap/extension-code-block-lowlight": "^2.4.0",
     "@tiptap/extension-collaboration": "^2.4.0",
     "@tiptap/extension-collaboration-cursor": "^2.4.0",
@@ -67,13 +106,16 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^9.1.0",
     "electron": "^32.3.3",
+    "electron-builder": "^25.1.8",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.5",
     "postcss": "^8.4.39",
     "prisma": "^5.17.0",
     "tailwindcss": "^3.4.6",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "wait-on": "^8.0.1"
   }
 }

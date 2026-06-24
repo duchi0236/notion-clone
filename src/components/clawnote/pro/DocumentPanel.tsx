@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronRight, Clock3, Copy, List, Loader2, MessageSquare, PanelRightClose, Plus, Share2, Star, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Clock3, Code2, Copy, List, Loader2, MessageSquare, PanelRightClose, Plus, Share2, Star, Trash2, X } from "lucide-react";
 import { ClawTipTapEditor } from "@/components/editor/ClawTipTapEditor";
+import { HtmlDocView } from "./HtmlDocView";
+import { isFullHtmlDoc, starterFullHtml } from "@/lib/html-doc";
 import { formatDate } from "@/lib/utils";
 import type { Doc } from "./types";
 import { docDisplayTitle, htmlToText, summarize } from "./api";
@@ -75,15 +77,27 @@ export function DocumentPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [iconPickerOpen, shareOpen, inspector]);
 
-  if (!doc) return <div className="p-8 text-slate-500">暂无文档，点击新建开始。</div>;
+  if (!doc) {
+    return (
+      <div className="flex h-full items-center justify-center bg-transparent px-6 text-center">
+        <div className="max-w-sm rounded-[28px] border border-white/70 bg-white/70 p-8 shadow-[0_24px_60px_-34px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
+            <Plus className="h-5 w-5" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-950">还没有打开文档</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">从左侧选择一篇文档，或新建一页开始写作。</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentDoc = doc;
   const breadcrumbs = buildBreadcrumbs(docs ?? [], currentDoc);
 
   return (
-    <div className="flex h-screen min-w-0 bg-white">
-      <article className="min-w-0 flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-30 flex h-11 items-center justify-between border-b border-slate-100 bg-white/92 px-4 backdrop-blur">
+    <div className="flex h-full min-w-0 bg-transparent">
+      <article className="min-w-0 flex-1 overflow-y-auto scroll-smooth">
+        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-slate-200/60 bg-white/82 px-5 backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-1 text-sm text-slate-500">
             {breadcrumbs.map((item, index) => (
               <span key={item.id} className="flex min-w-0 items-center gap-1">
@@ -109,25 +123,39 @@ export function DocumentPanel({
             <IconButton title="版本历史" active={inspector === "versions"} onClick={() => setInspector((value) => value === "versions" ? null : "versions")}><Clock3 className="h-4 w-4" /></IconButton>
             <IconButton title="评论" active={inspector === "comments"} onClick={() => setInspector((value) => value === "comments" ? null : "comments")}><MessageSquare className="h-4 w-4" /></IconButton>
             <IconButton title="复制页面" onClick={duplicateDoc}><Copy className="h-4 w-4" /></IconButton>
+            <IconButton
+              title={isFullHtmlDoc(doc.html) ? "切回富文本编辑" : "切换为整页 HTML 渲染"}
+              active={isFullHtmlDoc(doc.html)}
+              onClick={() => {
+                if (isFullHtmlDoc(doc.html)) {
+                  if (confirm("切回富文本？整页 HTML 将作为普通内容显示，建议先复制源码备份。")) {
+                    updateDoc({ html: "<p></p>", text: "", summary: "" });
+                  }
+                } else {
+                  const seed = starterFullHtml(doc.title || "新 HTML 页面");
+                  updateDoc({ html: seed, text: "（HTML 页面）", summary: "HTML 渲染文档" });
+                }
+              }}
+            ><Code2 className="h-4 w-4" /></IconButton>
             <span className="mx-0.5 h-5 w-px bg-slate-200" />
             <IconButton title="删除文档" tone="danger" onClick={deleteDoc}><Trash2 className="h-4 w-4" /></IconButton>
           </div>
         </header>
 
-        <div className="mx-auto max-w-[760px] px-6 pb-24 pt-5 sm:px-8">
-          {doc.coverImage && <div className="mb-5 h-32 rounded-xl bg-cover bg-center" style={{ backgroundImage: `url(${doc.coverImage})` }} />}
-          <div className="mb-5">
-            <div className="flex items-start gap-2.5">
-              <div className="relative mt-1.5">
+        <div className="mx-auto max-w-[820px] px-6 pb-28 pt-8 sm:px-10 lg:pt-10">
+          {doc.coverImage && <div className="mb-7 h-36 rounded-[24px] bg-cover bg-center shadow-inner" style={{ backgroundImage: `url(${doc.coverImage})` }} />}
+          <div className="mb-7">
+            <div className="flex items-start gap-3">
+              <div className="relative mt-1">
                 <button
-                  className="inline-flex rounded-lg outline-none transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-300"
+                  className="inline-flex rounded-xl outline-none transition hover:-translate-y-0.5 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-300"
                   title="更改页面图标"
                   onClick={() => setIconPickerOpen((value) => !value)}
                 >
-                  <PageIcon icon={doc.icon} size="md" />
+                  <PageIcon icon={doc.icon} size="lg" />
                 </button>
                 {iconPickerOpen && (
-                  <div className="absolute left-0 top-9 z-40 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                  <div className="absolute left-0 top-11 z-40 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                     <div className="mb-2 flex items-center justify-between px-1">
                       <span className="text-xs font-medium text-slate-500">页面图标</span>
                       <button
@@ -184,9 +212,9 @@ export function DocumentPanel({
                   value={doc.title}
                   onChange={(event) => updateDoc({ title: event.target.value })}
                   placeholder="无标题"
-                  className="block w-full bg-transparent text-[34px] font-bold leading-[1.16] tracking-normal text-slate-950 outline-none"
+                  className="block w-full bg-transparent text-[38px] font-semibold leading-[1.1] tracking-normal text-slate-950 outline-none placeholder:text-slate-300 sm:text-[44px]"
                 />
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-400">
                   <span>创建 {formatDate(doc.createdAt)}</span>
                   <span>·</span>
                   <span>更新 {formatDate(doc.updatedAt)}</span>
@@ -199,30 +227,38 @@ export function DocumentPanel({
             </div>
           </div>
           {doc.tags.length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-2 pl-12">
+            <div className="mb-6 flex flex-wrap gap-2 pl-12">
               {doc.tags.map((tag) => (
-                <span key={tag} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500">#{tag}</span>
+                <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">#{tag}</span>
               ))}
             </div>
           )}
 
-          <ClawTipTapEditor
-            key={doc.clientKey ?? doc.id}
-            docId={doc.id}
-            content={doc.html}
-            onChange={(html) => {
-              const text = htmlToText(html);
-              updateDoc({ html, text, summary: summarize(text) });
-            }}
-          />
+          {isFullHtmlDoc(doc.html) ? (
+            <HtmlDocView
+              key={doc.clientKey ?? doc.id}
+              html={doc.html}
+              onChange={(html) => updateDoc({ html, text: "（HTML 页面）", summary: "HTML 渲染文档" })}
+            />
+          ) : (
+            <ClawTipTapEditor
+              key={doc.clientKey ?? doc.id}
+              docId={doc.id}
+              content={doc.html}
+              onChange={(html) => {
+                const text = htmlToText(html);
+                updateDoc({ html, text, summary: summarize(text) });
+              }}
+            />
+          )}
         </div>
       </article>
 
       {!inspector && <DocumentOutline key={doc.clientKey ?? doc.id} docId={doc.id} />}
 
       {inspector && (
-        <aside className="w-[360px] shrink-0 overflow-y-auto border-l border-slate-200 bg-[#fbfbfa]">
-          <div className="sticky top-0 z-10 flex h-12 items-center justify-between border-b border-slate-200 bg-[#fbfbfa]/95 px-4 backdrop-blur">
+        <aside className="w-[360px] shrink-0 overflow-y-auto border-l border-slate-200/70 bg-white/72 backdrop-blur-xl">
+          <div className="sticky top-0 z-10 flex h-12 items-center justify-between border-b border-slate-200/70 bg-white/78 px-4 backdrop-blur-xl">
             <h2 className="text-sm font-semibold">{inspector === "outline" ? "大纲" : inspector === "versions" ? "版本历史" : "评论"}</h2>
             <button onClick={() => setInspector(null)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-950">
               <PanelRightClose className="h-4 w-4" />
@@ -271,8 +307,8 @@ function IconButton({
       onClick={onClick}
       className={
         tone === "danger"
-          ? "inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-500"
-          : `inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-950 ${active ? "bg-slate-100 text-slate-950" : ""}`
+          ? "inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+          : `inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 ${active ? "bg-slate-100 text-slate-950" : ""}`
       }
     >
       {children}

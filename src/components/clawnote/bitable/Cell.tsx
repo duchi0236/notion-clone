@@ -13,6 +13,8 @@ import {
   List,
   Phone,
   Search,
+  Sigma,
+  ListOrdered,
   Star,
   Tag,
   Type,
@@ -22,6 +24,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { BitableContext, Field, FieldType, Row } from "./types";
 import { findOption, formatValue, lookupValue, optionColor } from "./fieldMeta";
+import { evalFormula, formatFormulaValue } from "./formula";
+import { DatePicker } from "./DatePicker";
 
 export const FIELD_TYPE_LIST: { type: FieldType; label: string; icon: ReactNode }[] = [
   { type: "text", label: "文本", icon: <Type className="h-4 w-4" /> },
@@ -40,7 +44,10 @@ export const FIELD_TYPE_LIST: { type: FieldType; label: string; icon: ReactNode 
   { type: "currency", label: "货币", icon: <CircleDollarSign className="h-4 w-4" /> },
   { type: "link", label: "关联", icon: <Search className="h-4 w-4" /> },
   { type: "lookup", label: "查找引用", icon: <Search className="h-4 w-4" /> },
+  { type: "formula", label: "公式", icon: <Sigma className="h-4 w-4" /> },
+  { type: "autoNumber", label: "自动编号", icon: <ListOrdered className="h-4 w-4" /> },
   { type: "createdTime", label: "创建时间", icon: <Clock className="h-4 w-4" /> },
+  { type: "modifiedTime", label: "修改时间", icon: <Clock className="h-4 w-4" /> },
 ];
 
 export function fieldIcon(type: FieldType): ReactNode {
@@ -141,7 +148,12 @@ export function CellValue({
     }
     case "lookup":
       return row && schema && ctx ? <span className="truncate text-slate-600">{lookupValue(field, row, schema, ctx)}</span> : null;
+    case "formula":
+      return row && schema ? <span className="truncate font-medium text-slate-700">{formatFormulaValue(evalFormula(field, row, schema))}</span> : null;
+    case "autoNumber":
+      return <span className="tabular-nums text-slate-500">{row ? row.sortIndex + 1 : ""}</span>;
     case "createdTime":
+    case "modifiedTime":
       return <span className="text-slate-500">{value ? new Date(String(value)).toLocaleString("zh-CN") : ""}</span>;
     default:
       return <span className="truncate">{formatValue(field, value, ctx)}</span>;
@@ -198,13 +210,13 @@ export function CellInput({
       );
     case "date":
       return (
-        <input
-          ref={ref as React.RefObject<HTMLInputElement>}
-          type="date"
+        <DatePicker
           value={String(value ?? "")}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onCommit}
-          className={base}
+          autoFocus={autoFocus}
+          onChange={(v) => {
+            onChange(v);
+            onCommit?.();
+          }}
         />
       );
     case "checkbox":
@@ -216,7 +228,7 @@ export function CellInput({
             onChange(e.target.checked);
             onCommit?.();
           }}
-          className="h-4 w-4"
+          className="h-[18px] w-[18px] cursor-pointer rounded border-slate-300 accent-blue-600"
         />
       );
     case "rating": {

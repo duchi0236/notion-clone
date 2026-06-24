@@ -362,7 +362,7 @@ export default function CalendarApp() {
   }, [view, anchor]);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-full flex-col">
       {/* Toolbar */}
       <header className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3">
         <h1 className="mr-2 min-w-[200px] text-lg font-semibold text-slate-900">{title}</h1>

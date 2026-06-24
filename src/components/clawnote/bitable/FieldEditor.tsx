@@ -7,6 +7,7 @@ import type { Field, FieldType, SelectOption, Table } from "./types";
 import { newId } from "./types";
 import { FIELD_TYPE_LIST } from "./Cell";
 import { OPTION_COLORS, OPTION_COLOR_KEYS } from "./fieldMeta";
+import { Select } from "./Select";
 
 export function FieldEditor({
   field,
@@ -80,18 +81,13 @@ export function FieldEditor({
 
           <label className="block">
             <span className="text-xs text-slate-500">字段类型</span>
-            <select
+            <Select
+              className="mt-1 block w-full"
               value={form.type}
-              onChange={(e) => setType(e.target.value as FieldType)}
               disabled={form.primary}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400 disabled:bg-slate-50"
-            >
-              {FIELD_TYPE_LIST.map((t) => (
-                <option key={t.type} value={t.type}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setType(v as FieldType)}
+              options={FIELD_TYPE_LIST.map((t) => ({ value: t.type, label: t.label, icon: t.icon }))}
+            />
             {form.primary && <span className="mt-1 block text-[11px] text-slate-400">主字段类型不可更改</span>}
           </label>
 
@@ -152,6 +148,37 @@ export function FieldEditor({
           {/* Lookup config */}
           {form.type === "lookup" && (
             <LookupConfig form={form} tables={tables} currentTableId={currentTableId} onChange={(lk) => set("lookup", lk)} />
+          )}
+
+          {/* Formula config */}
+          {form.type === "formula" && (
+            <div>
+              <span className="text-xs text-slate-500">公式表达式</span>
+              <textarea
+                value={form.formula ?? ""}
+                onChange={(e) => set("formula", e.target.value)}
+                rows={3}
+                placeholder="例如：{价格} * {数量}"
+                className="mt-1 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 font-mono text-[13px] outline-none focus:border-slate-400"
+              />
+              <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                用 {"{字段名}"} 引用字段；支持 + - * / 运算、& 拼接、比较，及 IF / SUM / AVG / MIN / MAX / ROUND / CONCAT / LEN 等函数。
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {(tables.find((t) => t.id === currentTableId)?.schema ?? [])
+                  .filter((f) => f.id !== form.id)
+                  .map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => set("formula", `${form.formula ?? ""}{${f.name}}`)}
+                      className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+              </div>
+            </div>
           )}
 
           {/* Rating max */}

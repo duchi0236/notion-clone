@@ -18,7 +18,10 @@ export type FieldType =
   | "currency"
   | "link" // relation to records in another table
   | "lookup" // pull a field from linked records
-  | "createdTime";
+  | "formula" // computed from an expression over other fields
+  | "autoNumber" // sequential row number
+  | "createdTime"
+  | "modifiedTime";
 
 export type SelectOption = { id: string; name: string; color: string };
 
@@ -34,9 +37,13 @@ export type Field = {
   max?: number; // rating max (default 5)
   linkTableId?: string | null; // link: target table id
   lookup?: { linkFieldId: string; targetFieldId: string } | null; // lookup config
+  formula?: string; // formula: expression, e.g. {价格} * {数量}
 };
 
-export type ViewType = "grid" | "kanban" | "gallery" | "form";
+export type ViewType = "grid" | "kanban" | "gallery" | "form" | "calendar" | "gantt";
+
+// 列汇总 / 分组小计的聚合方式
+export type AggType = "none" | "count" | "filled" | "empty" | "sum" | "avg" | "min" | "max" | "checked";
 
 export type FilterOp =
   | "is"
@@ -61,7 +68,11 @@ export type View = {
   filters?: Filter[];
   sorts?: Sort[];
   groupFieldId?: string | null; // kanban grouping (a select field)
+  rowGroupFieldId?: string | null; // grid 行分组字段
   coverFieldId?: string | null; // gallery cover
+  aggregations?: Record<string, AggType>; // grid 列汇总：fieldId -> 聚合方式
+  dateFieldId?: string | null; // calendar / gantt 起始日期字段
+  endDateFieldId?: string | null; // gantt 结束日期字段
 };
 
 export type Row = { id: string; data: Record<string, unknown>; sortIndex: number };

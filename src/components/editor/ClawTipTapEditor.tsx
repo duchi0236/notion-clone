@@ -30,6 +30,8 @@ import { TableOfContents } from "./extensions/TableOfContents";
 import { DrawioBlock, MINDMAP_TEMPLATE } from "./extensions/DrawioBlock";
 import { EditorShortcuts } from "./extensions/EditorShortcuts";
 import { HtmlBlock } from "./extensions/HtmlBlock";
+import { SvgBlock } from "./extensions/SvgBlock";
+import { MediaBlock } from "./extensions/MediaBlock";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const lowlight = createLowlight(common);
@@ -57,6 +59,7 @@ import {
   Columns3,
   Copy,
   CornerDownRight,
+  Film,
   GripVertical,
   Heading1,
   Heading2,
@@ -80,6 +83,7 @@ import {
   Plus,
   Quote,
   Rows3,
+  Shapes,
   Strikethrough,
   TableIcon,
   Trash2,
@@ -202,7 +206,7 @@ export function ClawTipTapEditor({
     const lineHeight = Number.isFinite(parsedLineHeight) ? parsedLineHeight : Math.min(blockRect.height, 32);
     const firstLineHeight = block.matches(".tableWrapper") ? 32 : Math.min(blockRect.height || lineHeight, lineHeight);
     const lineCenter = blockRect.top + firstLineHeight / 2;
-    const nextTop = Math.max(0, lineCenter - rootRect.top - 14);
+    const nextTop = Math.max(0, lineCenter - rootRect.top - 15);
     setRailTop(Math.round(nextTop * 2) / 2);
   }
 
@@ -263,7 +267,7 @@ export function ClawTipTapEditor({
       ResizableImage,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true, handleWidth: 8, cellMinWidth: 72, allowTableNodeSelection: true }),
+      Table.configure({ resizable: true, handleWidth: 8, cellMinWidth: 64, allowTableNodeSelection: true }),
       TableRow,
       TableCell,
       TableHeader,
@@ -272,6 +276,8 @@ export function ClawTipTapEditor({
       TableOfContents,
       DrawioBlock,
       HtmlBlock,
+      SvgBlock,
+      MediaBlock,
       EditorShortcuts,
       ...(collab && yState
         ? [
@@ -294,7 +300,7 @@ export function ClawTipTapEditor({
     },
     editorProps: {
       attributes: {
-        class: "clawnote-editor min-h-[420px] bg-transparent px-0 py-1 text-[16.5px] leading-8 outline-none",
+        class: "clawnote-editor min-h-[360px] bg-transparent px-0 py-1 text-[16.5px] leading-8 outline-none",
       },
       handleKeyDown: (_view, event) => {
         if (showMenuRef.current) {
@@ -558,7 +564,7 @@ export function ClawTipTapEditor({
     setLinkDialogOpen(false);
   }
 
-  function insertCompactTable(rows = 3, cols = 3, columnWidth = 116) {
+  function insertCompactTable(rows = 3, cols = 3, columnWidth = 104) {
     if (!editor) return;
     editor.chain().focus().insertContent({
       type: "table",
@@ -753,6 +759,30 @@ export function ClawTipTapEditor({
       action: () => editor.chain().focus().setHtmlBlock().run(),
     },
     {
+      label: "SVG 图形",
+      hint: "粘贴 / 编写 SVG 源码，内联渲染矢量图",
+      group: "媒体",
+      icon: <Shapes className="h-4 w-4" />,
+      keywords: ["svg", "矢量", "图形", "vector", "画图", "插画"],
+      action: () => editor.chain().focus().setSvgBlock().run(),
+    },
+    {
+      label: "AI 生成图片",
+      hint: "输入描述，AI 文生图（接入供应商后生效）",
+      group: "媒体",
+      icon: <ImageIcon className="h-4 w-4" />,
+      keywords: ["ai", "图片", "文生图", "生成", "image", "draw", "插图"],
+      action: () => editor.chain().focus().setMediaBlock({ kind: "image" }).run(),
+    },
+    {
+      label: "AI 生成视频",
+      hint: "输入描述，AI 文生视频（接入供应商后生效）",
+      group: "媒体",
+      icon: <Film className="h-4 w-4" />,
+      keywords: ["ai", "视频", "文生视频", "生成", "video", "短视频"],
+      action: () => editor.chain().focus().setMediaBlock({ kind: "video" }).run(),
+    },
+    {
       label: "上传文件",
       hint: "上传图片或附件",
       group: "媒体",
@@ -808,7 +838,7 @@ export function ClawTipTapEditor({
 
       <div
         data-block-rail
-        className="absolute -left-[66px] z-10 hidden h-7 items-center gap-0.5 opacity-0 transition-opacity group-hover/editor:flex group-hover/editor:opacity-100"
+        className="absolute -left-[58px] z-10 hidden h-8 items-center gap-0.5 opacity-0 transition-opacity group-hover/editor:flex group-hover/editor:opacity-100"
         style={{ top: railTop }}
       >
         <button
@@ -819,7 +849,7 @@ export function ClawTipTapEditor({
             editor.chain().focus().createParagraphNear().run();
             openSlashMenu();
           }}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-300 hover:bg-slate-100 hover:text-slate-800"
+          className="inline-flex h-8 w-7 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-100 hover:text-slate-800"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -829,7 +859,7 @@ export function ClawTipTapEditor({
           draggable
           onDragStart={onGripDragStart}
           onClick={() => setBlockMenu((v) => !v)}
-          className="inline-flex h-7 w-7 cursor-grab items-center justify-center rounded-md text-slate-300 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+          className="inline-flex h-8 w-7 cursor-grab items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
@@ -839,10 +869,10 @@ export function ClawTipTapEditor({
         <>
           <div className="fixed inset-0 z-[55]" onClick={() => setBlockMenu(false)} />
           <div
-            className="fixed z-[56] w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl"
+            className="fixed z-[56] w-48 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl"
             style={{
               top: rootRef.current.getBoundingClientRect().top + railTop + 28,
-              left: rootRef.current.getBoundingClientRect().left - 60,
+              left: Math.max(12, rootRef.current.getBoundingClientRect().left - 18),
             }}
           >
             <BlockMenuItem icon={<Plus className="h-3.5 w-3.5" />} label="下方插入" onClick={blockInsertBelow} />
@@ -871,7 +901,7 @@ export function ClawTipTapEditor({
         pluginKey="clawnoteTextBubbleMenu"
         tippyOptions={{ duration: 120 }}
         shouldShow={({ editor }) => !editor.state.selection.empty && !editor.isActive("table") && !editor.isActive("image") && !editor.isActive("drawio")}
-        className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+        className="claw-solid flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
       >
         <Button onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="加粗"><Bold className="h-4 w-4" /></Button>
         <Button onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="斜体"><Italic className="h-4 w-4" /></Button>
@@ -896,9 +926,9 @@ export function ClawTipTapEditor({
         pluginKey="clawnoteTableBubbleMenu"
         tippyOptions={{ duration: 120, placement: "top-start", offset: [0, 8], maxWidth: "none" }}
         shouldShow={({ editor }) => editor.isActive("table")}
-        className="flex w-max max-w-[calc(100vw-2rem)] flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+        className="claw-solid flex w-max max-w-[calc(100vw-2rem)] flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
       >
-        <TableButton title="紧凑宽度" onClick={() => resizeActiveTable(116)}><Minimize2 className="h-3.5 w-3.5" />紧凑</TableButton>
+        <TableButton title="紧凑宽度" onClick={() => resizeActiveTable(104)}><Minimize2 className="h-3.5 w-3.5" />紧凑</TableButton>
         <TableButton title="放宽列宽" onClick={() => resizeActiveTable(164)}><Maximize2 className="h-3.5 w-3.5" />放宽</TableButton>
         <span className="mx-0.5 h-5 w-px shrink-0 bg-slate-200" />
         <TableButton title="右侧加列" onClick={() => editor.chain().focus().addColumnAfter().run()}><Columns3 className="h-3.5 w-3.5" />列+</TableButton>
@@ -910,7 +940,7 @@ export function ClawTipTapEditor({
       </BubbleMenu>
 
       {showMenu && (
-        <div className="absolute left-0 top-8 z-30 w-[336px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <div className="absolute left-0 top-9 z-30 w-[316px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
             <div>
               <div className="text-xs font-medium text-slate-500">快速插入</div>
@@ -918,7 +948,7 @@ export function ClawTipTapEditor({
             </div>
             <kbd className="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-400">ESC</kbd>
           </div>
-          <div className="max-h-[420px] overflow-y-auto p-2">
+          <div className="max-h-[390px] overflow-y-auto p-2">
             {filteredActions.length === 0 && (
               <div className="rounded-lg px-3 py-6 text-center text-sm text-slate-400">没有找到这个块，试试“标题”“表格”或“上传”。</div>
             )}
@@ -1343,7 +1373,7 @@ function TableButton({
       title={title}
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950",
+        "inline-flex h-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950",
         tone === "danger" && "text-red-500 hover:bg-red-50 hover:text-red-600"
       )}
     >

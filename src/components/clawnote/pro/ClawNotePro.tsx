@@ -17,6 +17,8 @@ import {
   FilePlus2,
   FileText,
   FolderTree,
+  Home,
+  ArrowUpRight,
   PanelLeftClose,
   PanelLeftOpen,
   KeyRound,
@@ -109,11 +111,11 @@ function ancestorIds(docs: Doc[], selectedId: string) {
 }
 
 export default function ClawNotePro() {
-  const [view, setView] = useState<View>("docs");
+  const [view, setView] = useState<View>("home");
   const [aiTab, setAiTab] = useState<AiTab>("chat");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -138,6 +140,7 @@ export default function ClawNotePro() {
   const store = useWorkspaceState();
   const activeDocs = store.activeDocs ?? store.docs.filter((doc) => !doc.isArchived);
   const docTree = useMemo(() => buildDocTree(activeDocs), [activeDocs]);
+  const showSidebar = view !== "home" && !sidebarCollapsed;
 
   useEffect(() => {
     const next = ancestorIds(activeDocs, store.selectedDocId);
@@ -183,21 +186,48 @@ export default function ClawNotePro() {
   }
 
   return (
-    <div
-      className={cn(
-        "grid min-h-screen grid-cols-1 bg-white text-slate-900",
-        sidebarCollapsed ? "lg:grid-cols-[56px_minmax(0,1fr)]" : "lg:grid-cols-[56px_292px_minmax(0,1fr)]",
+    <div className="claw-canvas relative min-h-screen text-slate-900">
+      {/* 全局氛围背景：柔光团制造玻璃景深 */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -left-28 -top-32 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(circle,rgba(20,110,245,0.13),transparent_66%)] blur-3xl" />
+        <div className="absolute right-[-10%] top-[-12%] h-[38rem] w-[38rem] rounded-full bg-[radial-gradient(circle,rgba(148,163,184,0.2),transparent_64%)] blur-3xl" />
+        <div className="absolute bottom-[-18%] left-1/3 h-[28rem] w-[42rem] rounded-full bg-[radial-gradient(circle,rgba(125,151,184,0.12),transparent_68%)] blur-3xl" />
+        <div className="claw-grain absolute inset-0 opacity-[0.22]" />
+      </div>
+
+      {view === "home" && (
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="claw-command-lens fixed left-1/2 top-5 z-40 hidden h-12 w-[min(440px,42vw)] -translate-x-1/2 items-center gap-3 px-5 text-left text-sm text-slate-500 transition duration-200 hover:-translate-y-0.5 hover:text-slate-700 lg:flex"
+        >
+          <Search className="h-4 w-4 text-slate-400" />
+          <span className="min-w-0 flex-1 truncate">搜索或创建...</span>
+          <span className="rounded-lg border border-white/70 bg-white/70 px-2 py-1 text-[11px] font-medium text-slate-400 shadow-sm">⌘ K</span>
+        </button>
       )}
-    >
-      <nav className="hidden h-screen flex-col items-center gap-1 border-r border-slate-200 bg-[#f4f4f3] py-3 lg:flex">
-        <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white">C</div>
+
+      <div
+        className={cn(
+          "relative z-10 grid min-h-screen grid-cols-1 gap-3 p-3",
+          showSidebar ? "lg:grid-cols-[64px_296px_minmax(0,1fr)]" : "lg:grid-cols-[64px_minmax(0,1fr)]",
+        )}
+      >
+      <nav className="claw-dock sticky top-3 z-30 hidden h-[calc(100vh-1.5rem)] flex-col items-center gap-1 px-2 py-3 lg:flex">
+        <button
+          onClick={() => setView("home")}
+          title="回到主页"
+          className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-500/30 transition-transform hover:scale-105"
+        >
+          C
+        </button>
         <IconRailButton
           active={false}
           onClick={() => setSidebarCollapsed((v) => !v)}
           icon={sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
           label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
         />
-        <div className="my-1 h-px w-7 bg-slate-200" />
+        <div className="my-1 h-px w-7 bg-slate-200/70" />
+        <IconRailButton active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
         <IconRailButton active={view === "docs"} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
         <IconRailButton active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays />} label="日历" />
         <IconRailButton active={view === "bitable"} onClick={() => setView("bitable")} icon={<Grid3x3 />} label="多维表格" />
@@ -206,7 +236,7 @@ export default function ClawNotePro() {
         <IconRailButton active={false} onClick={toggleTheme} icon={dark ? <Sun /> : <Moon />} label={dark ? "浅色模式" : "深色模式"} />
         <IconRailButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings />} label="设置" />
       </nav>
-      <aside className={cn("hidden h-screen min-h-0 flex-col border-r border-slate-200 bg-[#fbfbfa]", !sidebarCollapsed && "lg:flex")}>
+      <aside className={cn("claw-panel sticky top-3 z-20 hidden h-[calc(100vh-1.5rem)] min-h-0 flex-col overflow-hidden", showSidebar && "lg:flex")}>
         <div className="px-4 pb-3 pt-4">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -216,16 +246,16 @@ export default function ClawNotePro() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPaletteOpen(true)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-950" title="打开命令面板">
+              <button onClick={() => setPaletteOpen(true)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white/70 hover:text-slate-950" title="打开命令面板">
                 <Command className="h-4 w-4" />
               </button>
-              <button onClick={createRootDoc} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-950" title="新建文档">
+              <button onClick={createRootDoc} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white/70 hover:text-slate-950" title="新建文档">
                 <Plus className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+          <div className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/78 px-3 py-2 shadow-sm ring-1 ring-slate-900/[0.03]">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={store.query}
@@ -237,7 +267,7 @@ export default function ClawNotePro() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-          {view === "docs" && (
+          {(view === "docs" || view === "home") && (
             <DocsSidebar
               docs={docTree}
               flatDocs={store.filteredDocs}
@@ -268,7 +298,20 @@ export default function ClawNotePro() {
 
       </aside>
 
-      <main className="min-w-0 bg-white">
+      <main className={cn("min-w-0", view !== "home" && "claw-paper h-[calc(100vh-1.5rem)] overflow-y-auto")}>
+        {view === "home" && (
+          <SpaceHome
+            docs={activeDocs}
+            recentDocIds={recentDocIds}
+            onOpenDoc={selectDoc}
+            onCreateDoc={createRootDoc}
+            onCreateWith={(input) => {
+              setView("docs");
+              void store.createDoc(input);
+            }}
+            onNavigate={setView}
+          />
+        )}
         {view === "docs" && (
           <DocumentPanel
             doc={store.selectedDoc}
@@ -301,6 +344,7 @@ export default function ClawNotePro() {
           ))}
         {view === "settings" && <SettingsPanel />}
       </main>
+      </div>
 
       {paletteOpen && (
         <CommandPalette
@@ -392,11 +436,11 @@ export default function ClawNotePro() {
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
+        <MobileTab active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
         <MobileTab active={view === "docs"} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
         <MobileTab active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays />} label="日历" />
         <MobileTab active={view === "bitable"} onClick={() => setView("bitable")} icon={<Grid3x3 />} label="表格" />
         <MobileTab active={view === "ai"} onClick={() => setView("ai")} icon={<Bot />} label="AI" />
-        <MobileTab active={view === "settings"} onClick={() => setView("settings")} icon={<Settings />} label="设置" />
       </nav>
 
       {/* 操作反馈 Toast（删除可撤销等） */}
@@ -413,6 +457,357 @@ export default function ClawNotePro() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// 更新时间格式：今天 14:20 / 昨天 09:05 / 6月5日 16:12
+function fmtUpdated(iso: string) {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const hm = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+    const y = new Date(now);
+    y.setDate(now.getDate() - 1);
+    if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
+    if (d.toDateString() === y.toDateString()) return `昨天 ${hm}`;
+    return `${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(d)} ${hm}`;
+  } catch {
+    return "";
+  }
+}
+
+// 一张「纸」：渲染文档真实内容，带折角(dog-ear)、作者底注，hero 更大。对齐 design/01。
+function PaperSheet({ doc, hero, index = 0, onOpen }: { doc: Doc; hero?: boolean; index?: number; onOpen: () => void }) {
+  const fold = hero ? 30 : 24;
+  const body = (doc.text || doc.summary || "").trim() || "空白文档，点击开始书写…";
+  return (
+    <button
+      onClick={onOpen}
+      style={{ marginTop: hero ? 0 : Math.min(index, 3) * 7 }}
+      className={cn(
+        "claw-paper-sheet group relative shrink-0 self-start text-left transition duration-300 ease-out hover:-translate-y-1 focus-visible:-translate-y-1",
+        hero ? "w-[360px]" : "w-[248px]",
+      )}
+    >
+      <div
+        className={cn(
+          "relative flex h-full flex-col overflow-hidden bg-white p-5 ring-1 ring-slate-900/5",
+          hero ? "min-h-[300px] rounded-[24px]" : "min-h-[232px] rounded-[20px]",
+        )}
+        style={{
+          clipPath: `polygon(0 0, calc(100% - ${fold}px) 0, 100% ${fold}px, 100% 100%, 0 100%)`,
+          boxShadow: hero
+            ? "0 30px 70px -28px rgba(15,23,42,0.34), 0 8px 22px -16px rgba(15,23,42,0.16)"
+            : "0 22px 52px -28px rgba(15,23,42,0.25), 0 6px 16px -14px rgba(15,23,42,0.14)",
+        }}
+      >
+        <div className="mb-4 flex items-center gap-2">
+          <PageIcon icon={doc.icon} size={hero ? "lg" : "md"} />
+          {doc.isFavorite && <Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
+        </div>
+        <h3 className={cn("font-semibold tracking-tight text-slate-950 transition-colors group-hover:text-blue-600", hero ? "text-2xl leading-tight" : "text-[17px] leading-snug")}>
+          {docDisplayTitle(doc)}
+        </h3>
+        {doc.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {doc.tags.slice(0, hero ? 4 : 2).map((t) => (
+              <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">#{t}</span>
+            ))}
+          </div>
+        )}
+        <p className={cn("mt-4 flex-1 whitespace-pre-line text-slate-500", hero ? "line-clamp-[6] text-sm leading-7" : "line-clamp-4 text-[13px] leading-6")}>
+          {body}
+        </p>
+        <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 text-xs text-slate-400">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">你</span>
+          <span>{fmtUpdated(doc.updatedAt)} 由你更新</span>
+        </div>
+      </div>
+      {/* 折角 */}
+      <span
+        className="absolute right-0 top-0"
+        style={{
+          width: fold,
+          height: fold,
+          clipPath: "polygon(0 0, 100% 0, 100% 100%)",
+          background: "linear-gradient(135deg, #e6eaf2 0%, #f4f6fb 70%)",
+          boxShadow: "-2px 2px 4px rgba(15,23,42,0.1)",
+        }}
+      />
+    </button>
+  );
+}
+
+const COLLECTION_TINTS = ["bg-slate-950", "bg-blue-500", "bg-amber-500", "bg-emerald-500"];
+
+// 空间主页：问候 + 纸张式最近内容 + 玻璃创建坞 + 合集卡（对齐 design/01-space-home）
+function SpaceHome({
+  docs,
+  recentDocIds,
+  onOpenDoc,
+  onCreateDoc,
+  onCreateWith,
+  onNavigate,
+}: {
+  docs: Doc[];
+  recentDocIds: string[];
+  onOpenDoc: (id: string) => void;
+  onCreateDoc: () => void;
+  onCreateWith: (input: { title?: string; html?: string }) => void;
+  onNavigate: (view: View) => void;
+}) {
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 5 ? "夜深了" : hour < 11 ? "早上好" : hour < 13 ? "中午好" : hour < 18 ? "下午好" : "晚上好";
+  const dateLabel = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(now);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // 最近：先按最近打开顺序，再用更新时间补足
+  const recent = useMemo(() => {
+    const byId = new Map(docs.map((d) => [d.id, d]));
+    const ordered: Doc[] = [];
+    const seen = new Set<string>();
+    for (const id of recentDocIds) {
+      const d = byId.get(id);
+      if (d && !seen.has(id)) {
+        ordered.push(d);
+        seen.add(id);
+      }
+    }
+    const rest = [...docs]
+      .filter((d) => !seen.has(d.id))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return [...ordered, ...rest].slice(0, 6);
+  }, [docs, recentDocIds]);
+
+  // 合集：按标签聚合，取数量最多的几个
+  const collections = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of docs) for (const t of d.tags) map.set(t, (map.get(t) ?? 0) + 1);
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name, count], i) => ({ name, count, tint: COLLECTION_TINTS[i % COLLECTION_TINTS.length] }));
+  }, [docs]);
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result ?? "");
+      const title = f.name.replace(/\.[^.]+$/, "");
+      const isHtml = /\.html?$/i.test(f.name);
+      const html = isHtml
+        ? raw
+        : "<p>" +
+          raw
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .split(/\n{2,}/)
+            .filter(Boolean)
+            .join("</p><p>")
+            .replace(/\n/g, "<br/>") +
+          "</p>";
+      onCreateWith({ title, html });
+    };
+    reader.readAsText(f);
+  }
+
+  function newFromTemplate() {
+    onCreateWith({
+      title: "会议纪要",
+      html:
+        "<h1>会议纪要</h1><p>时间：｜参与人：</p><h2>议题</h2><ul><li>议题一</li><li>议题二</li></ul><h2>结论</h2><ul><li></li></ul><h2>待办</h2><ul><li>负责人 — 事项 — 截止</li></ul>",
+    });
+  }
+
+  return (
+    <div className="relative flex h-[calc(100vh-1.5rem)] flex-col overflow-y-auto">
+      <div className="relative mx-auto flex min-h-full w-full max-w-6xl flex-col px-6 pb-10 pt-24 sm:px-10">
+        {/* 问候 */}
+        <header className="mb-10 max-w-2xl">
+          <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-slate-400">ClawNote Space</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-[48px] sm:leading-[1.05]">
+            {greeting}，继续创作
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-slate-500">
+            {dateLabel} · {docs.length} 篇内容已经整理好，主页只放最近需要继续写的东西。
+          </p>
+        </header>
+
+        {/* 最近打开：纸张叠 */}
+        <section>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-[15px] font-semibold text-slate-700">
+              <Clock3 className="h-4 w-4 text-slate-400" /> 最近打开
+            </h2>
+            <button onClick={() => onNavigate("docs")} className="flex items-center gap-1 text-xs font-medium text-slate-400 transition-colors hover:text-blue-600">
+              查看全部 <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {recent.length === 0 ? (
+            <button
+              onClick={onCreateDoc}
+              className="flex w-full items-center justify-center gap-2 rounded-[20px] border-2 border-dashed border-slate-300/70 bg-white/40 py-16 text-sm text-slate-400 transition-colors hover:border-blue-300 hover:text-blue-600"
+            >
+              <FilePlus2 className="h-4 w-4" /> 还没有文档，新建第一篇
+            </button>
+          ) : (
+            <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+              {recent[0] && <PaperSheet doc={recent[0]} hero onOpen={() => onOpenDoc(recent[0].id)} />}
+              <div className="flex min-w-0 gap-4 overflow-x-auto pb-5 pl-1 pt-2 pr-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {recent.slice(1).map((doc, i) => (
+                  <PaperSheet key={doc.id} doc={doc} index={i} onOpen={() => onOpenDoc(doc.id)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 玻璃创建坞（左） + 合集卡（右） */}
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-6 pt-12">
+          <MacDock
+            items={[
+              { icon: <FilePlus2 className="h-4 w-4" />, label: "新建文档", primary: true, onClick: onCreateDoc },
+              { icon: <Upload className="h-4 w-4" />, label: "导入文件", onClick: () => fileRef.current?.click() },
+              { icon: <FileText className="h-4 w-4" />, label: "从模板新建", onClick: newFromTemplate },
+            ]}
+          />
+
+          {collections.length > 0 && (
+            <div className="flex items-end gap-3">
+              {collections.map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => onNavigate("docs")}
+                  className="group flex w-[116px] flex-col gap-3 rounded-2xl bg-white/74 p-3.5 text-left shadow-[0_18px_44px_-24px_rgba(15,23,42,0.28)] ring-1 ring-white/70 backdrop-blur-xl transition-transform hover:-translate-y-1"
+                >
+                  <span className={cn("h-7 w-7 rounded-lg", c.tint)} />
+                  <span>
+                    <span className="block truncate text-sm font-semibold text-slate-800">{c.name}</span>
+                    <span className="text-xs text-slate-400">{c.count} 个文档</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <input ref={fileRef} type="file" accept=".md,.markdown,.txt,.html,.htm" className="hidden" onChange={onPickFile} />
+    </div>
+  );
+}
+
+type DockItem = { icon: ReactNode; label: string; primary?: boolean; onClick: () => void };
+
+// macOS 拓展坞放大：靠 requestAnimationFrame 每帧按「光标到按钮中心的距离」实时重算缩放，
+// 移动时瞬时跟手（不靠 CSS 过渡去追，避免发黏）；光标位置与强度各做轻量 lerp，进入/离开顺滑渐变。
+// 放大同时用左右 margin 顶开邻居（不遮挡），外层坞宽度随之果冻伸缩。基准宽/中心只测一次。
+function MacDock({ items }: { items: DockItem[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const baseRef = useRef<{ centers: number[]; widths: number[] }>({ centers: [], widths: [] });
+  const raf = useRef<number | null>(null);
+  const targetX = useRef(0); // 光标在坞内的目标 x
+  const curX = useRef(0); // 缓动后的 x（每帧 lerp 靠近 targetX）
+  const hovering = useRef(false);
+  const intensity = useRef(0); // 0..1，进入渐入、离开渐出
+
+  const AMP = 0.45; // 最大放大 = 1 + AMP
+  const SIGMA = 80; // 影响半径（越大波纹越宽）
+
+  useEffect(() => {
+    function measure() {
+      baseRef.current = {
+        widths: itemRefs.current.map((el) => el?.offsetWidth ?? 0),
+        centers: itemRefs.current.map((el) => (el ? el.offsetLeft + el.offsetWidth / 2 : 0)),
+      };
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      if (raf.current != null) cancelAnimationFrame(raf.current);
+    };
+  }, [items.length]);
+
+  function paint() {
+    const { centers, widths } = baseRef.current;
+    for (let i = 0; i < itemRefs.current.length; i++) {
+      const el = itemRefs.current[i];
+      if (!el) continue;
+      const d = curX.current - (centers[i] ?? 0);
+      const f = Math.exp(-(d * d) / (2 * SIGMA * SIGMA));
+      const s = 1 + AMP * intensity.current * f;
+      const extra = ((widths[i] ?? 0) * (s - 1)) / 2;
+      el.style.transform = `scale(${s.toFixed(3)})`;
+      el.style.marginLeft = `${extra.toFixed(2)}px`;
+      el.style.marginRight = `${extra.toFixed(2)}px`;
+    }
+  }
+
+  function tick() {
+    const targetI = hovering.current ? 1 : 0;
+    intensity.current += (targetI - intensity.current) * (hovering.current ? 0.28 : 0.16);
+    if (hovering.current) curX.current += (targetX.current - curX.current) * 0.42; // 跟手缓动
+    paint();
+    // 离开且强度已归零 → 复位收尾
+    if (!hovering.current && intensity.current < 0.004) {
+      intensity.current = 0;
+      paint();
+      raf.current = null;
+      return;
+    }
+    raf.current = requestAnimationFrame(tick);
+  }
+
+  function ensureRaf() {
+    if (raf.current == null) raf.current = requestAnimationFrame(tick);
+  }
+
+  return (
+    <div
+      ref={ref}
+      onMouseMove={(e) => {
+        const box = ref.current;
+        if (!box) return;
+        const x = e.clientX - box.getBoundingClientRect().left;
+        if (!hovering.current) {
+          hovering.current = true;
+          curX.current = x; // 进入时直接落到光标处，避免从左缘扫入
+        }
+        targetX.current = x;
+        ensureRaf();
+      }}
+      onMouseLeave={() => {
+        hovering.current = false;
+        ensureRaf();
+      }}
+      className="relative flex items-center gap-1 rounded-2xl border border-transparent bg-white/75 px-2.5 py-2 shadow-[0_18px_44px_-14px_rgba(15,23,42,0.22)] backdrop-blur-xl"
+    >
+      {items.map((it, i) => (
+        <button
+          key={it.label}
+          ref={(el) => {
+            itemRefs.current[i] = el;
+          }}
+          onClick={it.onClick}
+          style={{ transformOrigin: "center", willChange: "transform, margin" }}
+          className={cn(
+            "flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium",
+            it.primary
+              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm shadow-blue-500/30"
+              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+          )}
+        >
+          {it.icon} {it.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -451,13 +846,13 @@ function IconRailButton({
         onClick={onClick}
         aria-label={label}
         className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 [&_svg]:h-5 [&_svg]:w-5",
-          active && "bg-slate-900 text-white hover:bg-slate-900 hover:text-white"
+          "flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 [&_svg]:h-5 [&_svg]:w-5",
+          active && "bg-blue-100/70 text-blue-600 hover:bg-blue-100/70 hover:text-blue-600"
         )}
       >
         {icon}
       </button>
-      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100">
+      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100">
         {label}
       </span>
     </div>

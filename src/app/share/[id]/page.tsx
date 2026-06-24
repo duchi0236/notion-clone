@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { PageIcon } from "@/components/clawnote/pro/PageIcon";
+import { isFullHtmlDoc, stripSentinel } from "@/lib/html-doc";
 
 export default async function SharedPage({ params }: { params: { id: string } }) {
   const document = await prisma.document.findFirst({
@@ -9,6 +10,18 @@ export default async function SharedPage({ params }: { params: { id: string } })
   });
 
   if (!document) notFound();
+
+  // 整页 HTML 文档：全屏沙箱 iframe 呈现，保留原始设计与交互。
+  if (isFullHtmlDoc(document.contentHtml)) {
+    return (
+      <iframe
+        title={document.title}
+        className="h-screen w-screen border-0"
+        sandbox="allow-scripts allow-popups allow-forms allow-modals"
+        srcDoc={stripSentinel(document.contentHtml)}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-white px-6 py-16 text-slate-900">

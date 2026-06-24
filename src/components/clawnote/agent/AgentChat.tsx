@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Check, Copy, FileText, Plus, RotateCcw, Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "../pro/api";
+import { sanitizeSvg } from "@/lib/sanitize-svg";
 
 type ChatResult = {
   reply: string;
@@ -74,7 +75,7 @@ export function AgentChat({ onOpenDoc }: { onOpenDoc?: (id: string) => void }) {
   const empty = messages.length === 0;
 
   return (
-    <div className="flex h-screen flex-col bg-white">
+    <div className="flex h-full flex-col bg-white">
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className={cn("mx-auto w-full max-w-3xl px-5", empty ? "flex h-full flex-col justify-center" : "py-8")}>
           {empty ? (
@@ -184,7 +185,7 @@ function AssistantMessage({
           {message.streaming ? (
             <Typewriter text={message.content} onTick={onTick} onDone={onDone} />
           ) : (
-            <Markdown text={message.content} />
+            <RichContent text={message.content} />
           )}
         </div>
 
@@ -269,17 +270,163 @@ function Typewriter({ text, onTick, onDone }: { text: string; onTick: () => void
   return <span className="clawnote-caret whitespace-pre-wrap">{text.slice(0, len)}</span>;
 }
 
-// Lightweight, safe markdown: paragraphs, bullet lists, and **bold** (rendered as
-// React nodes — no innerHTML).
+// ---- 富内容渲染（类 Claude Code）：围栏代码块 / SVG / HTML / Markdown ----
+
+type ContentBlock =
+  | { type: "code"; lang: string; content: string }
+  | { type: "svg"; content: string }
+  | { type: "html"; content: string }
+  | { type: "image"; src: string; alt: string }
+  | { type: "md"; content: string };
+
+// 仅允许网络图与内联 data:image，过滤 javascript: 等
+function isSafeImgUrl(u: string) {
+  return /^(https?:\/\/|data:image\/)/i.test(u.trim());
+}
+
+// 把文本切成内容块：先抽围栏 ```lang ...```，文本段里再抽裸 <svg>…</svg> 与 <img …>。
+function parseBlocks(text: string): ContentBlock[] {
+  const blocks: ContentBlock[] = [];
+  const pushText = (t: string) => {
+    if (!t.trim()) return;
+    const re = /<svg[\s\S]*?<\/svg>|<img\b[^>]*>/gi;
+    let lt = 0;
+    let sm: RegExpExecArray | null;
+    while ((sm = re.exec(t))) {
+      const tag = sm[0];
+      let block: ContentBlock | null = null;
+      if (/^<svg/i.test(tag)) {
+        block = { type: "svg", content: tag };
+      } else {
+        const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1] ?? "";
+        const alt = /\balt\s*=\s*["']([^"']*)["']/i.exec(tag)?.[1] ?? "";
+        if (isSafeImgUrl(src)) block = { type: "image", src, alt };
+      }
+      // 仅对可渲染的标签切割；正文里只是「提到」的 <img> 文字原样保留
+      if (!block) continue;
+      const before = t.slice(lt, sm.index);
+      if (before.trim()) blocks.push({ type: "md", content: before });
+      blocks.push(block);
+      lt = sm.index + tag.length;
+    }
+    const rest = t.slice(lt);
+    if (rest.trim()) blocks.push({ type: "md", content: rest });
+  };
+
+  const fence = /```([\w+-]*)\n?([\s\S]*?)```/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = fence.exec(text))) {
+    pushText(text.slice(last, m.index));
+    const lang = (m[1] || "").toLowerCase();
+    const content = m[2].replace(/\n$/, "");
+    if (lang === "svg" || /^\s*<svg[\s>]/.test(content)) blocks.push({ type: "svg", content });
+    else if (lang === "html") blocks.push({ type: "html", content });
+    else blocks.push({ type: "code", lang, content });
+    last = m.index + m[0].length;
+  }
+  pushText(text.slice(last));
+  return blocks;
+}
+
+function RichContent({ text }: { text: string }) {
+  const blocks = useMemo(() => parseBlocks(text), [text]);
+  return (
+    <div className="space-y-2.5">
+      {blocks.map((b, i) => {
+        if (b.type === "code") return <CodeBlock key={i} lang={b.lang} content={b.content} />;
+        if (b.type === "svg") return <ChatSvg key={i} content={b.content} />;
+        if (b.type === "html") return <ChatHtml key={i} content={b.content} />;
+        if (b.type === "image") return <ChatImage key={i} src={b.src} alt={b.alt} />;
+        return <Markdown key={i} text={b.content} />;
+      })}
+    </div>
+  );
+}
+
+function CodeBlock({ lang, content }: { lang: string; content: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-800 bg-[#0d1117]">
+      <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5">
+        <span className="font-mono text-[11px] uppercase tracking-wide text-slate-400">{lang || "code"}</span>
+        <button
+          onClick={() => {
+            navigator.clipboard?.writeText(content);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-100"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? "已复制" : "复制"}
+        </button>
+      </div>
+      <pre className="overflow-x-auto px-4 py-3 text-[13px] leading-6">
+        <code className="font-mono text-slate-100">{content}</code>
+      </pre>
+    </div>
+  );
+}
+
+function ChatSvg({ content }: { content: string }) {
+  const safe = useMemo(() => sanitizeSvg(content), [content]);
+  if (!safe) return <CodeBlock lang="svg" content={content} />;
+  return (
+    <div
+      className="flex justify-center rounded-xl border border-slate-200 bg-white p-4 [&_svg]:h-auto [&_svg]:max-h-[440px] [&_svg]:max-w-full"
+      dangerouslySetInnerHTML={{ __html: safe }}
+    />
+  );
+}
+
+function ChatImage({ src, alt }: { src: string; alt: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!isSafeImgUrl(src) || broken) return null;
+  return (
+    <figure className="flex flex-col items-center gap-1.5">
+      {/* 模型生成 / 引用的图片；仅允许 http(s) 与 data:image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        onError={() => setBroken(true)}
+        className="max-h-[440px] max-w-full rounded-xl border border-slate-200 object-contain"
+      />
+      {alt && <figcaption className="text-xs text-slate-400">{alt}</figcaption>}
+    </figure>
+  );
+}
+
+function ChatHtml({ content }: { content: string }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <iframe
+        title="chat-html"
+        sandbox="allow-scripts allow-popups"
+        srcDoc={`<!doctype html><meta charset="utf-8"><style>html,body{margin:0}body{padding:10px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;font-size:14px;color:#0f172a}img{max-width:100%}</style>${content}`}
+        className="h-72 w-full border-0 bg-white"
+      />
+    </div>
+  );
+}
+
+// 安全 Markdown（React 节点，不用 innerHTML）：标题 / 有序无序列表 / 引用 / 分割线 / 表格 / 段落。
 function Markdown({ text }: { text: string }) {
   const lines = text.split("\n");
   const blocks: React.ReactNode[] = [];
-  let list: string[] = [];
-  const flush = (key: string) => {
-    if (!list.length) return;
+  let ul: string[] = [];
+  let ol: string[] = [];
+  let quote: string[] = [];
+  let table: string[] = [];
+
+  const flushUl = (k: string) => {
+    if (!ul.length) return;
+    const items = ul;
+    ul = [];
     blocks.push(
-      <ul key={key} className="my-1 space-y-1 pl-1">
-        {list.map((item, i) => (
+      <ul key={k} className="my-1 space-y-1 pl-1">
+        {items.map((item, i) => (
           <li key={i} className="flex gap-2">
             <span className="mt-2.5 h-1 w-1 shrink-0 rounded-full bg-slate-400" />
             <span>{inline(item)}</span>
@@ -287,27 +434,148 @@ function Markdown({ text }: { text: string }) {
         ))}
       </ul>,
     );
-    list = [];
   };
+  const flushOl = (k: string) => {
+    if (!ol.length) return;
+    const items = ol;
+    ol = [];
+    blocks.push(
+      <ol key={k} className="my-1 space-y-1 pl-1">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="mt-0.5 min-w-[1.1rem] text-right text-xs font-semibold text-slate-400">{i + 1}.</span>
+            <span>{inline(item)}</span>
+          </li>
+        ))}
+      </ol>,
+    );
+  };
+  const flushQuote = (k: string) => {
+    if (!quote.length) return;
+    const items = quote;
+    quote = [];
+    blocks.push(
+      <blockquote key={k} className="my-1 border-l-2 border-slate-300 pl-3 text-slate-600">
+        {items.map((q, i) => (
+          <p key={i}>{inline(q)}</p>
+        ))}
+      </blockquote>,
+    );
+  };
+  const flushTable = (k: string) => {
+    if (table.length < 2) {
+      // 不足以成表 → 当普通段落
+      table.forEach((t, i) => blocks.push(<p key={`${k}_${i}`} className="my-0.5">{inline(t)}</p>));
+      table = [];
+      return;
+    }
+    const rows = table;
+    table = [];
+    const cells = (row: string) =>
+      row.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim());
+    const head = cells(rows[0]);
+    const body = rows.slice(2).map(cells); // rows[1] 是分隔行
+    blocks.push(
+      <div key={k} className="my-1.5 overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50">
+              {head.map((h, i) => (
+                <th key={i} className="border-b border-slate-200 px-3 py-1.5 text-left font-semibold text-slate-700">{inline(h)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {body.map((r, ri) => (
+              <tr key={ri} className="border-b border-slate-100 last:border-0">
+                {r.map((c, ci) => (
+                  <td key={ci} className="px-3 py-1.5 text-slate-700">{inline(c)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>,
+    );
+  };
+  const flushAll = (k: string) => {
+    flushUl(`ul${k}`);
+    flushOl(`ol${k}`);
+    flushQuote(`q${k}`);
+    flushTable(`t${k}`);
+  };
+
   lines.forEach((raw, i) => {
     const line = raw.trimEnd();
-    const m = /^\s*[•\-*]\s+(.*)$/.exec(line);
-    if (m) {
-      list.push(m[1]);
+    const isTableRow = /^\s*\|.*\|\s*$/.test(line);
+    if (isTableRow) {
+      flushUl(`ul${i}`);
+      flushOl(`ol${i}`);
+      flushQuote(`q${i}`);
+      table.push(line);
+      return;
+    }
+    if (table.length) flushTable(`t${i}`);
+
+    const img = /^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(line);
+    const h = /^(#{1,6})\s+(.*)$/.exec(line);
+    const bullet = /^\s*[•\-*]\s+(.*)$/.exec(line);
+    const ordered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+    const bq = /^\s*>\s?(.*)$/.exec(line);
+    const hr = /^\s*(?:---|\*\*\*|___)\s*$/.test(line);
+
+    if (img && isSafeImgUrl(img[2])) {
+      flushAll(`${i}`);
+      blocks.push(<ChatImage key={`img${i}`} src={img[2]} alt={img[1]} />);
+    } else if (h) {
+      flushAll(`${i}`);
+      const level = h[1].length;
+      const sz = level <= 1 ? "text-lg" : level === 2 ? "text-base" : "text-[15px]";
+      blocks.push(<p key={`h${i}`} className={cn("mt-2 mb-0.5 font-semibold text-slate-900", sz)}>{inline(h[2])}</p>);
+    } else if (bullet) {
+      flushOl(`ol${i}`); flushQuote(`q${i}`);
+      ul.push(bullet[1]);
+    } else if (ordered) {
+      flushUl(`ul${i}`); flushQuote(`q${i}`);
+      ol.push(ordered[1]);
+    } else if (bq) {
+      flushUl(`ul${i}`); flushOl(`ol${i}`);
+      quote.push(bq[1]);
+    } else if (hr) {
+      flushAll(`${i}`);
+      blocks.push(<hr key={`hr${i}`} className="my-2.5 border-slate-200" />);
     } else {
-      flush(`l${i}`);
+      flushAll(`${i}`);
       if (line.trim()) blocks.push(<p key={`p${i}`} className="my-0.5">{inline(line)}</p>);
     }
   });
-  flush("lend");
+  flushAll("end");
   return <>{blocks}</>;
 }
 
+// 行内：![图](url) / **粗体** / `代码` / [文字](链接)
 function inline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((p, i) =>
-    /^\*\*[^*]+\*\*$/.test(p) ? <strong key={i} className="font-semibold text-slate-900">{p.slice(2, -2)}</strong> : <Fragment key={i}>{p}</Fragment>,
-  );
+  const parts = text.split(/(!\[[^\]]*\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
+  return parts.map((p, i) => {
+    const img = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(p);
+    if (img && isSafeImgUrl(img[2])) {
+      // eslint-disable-next-line @next/next/no-img-element
+      return <img key={i} src={img[2]} alt={img[1]} className="my-1 inline-block max-h-60 max-w-full rounded-lg border border-slate-200 align-middle" />;
+    }
+    if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={i} className="font-semibold text-slate-900">{p.slice(2, -2)}</strong>;
+    if (/^`[^`]+`$/.test(p)) return <code key={i} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[13px] text-rose-600">{p.slice(1, -1)}</code>;
+    const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(p);
+    if (link) {
+      const href = link[2];
+      const safeHref = /^(https?:|mailto:|\/)/i.test(href) ? href : "#";
+      return (
+        <a key={i} href={safeHref} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-700">
+          {link[1]}
+        </a>
+      );
+    }
+    return <Fragment key={i}>{p}</Fragment>;
+  });
 }
 
 function Dot({ delay = "0s" }: { delay?: string }) {

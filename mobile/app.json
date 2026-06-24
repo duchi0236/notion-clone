@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NSPhotoLibraryUsageDescription": "ClawNote 需要访问相册，以便把图片插入文档或上传为附件。"
       }
     },
     "android": {
@@ -29,6 +30,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      ["expo-image-picker", { "photosPermission": "ClawNote 需要访问相册，以便把图片插入文档或上传为附件。" }]
+    ],
     "extra": {
       "serverUrl": null
     }

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>快速采集</title>
+<style>
+  :root { --bg:#f6f7f9; --surface:#fff; --border:#e3e6eb; --text:#0f172a; --muted:#64748b; --faint:#94a3b8; --primary:#0f172a; --accent:#4f6bed; --danger:#dc2626; --success:#16a34a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); -webkit-user-select:none; }
+  .wrap { padding:18px; -webkit-app-region:drag; }
+  .head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .dot { width:22px; height:22px; border-radius:6px; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; }
+  .title { font-size:14px; font-weight:700; }
+  .hint { font-size:11px; color:var(--faint); margin-left:auto; }
+  textarea { -webkit-app-region:no-drag; -webkit-user-select:text; width:100%; height:120px; resize:none; border:1px solid var(--border); border-radius:10px; padding:12px; font-size:14px; line-height:1.5; color:var(--text); background:var(--surface); }
+  textarea:focus { outline:none; border-color:var(--accent); }
+  .actions { -webkit-app-region:no-drag; display:flex; align-items:center; gap:10px; margin-top:12px; }
+  .status { font-size:12px; color:var(--muted); margin-right:auto; min-height:16px; }
+  .status.err { color:var(--danger); }
+  .status.ok { color:var(--success); }
+  button { padding:9px 16px; border-radius:9px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:var(--surface); color:var(--text); }
+  button.primary { background:var(--primary); color:#fff; border:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="dot">C</div>
+    <div class="title">快速采集到收集箱</div>
+    <div class="hint">⌘↵ 发送 · Esc 关闭</div>
+  </div>
+  <textarea id="text" placeholder="随手记一条，回头在收集箱里转成文档或记忆…" autofocus></textarea>
+  <div class="actions">
+    <div class="status" id="status"></div>
+    <button onclick="window.clawnoteHost.closeCapture()">关闭</button>
+    <button class="primary" id="send" onclick="send()">采集</button>
+  </div>
+</div>
+<script>
+  const ta = document.getElementById("text");
+  const status = document.getElementById("status");
+  ta.focus();
+
+  async function send() {
+    const text = ta.value.trim();
+    if (!text) { fail("请输入内容"); return; }
+    document.getElementById("send").disabled = true;
+    status.className = "status"; status.textContent = "采集中…";
+    try {
+      const res = await window.clawnoteHost.capture(text);
+      if (res.ok) { status.className = "status ok"; status.textContent = "已采集 ✓"; setTimeout(() => window.clawnoteHost.closeCapture(), 500); }
+      else fail(res.reason || "采集失败");
+    } catch (e) { fail(e.message || "采集失败"); }
+  }
+  function fail(msg) { status.className = "status err"; status.textContent = msg; document.getElementById("send").disabled = false; }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") window.clawnoteHost.closeCapture();
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") send();
+  });
+</script>
+</body>
+</html>
