@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarPlus, ChevronLeft, ChevronRight, Download, Plus, Search, Sparkles, Upload, X } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Download, Loader2, Plus, Search, Sparkles, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDismiss } from "@/hooks/useDismiss";
 import { api, uid } from "../pro/api";
 import { colorStyle, COLOR_KEYS, type EventColor } from "./colors";
 import type { Calendar, CalendarEvent, CalendarView, Occurrence } from "./types";
@@ -59,9 +60,21 @@ export default function CalendarApp() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CalendarEvent[]>([]);
+  const [searchActive, setSearchActive] = useState(0);
   const [importNote, setImportNote] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [quickError, setQuickError] = useState(false);
   const notified = useRef<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  }, []);
+  useDismiss({ open: searchOpen, onClose: closeSearch, refs: [searchPanelRef, searchTriggerRef] });
 
   // ---- Visible range -------------------------------------------------------
   const range = useMemo(() => {
@@ -276,7 +289,18 @@ export default function CalendarApp() {
   // ---- Natural-language quick add ------------------------------------------
   function runQuickAdd() {
     const parsed = parseQuickEvent(quickText);
-    if (!parsed) return;
+    if (!parsed) {
+      // Couldn't read a time — open a blank draft with the raw text as title so
+      // the user can fill the time in, instead of failing silently.
+      const text = quickText.trim();
+      if (!text) return;
+      setQuickError(true);
+      const start = new Date(anchor);
+      start.setHours(9, 0, 0, 0);
+      setDraft({ ...newDraft(start, new Date(start.getTime() + 60 * 60 * 1000)), title: text });
+      return;
+    }
+    setQuickError(false);
     const base = newDraft(parsed.start, parsed.end, parsed.allDay);
     setDraft({ ...base, title: parsed.title });
     setQuickText("");
@@ -311,36 +335,49 @@ export default function CalendarApp() {
 
   // ---- ICS import / export -------------------------------------------------
   async function exportIcs() {
-    const res = await api<{ events: CalendarEvent[] }>("/api/calendar/events");
-    const all = res?.events ?? events;
-    const blob = new Blob([eventsToIcs(all)], { type: "text/calendar;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `clawnote-${new Date().toISOString().slice(0, 10)}.ics`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await api<{ events: CalendarEvent[] }>("/api/calendar/events");
+      const all = res?.events ?? events;
+      const blob = new Blob([eventsToIcs(all)], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clawnote-${new Date().toISOString().slice(0, 10)}.ics`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function importIcs(file: File) {
-    const text = await file.text();
-    const parsed = icsToEvents(text);
-    if (!parsed.length) {
-      setImportNote("未在文件中找到事件");
-      return;
+    if (importing) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = icsToEvents(text);
+      if (!parsed.length) {
+        setImportNote("未在文件中找到事件");
+        setTimeout(() => setImportNote(null), 4000);
+        return;
+      }
+      const cal = defaultCalendar();
+      let ok = 0;
+      for (const p of parsed) {
+        const res = await api<{ event: CalendarEvent }>("/api/calendar/events", {
+          method: "POST",
+          body: JSON.stringify({ ...p, calendarId: cal?.id ?? null, color: cal?.color ?? "blue", source: "IMPORTED" }),
+        });
+        if (res?.event) ok += 1;
+      }
+      setImportNote(`已导入 ${ok} / ${parsed.length} 个事件`);
+      await loadEvents();
+      setTimeout(() => setImportNote(null), 4000);
+    } finally {
+      setImporting(false);
     }
-    const cal = defaultCalendar();
-    let ok = 0;
-    for (const p of parsed) {
-      const res = await api<{ event: CalendarEvent }>("/api/calendar/events", {
-        method: "POST",
-        body: JSON.stringify({ ...p, calendarId: cal?.id ?? null, color: cal?.color ?? "blue", source: "IMPORTED" }),
-      });
-      if (res?.event) ok += 1;
-    }
-    setImportNote(`已导入 ${ok} / ${parsed.length} 个事件`);
-    await loadEvents();
-    setTimeout(() => setImportNote(null), 4000);
   }
 
   // ---- Navigation ----------------------------------------------------------
@@ -366,26 +403,45 @@ export default function CalendarApp() {
       {/* Toolbar */}
       <header className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3">
         <h1 className="mr-2 min-w-[200px] text-lg font-semibold text-slate-900">{title}</h1>
-        <button onClick={() => shift(-1)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
+        <button
+          onClick={() => shift(-1)}
+          aria-label="上一段时间"
+          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 active:bg-slate-200"
+        >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <button
           onClick={() => setAnchor(new Date())}
-          className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100 active:bg-slate-200"
         >
           今天
         </button>
-        <button onClick={() => shift(1)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
+        <button
+          onClick={() => shift(1)}
+          aria-label="下一段时间"
+          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 active:bg-slate-200"
+        >
           <ChevronRight className="h-4 w-4" />
         </button>
 
-        <div className="ml-2 flex rounded-lg border border-slate-200 p-0.5">
-          {(["day", "week", "month", "year"] as CalendarView[]).map((v) => (
+        <div role="tablist" aria-label="视图" className="ml-2 flex rounded-lg border border-slate-200 p-0.5">
+          {(["day", "week", "month", "year"] as CalendarView[]).map((v, i, arr) => (
             <button
               key={v}
+              role="tab"
+              aria-selected={view === v}
+              tabIndex={view === v ? 0 : -1}
               onClick={() => setView(v)}
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                e.preventDefault();
+                const next = e.key === "ArrowRight" ? (i + 1) % arr.length : (i - 1 + arr.length) % arr.length;
+                setView(arr[next]);
+                const tabs = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+                tabs?.[next]?.focus();
+              }}
               className={cn(
-                "rounded-md px-3 py-1 text-sm",
+                "rounded-md px-3 py-1 text-sm active:scale-[.98]",
                 view === v ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100",
               )}
             >
@@ -436,28 +492,40 @@ export default function CalendarApp() {
 
       {/* Secondary toolbar: quick add + search + import/export */}
       <div className="relative flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/60 px-4 py-2">
-        <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5">
-          <Sparkles className="h-4 w-4 text-violet-500" />
+        <div
+          className={cn(
+            "flex min-w-[260px] flex-1 items-center gap-2 rounded-lg border bg-white px-3 py-1.5",
+            quickError ? "border-red-300" : "border-slate-200",
+          )}
+        >
+          <Sparkles className={cn("h-4 w-4", quickError ? "text-red-400" : "text-violet-500")} />
           <input
             value={quickText}
-            onChange={(e) => setQuickText(e.target.value)}
+            onChange={(e) => {
+              setQuickText(e.target.value);
+              if (quickError) setQuickError(false);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") runQuickAdd();
             }}
-            placeholder="快速添加：明天 下午3点 和张三开会 1小时"
+            aria-invalid={quickError}
+            placeholder={quickError ? "无法识别时间，已用原文新建，请补充时间" : "快速添加：明天 下午3点 和张三开会 1小时"}
             className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
           />
           {quickText && (
-            <button onClick={runQuickAdd} className="rounded-md bg-slate-900 px-2 py-0.5 text-xs text-white hover:bg-slate-700">
+            <button onClick={runQuickAdd} className="rounded-md bg-slate-900 px-2 py-0.5 text-xs text-white hover:bg-slate-700 active:bg-slate-600">
               添加
             </button>
           )}
         </div>
 
         <button
+          ref={searchTriggerRef}
           onClick={() => setSearchOpen((v) => !v)}
+          aria-expanded={searchOpen}
+          aria-haspopup="dialog"
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm",
+            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm active:bg-slate-100",
             searchOpen ? "border-slate-300 bg-white text-slate-900" : "border-slate-200 text-slate-600 hover:bg-white",
           )}
         >
@@ -466,17 +534,21 @@ export default function CalendarApp() {
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-white"
+          disabled={importing}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-white active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
           title="从 .ics 文件导入"
         >
-          <Upload className="h-4 w-4" /> 导入
+          {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {importing ? "导入中…" : "导入"}
         </button>
         <button
           onClick={exportIcs}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-white"
+          disabled={exporting}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-white active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
           title="导出为 .ics 文件"
         >
-          <Download className="h-4 w-4" /> 导出
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {exporting ? "导出中…" : "导出"}
         </button>
         {importNote && <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">{importNote}</span>}
         <input
@@ -493,17 +565,37 @@ export default function CalendarApp() {
 
         {/* Search dropdown */}
         {searchOpen && (
-          <div className="absolute left-4 right-4 top-full z-30 mt-1 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+          <div
+            ref={searchPanelRef}
+            role="dialog"
+            aria-label="搜索事件"
+            className="absolute left-4 right-4 top-full z-30 mt-1 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+          >
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5">
               <Search className="h-4 w-4 text-slate-400" />
               <input
                 autoFocus
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSearchActive(0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setSearchActive((i) => Math.min(i + 1, searchResults.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setSearchActive((i) => Math.max(i - 1, 0));
+                  } else if (e.key === "Enter") {
+                    const ev = searchResults[searchActive];
+                    if (ev) openSearchResult(ev);
+                  }
+                }}
                 placeholder="搜索全部事件的标题、地点、备注…"
                 className="flex-1 bg-transparent text-sm outline-none"
               />
-              <button onClick={() => setSearchOpen(false)} className="text-slate-400 hover:text-slate-700">
+              <button onClick={closeSearch} aria-label="关闭搜索" className="text-slate-400 hover:text-slate-700">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -511,14 +603,18 @@ export default function CalendarApp() {
               {searchQuery.trim() && searchResults.length === 0 && (
                 <p className="px-3 py-4 text-center text-sm text-slate-400">没有匹配的事件</p>
               )}
-              {searchResults.map((ev) => {
+              {searchResults.map((ev, i) => {
                 const c = colorStyle(ev.color);
                 const d = new Date(ev.startsAt);
                 return (
                   <button
                     key={ev.id}
                     onClick={() => openSearchResult(ev)}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                    onMouseEnter={() => setSearchActive(i)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-slate-50",
+                      i === searchActive && "bg-slate-100",
+                    )}
                   >
                     <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", c.dot)} />
                     <span className="flex-1 truncate text-sm text-slate-800">{ev.title}</span>
@@ -534,7 +630,24 @@ export default function CalendarApp() {
       </div>
 
       {/* Body */}
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
+        {view !== "year" && occurrences.length === 0 && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <div className="claw-solid pointer-events-auto flex flex-col items-center gap-2 rounded-2xl border border-slate-200 px-6 py-5 text-center shadow-sm">
+              <p className="text-sm text-slate-400">这段时间还没有事件</p>
+              <button
+                onClick={() => {
+                  const start = new Date(anchor);
+                  start.setHours(9, 0, 0, 0);
+                  setDraft(newDraft(start, new Date(start.getTime() + 60 * 60 * 1000)));
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm hover:bg-slate-50 active:bg-slate-100"
+              >
+                <Plus className="h-4 w-4" /> 新建事件
+              </button>
+            </div>
+          </div>
+        )}
         {view === "year" ? (
           <YearView
             year={anchor.getFullYear()}
@@ -559,6 +672,10 @@ export default function CalendarApp() {
             }}
             onOpen={(occ) => setDraft(eventToDraft(occ.event))}
             onMoveToDay={moveToDay}
+            onExpandDay={(day) => {
+              setAnchor(day);
+              setView("day");
+            }}
           />
         ) : (
           <TimeGridView

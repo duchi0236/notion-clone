@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { LOCAL_MODE } from "@/lib/runtime-mode";
 
 export async function getSessionUser() {
   const session = await getServerSession(authOptions).catch(() => null);
@@ -10,7 +11,7 @@ export async function getSessionUser() {
 
 export async function canAccessWorkspace(workspaceId: string) {
   const user = await getSessionUser();
-  if (!user) return true; // local-first mode for personal deployment
+  if (!user) return LOCAL_MODE; // anonymous access only in explicit local mode
 
   const member = await prisma.workspaceMember.findUnique({
     where: {
@@ -26,7 +27,7 @@ export async function canAccessWorkspace(workspaceId: string) {
 
 export async function canWriteWorkspace(workspaceId: string) {
   const user = await getSessionUser();
-  if (!user) return true;
+  if (!user) return LOCAL_MODE;
 
   const member = await prisma.workspaceMember.findUnique({
     where: {

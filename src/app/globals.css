@@ -3,10 +3,15 @@
 @tailwind utilities;
 
 /* Keyboard accessibility: visible focus ring for keyboard navigation only
-   (mouse clicks don't trigger :focus-visible). The editor manages its own focus. */
+   (mouse clicks don't trigger :focus-visible). The editor manages its own focus.
+   High-contrast blue ring, consistent across light / dark / glass. */
 :focus-visible {
-  outline: 2px solid rgb(148 163 184 / 0.9);
-  outline-offset: 1px;
+  outline: 2px solid rgb(37 99 235 / 0.9);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+html.dark :focus-visible {
+  outline-color: rgb(96 165 250 / 0.95);
 }
 .ProseMirror:focus-visible,
 .ProseMirror *:focus-visible {
@@ -170,7 +175,7 @@ html.dark body {
   height: 1.05em;
   margin-left: 1px;
   vertical-align: text-bottom;
-  background: #0f172a;
+  background: currentColor;
   animation: clawnote-caret 1s step-end infinite;
 }
 
@@ -184,6 +189,10 @@ html.dark body {
   --accent: 210 40% 96.1%;
   --accent-foreground: 222.2 47.4% 11.2%;
   --border: 214.3 31.8% 91.4%;
+  /* Motion design tokens — shared duration/easing so components stay consistent. */
+  --claw-duration-fast: 150ms;
+  --claw-duration: 220ms;
+  --claw-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
@@ -270,6 +279,17 @@ body {
 .ProseMirror ol {
   padding-left: 1.5em;
   margin: 0.65rem 0;
+}
+/* Tailwind preflight 会把 list-style 清空，这里为编辑器恢复项目符号
+   （taskList 在下方规则里以更高特异度重新置 none，不受影响） */
+.ProseMirror ul {
+  list-style: disc;
+}
+.ProseMirror ol {
+  list-style: decimal;
+}
+.ProseMirror li::marker {
+  color: #94a3b8;
 }
 
 .ProseMirror blockquote {
@@ -428,8 +448,14 @@ body {
 }
 
 /* Row hover highlight (data rows) */
+.ProseMirror td {
+  transition: background-color 120ms ease;
+}
 .ProseMirror tr:hover td {
   background: #f8fafc;
+}
+html.dark .ProseMirror tr:hover td {
+  background: #1b1f27;
 }
 
 /* Selected cell / row / column highlight (drag-select across cells) */
@@ -738,18 +764,33 @@ html.dark .claw-canvas {
 .claw-paper-sheet:hover > div {
   box-shadow: 0 34px 84px -30px rgba(15, 23, 42, 0.42), 0 8px 22px -16px rgba(15, 23, 42, 0.16) !important;
 }
+/* 外观可调：模糊/透明度/圆角由设置页滑块写入这些变量（document.documentElement） */
+:root {
+  --glass-blur: 20px;
+  --glass-alpha: 0.72;
+  --glass-alpha-dark: 0.66;
+  --claw-radius: 24px;
+}
+/* 让浏览器原生控件（输入框/文本域/复选框/日期/滚动条）跟随主题渲染，
+   根治深色下原生控件发白、露浅色 UA 底/边框的问题。 */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
 .claw-dock,
 .claw-panel {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  background: rgba(255, 255, 255, var(--glass-alpha));
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 24px;
+  border-radius: var(--claw-radius);
   box-shadow: 0 22px 50px -24px rgba(15, 23, 42, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 html.dark .claw-dock,
 html.dark .claw-panel {
-  background: rgba(22, 27, 37, 0.66);
+  background: rgba(22, 27, 37, var(--glass-alpha-dark));
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 22px 50px -24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
@@ -767,7 +808,7 @@ html:not(.glass).dark .claw-panel {
 /* 不透明纸张：文档 / 表格 / 日历等数据与长文内容（规格要求禁止透明） */
 .claw-paper {
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: var(--claw-radius);
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 22px 50px -24px rgba(15, 23, 42, 0.3);
 }
@@ -787,4 +828,142 @@ html.glass .claw-solid {
 html.dark .claw-solid,
 html.glass.dark .claw-solid {
   background-color: #1c2128 !important;
+}
+/* claw-solid 是标准不透明纸面：玻璃的"发丝高光边"（半透明白）在白底上不可见，
+   此处恢复设计既定的 slate 边框色 */
+html.glass .claw-solid .border-slate-100,
+html.glass .claw-solid .border-slate-200 {
+  border-color: #e2e8f0 !important;
+}
+html.glass.dark .claw-solid .border-slate-100,
+html.glass.dark .claw-solid .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ===========================================================================
+   Interaction polish — applies app-wide (added in the interaction pass).
+   =========================================================================== */
+
+/* Custom scrollbars: thin, theme-aware, unobtrusive on glass/dark surfaces. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.65);
+  background-clip: content-box;
+}
+html.dark * {
+  scrollbar-color: rgba(148, 163, 184, 0.32) transparent;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  background-clip: content-box;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+  background-clip: content-box;
+}
+
+/* Press feedback: a subtle, consistent "pressed" cue on real buttons and
+   role=button elements. Skipped for disabled and for the dock (its scale is
+   driven per-frame by rAF, so we use brightness instead of transform there). */
+button:active:not(:disabled):not([aria-disabled="true"]),
+[role="button"]:active:not([aria-disabled="true"]) {
+  transform: translateY(0.5px);
+}
+.claw-dock button:active:not(:disabled),
+.claw-dock [role="button"]:active {
+  transform: none;
+  filter: brightness(0.96);
+}
+.ProseMirror a:active {
+  color: #1e40af;
+}
+
+/* Glass paper / sheet: smooth the elevation change on hover. */
+.claw-paper-sheet > div {
+  transition: box-shadow var(--claw-duration) var(--claw-ease),
+    transform var(--claw-duration) var(--claw-ease);
+}
+
+/* Editor column-resize handle: keep the 3px visual but widen the hit area so it
+   is grabbable (and reachable on coarse pointers). */
+.ProseMirror .column-resize-handle {
+  width: 8px;
+  right: -4px;
+  background-color: transparent;
+}
+.ProseMirror .column-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  background-color: #2563eb;
+}
+
+/* Contain scroll chaining inside scrollable panes / popovers / drawers. */
+.tableWrapper,
+.ProseMirror pre,
+[data-claw-scroll] {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 裸表单控件（没写任何 bg-* 类）在 color-scheme:dark 下会拿到浏览器 UA 的
+   灰底（rgb(59,59,59)），在深色工具栏/弹层里冒出亮块。统一改为透明继承所在
+   表面；显式写了 bg-* 的控件不受影响（类选择器特异度更高）。 */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  background-color: transparent;
+}
+
+/* 材质/温度等 range 滑块：主题色 + 深色下轨道不再刺眼的纯白 */
+input[type="range"] {
+  accent-color: #2563eb;
+}
+
+/* Reduced motion: respect the OS setting. Neutralises every declarative
+   animation/transition and smooth scroll. JS-driven motion (MacDock rAF,
+   typewriter, programmatic smooth scroll) is gated separately via matchMedia. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .clawnote-msg-in {
+    animation: none !important;
+  }
+  .clawnote-caret::after {
+    animation: none !important;
+    opacity: 1;
+  }
+  .animate-spin {
+    animation: none !important;
+  }
+  button:active:not(:disabled),
+  [role="button"]:active {
+    transform: none;
+  }
 }

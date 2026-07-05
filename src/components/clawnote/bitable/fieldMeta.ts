@@ -1,4 +1,4 @@
-import type { BitableContext, Field, Filter, FilterOp, Row, SelectOption, Sort } from "./types";
+import type { AttachmentValue, BitableContext, Field, Filter, FilterGroup, FilterOp, FormatRule, Row, SelectOption, Sort } from "./types";
 
 // Option color palette for select / multiSelect chips.
 export const OPTION_COLORS: Record<string, { chip: string; dot: string }> = {
@@ -69,9 +69,22 @@ export function formatValue(field: Field, value: unknown, ctx?: BitableContext):
       if (!ctx || !field.linkTableId) return `${ids.length} 条`;
       return ids.map((id) => ctx.primaryValue(field.linkTableId as string, String(id))).filter(Boolean).join(", ");
     }
+    case "attachment": {
+      const files = Array.isArray(value) ? (value as AttachmentValue[]) : [];
+      return files.map((f) => f.name).join(", ");
+    }
     default:
       return String(value);
   }
+}
+
+// createdBy/modifiedBy 的值来自行元数据而非 row.data —— 取值统一走这里
+export function cellValue(field: Field, row: Row): unknown {
+  if (field.type === "createdBy") return row.createdBy ?? "";
+  if (field.type === "modifiedBy") return row.updatedBy ?? "";
+  if (field.type === "createdTime") return row.createdAt ? row.createdAt.slice(0, 10) : (row.data[field.id] ?? "");
+  if (field.type === "modifiedTime") return row.updatedAt ? row.updatedAt.slice(0, 10) : (row.data[field.id] ?? "");
+  return row.data[field.id];
 }
 
 // Resolve a lookup field's value by reading linked records' target field.
@@ -151,23 +164,68 @@ export function compareValues(field: Field, a: unknown, b: unknown): number {
   return formatValue(field, a).localeCompare(formatValue(field, b), "zh-CN");
 }
 
+// 嵌套条件组求值：conditions 与 groups 按 combinator 合并；空组视为通过。
+export function matchGroup(row: Row, schema: Field[], group: FilterGroup): boolean {
+  const byId = new Map(schema.map((f) => [f.id, f]));
+  const results: boolean[] = [];
+  for (const flt of group.conditions) {
+    const f = byId.get(flt.fieldId);
+    if (f) results.push(matchFilter(f, cellValue(f, row), flt));
+  }
+  for (const g of group.groups ?? []) results.push(matchGroup(row, schema, g));
+  if (results.length === 0) return true;
+  return group.combinator === "or" ? results.some(Boolean) : results.every(Boolean);
+}
+
+// 旧版扁平 filters 迁移为一个 and 组（Toolbar 编辑时调用，View 持久化 filterGroup）
+export function toFilterGroup(filters: Filter[] | undefined, group: FilterGroup | null | undefined): FilterGroup {
+  if (group) return group;
+  return { id: "root", combinator: "and", conditions: filters ?? [], groups: [] };
+}
+
+// 条件格式：返回 row 命中的规则（scope=row 的整行规则 + scope=cell 的按列规则）
+export function matchFormats(row: Row, schema: Field[], formats: FormatRule[] | undefined): { rowColor?: string; cellColors: Record<string, string> } {
+  const out: { rowColor?: string; cellColors: Record<string, string> } = { cellColors: {} };
+  for (const rule of formats ?? []) {
+    if (!matchGroup(row, schema, rule.when)) continue;
+    if (rule.scope === "row" && !out.rowColor) out.rowColor = rule.color;
+    if (rule.scope === "cell" && rule.fieldId && !out.cellColors[rule.fieldId]) out.cellColors[rule.fieldId] = rule.color;
+  }
+  return out;
+}
+
+// 条件格式着色（浅底，深色下由 .dark 重映射）
+export const FORMAT_TINTS: Record<string, string> = {
+  gray: "bg-slate-100",
+  red: "bg-red-50",
+  orange: "bg-orange-50",
+  yellow: "bg-yellow-50",
+  green: "bg-green-50",
+  teal: "bg-teal-50",
+  blue: "bg-blue-50",
+  purple: "bg-purple-50",
+  pink: "bg-pink-50",
+};
+
 // Apply a view's filters + sorts to a table's rows.
-export function applyView(rows: Row[], schema: Field[], filters: Filter[], sorts: Sort[], search: string): Row[] {
+export function applyView(rows: Row[], schema: Field[], filters: Filter[], sorts: Sort[], search: string, filterGroup?: FilterGroup | null): Row[] {
   const byId = new Map(schema.map((f) => [f.id, f]));
   let out = rows;
 
-  if (filters.length) {
+  if (filterGroup && (filterGroup.conditions.length || filterGroup.groups?.length)) {
+    out = out.filter((row) => matchGroup(row, schema, filterGroup));
+  } else if (filters.length) {
     out = out.filter((row) =>
       filters.every((flt) => {
         const f = byId.get(flt.fieldId);
-        return f ? matchFilter(f, row.data[flt.fieldId], flt) : true;
+        return f ? matchFilter(f, cellValue(f, row), flt) : true;
       }),
     );
   }
 
   if (search.trim()) {
     const q = search.trim().toLowerCase();
-    out = out.filter((row) => schema.some((f) => formatValue(f, row.data[f.id]).toLowerCase().includes(q)));
+    out = out.filter((row) => schema.some((f) => formatValue(f, cellValue(f, row)).toLowerCase().includes(q)));
   }
 
   if (sorts.length) {
@@ -175,7 +233,7 @@ export function applyView(rows: Row[], schema: Field[], filters: Filter[], sorts
       for (const s of sorts) {
         const f = byId.get(s.fieldId);
         if (!f) continue;
-        const cmp = compareValues(f, ra.data[s.fieldId], rb.data[s.fieldId]);
+        const cmp = compareValues(f, cellValue(f, ra), cellValue(f, rb));
         if (cmp !== 0) return s.dir === "asc" ? cmp : -cmp;
       }
       return ra.sortIndex - rb.sortIndex;

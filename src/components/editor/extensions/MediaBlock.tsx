@@ -2,7 +2,7 @@
 
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Film, ImageIcon, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,8 +60,20 @@ function MediaView(props: NodeViewProps) {
   const [prompt, setPrompt] = useState(savedPrompt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [shake, setShake] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const shakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
+
+  // 空 prompt 时给输入框抖动 + 聚焦提示（计时器去抖并在卸载时清理，避免在已卸载节点上 setState）
+  const flagEmpty = useCallback(() => {
+    inputRef.current?.focus();
+    setShake(true);
+    if (shakeTimer.current) clearTimeout(shakeTimer.current);
+    shakeTimer.current = setTimeout(() => setShake(false), 400);
+  }, []);
+  useEffect(() => () => { if (shakeTimer.current) clearTimeout(shakeTimer.current); }, []);
 
   const hasResult = !!url || !!poster;
 
@@ -92,6 +104,15 @@ function MediaView(props: NodeViewProps) {
   return (
     <NodeViewWrapper className="my-3">
       <div className={cn("overflow-hidden rounded-xl bg-white ring-1 ring-slate-200", props.selected && "ring-2 ring-blue-400")}>
+        {/* 生成中骨架（尚无结果时） */}
+        {loading && !hasResult && (
+          <div className="flex h-44 items-center justify-center bg-slate-900/[0.03]" contentEditable={false}>
+            <div className="flex flex-col items-center gap-2 text-slate-400">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-xs">{kind === "image" ? "正在生成图片…" : "正在生成视频…"}</span>
+            </div>
+          </div>
+        )}
         {/* 结果区 */}
         {hasResult && (
           <div className="group/m relative bg-slate-900/[0.03]">
@@ -128,16 +149,25 @@ function MediaView(props: NodeViewProps) {
             {kind === "image" ? <ImageIcon className="h-4 w-4" /> : <Film className="h-4 w-4" />}
           </span>
           <input
+            ref={inputRef}
             value={prompt}
+            disabled={loading}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
+                if (!prompt.trim()) {
+                  flagEmpty();
+                  return;
+                }
                 void generate();
               }
             }}
             placeholder={kind === "image" ? "描述要生成的图片…" : "描述要生成的视频…"}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+            className={cn(
+              "min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400 disabled:opacity-50",
+              shake && "animate-shake",
+            )}
           />
           <button
             type="button"

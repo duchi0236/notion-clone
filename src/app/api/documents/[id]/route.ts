@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createDocumentVersion, htmlToText, summarize, upsertSearchIndex } from "@/lib/clawnote-store";
+import { createDocumentVersion, ensureWorkspace, htmlToText, summarize, upsertSearchIndex } from "@/lib/clawnote-store";
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  const document = await prisma.document.findUnique({
-    where: { id: params.id },
+  const { workspace } = await ensureWorkspace();
+  const document = await prisma.document.findFirst({
+    where: { id: params.id, workspaceId: workspace.id },
     include: {
       versions: { orderBy: { version: "desc" }, take: 20 },
       comments: { orderBy: { createdAt: "asc" } },
@@ -17,7 +18,10 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json().catch(() => ({}));
-  const existing = await prisma.document.findUnique({ where: { id: params.id } });
+  const { workspace } = await ensureWorkspace();
+  const existing = await prisma.document.findFirst({
+    where: { id: params.id, workspaceId: workspace.id },
+  });
   if (!existing) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
   const contentHtml = body.contentHtml ?? body.html ?? existing.contentHtml;
@@ -61,6 +65,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   // ?permanent=true 彻底删除（不可恢复）；否则软删除进回收站
+  const { workspace } = await ensureWorkspace();
+  const existing = await prisma.document.findFirst({
+    where: { id: params.id, workspaceId: workspace.id },
+  });
+  if (!existing) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+
   const permanent = new URL(req.url).searchParams.get("permanent") === "true";
   if (permanent) {
     await prisma.document.delete({ where: { id: params.id } }).catch(() => null);

@@ -12,12 +12,14 @@ export function MonthView({
   onCreate,
   onOpen,
   onMoveToDay,
+  onExpandDay,
 }: {
   anchor: Date;
   occurrences: Occurrence[];
   onCreate: (day: Date) => void;
   onOpen: (occ: Occurrence) => void;
   onMoveToDay: (occ: Occurrence, day: Date) => void;
+  onExpandDay: (day: Date) => void;
 }) {
   const cells = useMemo(() => monthGrid(anchor), [anchor]);
   const [dragKey, setDragKey] = useState<string | null>(null);
@@ -53,7 +55,10 @@ export function MonthView({
           const inMonth = cell.getMonth() === anchor.getMonth();
           const dayEvents = (byDay.get(cell.getTime()) ?? []).slice(0, 4);
           const total = byDay.get(cell.getTime())?.length ?? 0;
-          const isOver = overDay === cell.getTime();
+          // Origin day of the event being dragged — don't highlight/flag a no-op move back to it.
+          const draggedOcc = dragKey ? occurrences.find((o) => o.key === dragKey) : undefined;
+          const isOrigin = draggedOcc ? startOfDay(draggedOcc.start).getTime() === cell.getTime() : false;
+          const isOver = overDay === cell.getTime() && !isOrigin;
           return (
             <div
               key={cell.getTime()}
@@ -66,13 +71,12 @@ export function MonthView({
               }}
               onDrop={() => {
                 const occ = occurrences.find((o) => o.key === dragKey);
-                if (occ) onMoveToDay(occ, cell);
+                if (occ && !isOrigin) onMoveToDay(occ, cell);
                 setDragKey(null);
                 setOverDay(null);
               }}
               className={cn(
-                "group min-h-0 border-b border-r border-slate-100 p-1 text-left",
-                !inMonth && "bg-slate-50/60",
+                "group min-h-0 border-b border-r border-slate-100 p-1 text-left focus-visible:relative focus-visible:z-10",
                 isOver && "bg-blue-50 ring-1 ring-inset ring-blue-300",
               )}
             >
@@ -80,20 +84,21 @@ export function MonthView({
                 <span
                   className={cn(
                     "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs",
-                    isToday(cell) ? "bg-red-500 font-semibold text-white" : inMonth ? "text-slate-700" : "text-slate-400",
+                    isToday(cell) ? "bg-red-500 font-semibold text-white" : inMonth ? "text-slate-700" : "text-slate-300",
                   )}
                 >
                   {cell.getDate()}
                 </span>
                 <button
                   onClick={() => onCreate(cell)}
-                  className="hidden h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 group-hover:flex"
+                  aria-label="新建事件"
+                  className="hidden h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 group-hover:flex group-focus-within:flex [@media(hover:none)]:flex"
                   title="新建事件"
                 >
                   +
                 </button>
               </div>
-              <div className="mt-0.5 space-y-0.5">
+              <div className={cn("mt-0.5 space-y-0.5", !inMonth && "opacity-60")}>
                 {dayEvents.map((occ) => {
                   const c = colorStyle(occ.event.color);
                   return (
@@ -107,7 +112,8 @@ export function MonthView({
                       }}
                       onClick={() => onOpen(occ)}
                       className={cn(
-                        "flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[11px] leading-4 hover:brightness-95",
+                        "flex w-full cursor-grab items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[11px] leading-4 hover:brightness-95 active:cursor-grabbing",
+                        dragKey && "[&_*]:pointer-events-none",
                         occ.event.allDay ? cn(c.dot, "text-white") : c.soft,
                       )}
                     >
@@ -119,7 +125,7 @@ export function MonthView({
                 })}
                 {total > dayEvents.length && (
                   <button
-                    onClick={() => onCreate(startOfDay(cell))}
+                    onClick={() => onExpandDay(startOfDay(cell))}
                     className="px-1 text-[11px] text-slate-400 hover:text-slate-600"
                   >
                     还有 {total - dayEvents.length} 项

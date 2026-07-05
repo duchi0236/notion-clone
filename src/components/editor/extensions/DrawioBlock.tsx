@@ -119,7 +119,7 @@ function DrawioView(props: NodeViewProps) {
         <div className={cn("group/draw relative inline-block max-w-full rounded-lg", props.selected && "ring-2 ring-blue-400")}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="diagram" className="max-w-full rounded-lg" draggable={false} onDoubleClick={() => setOpen(true)} />
-          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-lg border border-slate-200 bg-white/95 p-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-hover/draw:opacity-100" contentEditable={false}>
+          <div className={cn("absolute right-2 top-2 flex items-center gap-1 rounded-lg border border-slate-200 bg-white/95 p-0.5 opacity-0 shadow-md backdrop-blur transition-opacity group-hover/draw:opacity-100 group-focus-within/draw:opacity-100 [@media(hover:none)]:opacity-100", props.selected && "opacity-100")} contentEditable={false}>
             <button type="button" onClick={() => setOpen(true)} title="编辑绘图" className="flex h-7 w-7 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-900">
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -284,13 +284,21 @@ function DrawioEditorModal({
     };
   }, [onSave, onXmlSaved, onClose]);
 
+  // Esc 关闭弹窗。drawio 内嵌 iframe 会抢焦点，故用 window 级监听而非焦点陷阱。
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return createPortal(
     <div className="fixed inset-0 z-[100] flex flex-col bg-slate-900/60 p-3 sm:p-6" contentEditable={false}>
       <div className="flex h-full flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-slate-200 px-4">
           <span className="text-sm font-semibold text-slate-800">绘图 · draw.io</span>
           <div className="flex items-center gap-3">
-            {!ready && <span className="text-xs text-slate-400">正在加载画布…（需可访问 {DRAWIO_ORIGIN}）</span>}
             {exporting && (
               <span className="flex items-center gap-1.5 text-xs text-blue-600">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> 已保存，正在生成预览…
@@ -302,7 +310,15 @@ function DrawioEditorModal({
             </button>
           </div>
         </div>
-        <iframe ref={frameRef} src={DRAWIO_SRC} title="draw.io" className="h-full w-full flex-1 border-0" />
+        <div className="relative min-h-0 flex-1">
+          <iframe ref={frameRef} src={DRAWIO_SRC} title="draw.io" className="h-full w-full border-0" />
+          {!ready && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white text-slate-400" aria-hidden>
+              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+              <span className="text-xs">正在加载画布…（需可访问 {DRAWIO_ORIGIN}）</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>,
     document.body,

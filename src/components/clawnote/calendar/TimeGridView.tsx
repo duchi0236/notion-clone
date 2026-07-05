@@ -2,9 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { colorStyle } from "./colors";
 import type { Occurrence } from "./types";
 import { MS_DAY, WEEKDAYS, fmtHour, fmtTime, isSameDay, isToday, startOfDay } from "./dates";
+
+// Format a minute-of-day offset as a HH:MM label for drag previews.
+function fmtMin(min: number) {
+  const clamped = Math.max(0, Math.min(DAY_MIN, Math.round(min)));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 const HOUR_H = 48; // px per hour
 const SNAP_MIN = 15;
@@ -82,6 +91,7 @@ export function TimeGridView({
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   dragRef.current = drag;
+  const reduced = useReducedMotion();
 
   // Scroll to ~8am on mount.
   useEffect(() => {
@@ -250,7 +260,7 @@ export function TimeGridView({
                 ref={(el) => {
                   colRefs.current[dayIndex] = el;
                 }}
-                className="relative flex-1 border-l border-slate-100"
+                className="relative flex-1 cursor-cell border-l border-slate-100"
                 onMouseDown={(e) => {
                   if (e.button !== 0 || e.target !== e.currentTarget) return;
                   const m = yToMinutes(dayIndex, e.clientY);
@@ -268,12 +278,14 @@ export function TimeGridView({
                 {/* Create preview */}
                 {drag?.mode === "create" && drag.dayIndex === dayIndex && (
                   <div
-                    className="pointer-events-none absolute left-1 right-1 rounded bg-blue-400/40 ring-1 ring-blue-500"
+                    className="pointer-events-none absolute left-1 right-1 overflow-hidden rounded bg-blue-400/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-900 ring-1 ring-blue-500"
                     style={{
                       top: (Math.min(drag.anchorMin, drag.curMin) / 60) * HOUR_H,
                       height: Math.max((Math.abs(drag.curMin - drag.anchorMin) / 60) * HOUR_H, 4),
                     }}
-                  />
+                  >
+                    {fmtMin(Math.min(drag.anchorMin, drag.curMin))} – {fmtMin(Math.max(drag.anchorMin, drag.curMin))}
+                  </div>
                 )}
 
                 {/* Timed events */}
@@ -294,9 +306,13 @@ export function TimeGridView({
                   }
 
                   const widthPct = 100 / lay.cols;
+                  const timeLabel = isDragging ? `${fmtMin(startMin)} – ${fmtMin(endMin)}` : fmtTime(occ.start);
                   return (
                     <div
                       key={occ.key}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${occ.event.title}，${fmtTime(occ.start)}`}
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         const grabMin = yToMinutes(dayIndex, e.clientY);
@@ -313,11 +329,18 @@ export function TimeGridView({
                         e.stopPropagation();
                         onOpen(occ);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpen(occ);
+                        }
+                      }}
                       className={cn(
-                        "absolute cursor-grab overflow-hidden rounded-md border-l-2 px-1.5 py-0.5 text-[11px] leading-4 shadow-sm active:cursor-grabbing",
+                        "group absolute cursor-grab overflow-hidden rounded-md border-l-2 px-1.5 py-0.5 text-[11px] leading-4 shadow-sm active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
                         c.soft,
                         c.border,
                         c.text,
+                        !isDragging && !reduced && "transition-[top,height] duration-150",
                         isDragging && "opacity-80 ring-2 ring-blue-400",
                       )}
                       style={{
@@ -328,15 +351,17 @@ export function TimeGridView({
                       }}
                     >
                       <div className="truncate font-medium">{occ.event.title}</div>
-                      <div className="truncate opacity-70">{fmtTime(occ.start)}</div>
+                      <div className="truncate opacity-70">{timeLabel}</div>
                       {/* Resize handle */}
                       <div
                         onMouseDown={(e) => {
                           e.stopPropagation();
                           setDrag({ mode: "resize", key: occ.key, dayIndex, startMin, curEndMin: endMin });
                         }}
-                        className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"
-                      />
+                        className="absolute inset-x-0 bottom-0 flex h-2.5 cursor-ns-resize items-end justify-center pb-0.5"
+                      >
+                        <span className="h-0.5 w-5 rounded-full bg-current opacity-0 transition-opacity group-hover:opacity-40" />
+                      </div>
                     </div>
                   );
                 })}

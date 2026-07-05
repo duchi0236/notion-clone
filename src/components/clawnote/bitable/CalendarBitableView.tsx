@@ -130,8 +130,9 @@ export function CalendarBitableView({
                 </span>
                 <button
                   onClick={() => onAddRow({ [dateField.id]: key })}
-                  className="rounded p-0.5 text-slate-300 opacity-0 transition-opacity hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100"
+                  className="flex h-6 w-6 items-center justify-center rounded text-slate-300 opacity-0 transition-opacity hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                   title="在这天新增"
+                  aria-label={`在 ${key} 新增记录`}
                 >
                   +
                 </button>
@@ -141,8 +142,9 @@ export function CalendarBitableView({
                   <button
                     key={r.id}
                     onClick={() => onOpenRecord(r.id)}
-                    className="block w-full truncate rounded-md bg-blue-50 px-1.5 py-0.5 text-left text-[11px] text-blue-700 hover:bg-blue-100"
+                    className="block w-full truncate rounded-md bg-blue-50 px-1.5 py-0.5 text-left text-[11px] text-blue-800 hover:bg-blue-100"
                     title={String(r.data[primary.id] ?? "")}
+                    aria-label={`打开记录：${String(r.data[primary.id] ?? "未命名")}`}
                   >
                     {String(r.data[primary.id] ?? "未命名")}
                   </button>

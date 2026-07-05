@@ -3,6 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { ensureWorkspace } from "@/lib/clawnote-store";
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+  const { workspace } = await ensureWorkspace();
+  const owned = await prisma.document.findFirst({
+    where: { id: params.id, workspaceId: workspace.id },
+    select: { id: true },
+  });
+  if (!owned) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+
   const comments = await prisma.comment.findMany({
     where: { documentId: params.id, parentId: null },
     include: {
@@ -19,10 +26,12 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { user } = await ensureWorkspace();
+  const { user, workspace } = await ensureWorkspace();
   const body = await req.json().catch(() => ({}));
 
-  const document = await prisma.document.findUnique({ where: { id: params.id } });
+  const document = await prisma.document.findFirst({
+    where: { id: params.id, workspaceId: workspace.id },
+  });
   if (!document) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
   const comment = await prisma.comment.create({

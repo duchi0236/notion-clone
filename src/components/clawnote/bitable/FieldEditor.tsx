@@ -8,6 +8,8 @@ import { newId } from "./types";
 import { FIELD_TYPE_LIST } from "./Cell";
 import { OPTION_COLORS, OPTION_COLOR_KEYS } from "./fieldMeta";
 import { Select } from "./Select";
+import { useModalA11y } from "@/hooks/useModalA11y";
+import { confirm } from "@/components/ui/confirm";
 
 export function FieldEditor({
   field,
@@ -25,6 +27,8 @@ export function FieldEditor({
   onClose: () => void;
 }) {
   const [form, setForm] = useState<Field>({ ...field });
+  const modalRef = useModalA11y<HTMLDivElement>({ open: true, onClose });
+  const titleId = `field-editor-title-${field.id}`;
 
   function set<K extends keyof Field>(key: K, value: Field[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -60,9 +64,16 @@ export function FieldEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/30 p-4 pt-20" onMouseDown={onClose}>
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200" onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-sm rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold">{field.name ? "编辑字段" : "新增字段"}</h2>
+          <h2 id={titleId} className="text-sm font-semibold">{field.name ? "编辑字段" : "新增字段"}</h2>
           <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100">
             <X className="h-4 w-4" />
           </button>
@@ -89,6 +100,9 @@ export function FieldEditor({
               options={FIELD_TYPE_LIST.map((t) => ({ value: t.type, label: t.label, icon: t.icon }))}
             />
             {form.primary && <span className="mt-1 block text-[11px] text-slate-400">主字段类型不可更改</span>}
+            {["createdBy", "modifiedBy", "createdTime", "modifiedTime"].includes(form.type) && (
+              <span className="mt-1 block text-[11px] text-slate-400">自动记录，不可编辑</span>
+            )}
           </label>
 
           {/* Select / multiSelect options */}
@@ -96,30 +110,39 @@ export function FieldEditor({
             <div>
               <span className="text-xs text-slate-500">选项</span>
               <div className="mt-1 space-y-1.5">
-                {(form.options ?? []).map((opt) => (
-                  <div key={opt.id} className="flex items-center gap-1.5">
-                    <select
-                      value={opt.color}
-                      onChange={(e) => updateOption(opt.id, { color: e.target.value })}
-                      className="rounded border border-slate-200 px-1 py-1 text-xs"
-                    >
-                      {OPTION_COLOR_KEYS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                    <span className={cn("h-3 w-3 rounded-full", OPTION_COLORS[opt.color]?.dot)} />
-                    <input
-                      value={opt.name}
-                      onChange={(e) => updateOption(opt.id, { name: e.target.value })}
-                      className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400"
-                    />
-                    <button onClick={() => removeOption(opt.id)} className="text-slate-400 hover:text-red-500">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
+                {(form.options ?? []).map((opt) => {
+                  const onlyOption = (form.options?.length ?? 0) <= 1;
+                  return (
+                    <div key={opt.id} className="flex items-center gap-1.5">
+                      <select
+                        value={opt.color}
+                        onChange={(e) => updateOption(opt.id, { color: e.target.value })}
+                        className="rounded border border-slate-200 px-1 py-1 text-xs"
+                      >
+                        {OPTION_COLOR_KEYS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <span className={cn("h-3 w-3 rounded-full", OPTION_COLORS[opt.color]?.dot)} />
+                      <input
+                        value={opt.name}
+                        onChange={(e) => updateOption(opt.id, { name: e.target.value })}
+                        className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400"
+                      />
+                      <button
+                        onClick={() => removeOption(opt.id)}
+                        disabled={onlyOption}
+                        aria-label="删除选项"
+                        title={onlyOption ? "至少保留一个选项" : "删除选项"}
+                        className="text-slate-400 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-slate-400"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
                 <button onClick={addOption} className="text-xs text-blue-600 hover:underline">
                   + 添加选项
                 </button>
@@ -226,19 +249,33 @@ export function FieldEditor({
 
         <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
           {onDelete && !form.primary ? (
-            <button onClick={onDelete} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-red-600 hover:bg-red-50">
+            <button
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: "删除字段",
+                    body: `确定删除字段「${form.name || "未命名字段"}」吗？该列的所有数据将一并移除。`,
+                    danger: true,
+                    confirmText: "删除",
+                  })
+                ) {
+                  onDelete();
+                }
+              }}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 active:scale-[.98]"
+            >
               <Trash2 className="h-4 w-4" /> 删除字段
             </button>
           ) : (
             <span />
           )}
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">
+            <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 active:scale-[.98]">
               取消
             </button>
             <button
               onClick={() => onSave({ ...form, name: form.name.trim() || "未命名字段" })}
-              className="rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+              className="rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 active:scale-[.98]"
             >
               保存
             </button>

@@ -12,10 +12,13 @@ datasource db {
 
 model User {
   id          String   @id @default(cuid())
-  email       String   @unique
+  email       String?  @unique  // 可空：纯手机/纯微信用户无邮箱
+  phone       String?  @unique  // E.164，手机号登录归并键
   name        String?
   avatarUrl   String?
-  password    String?
+  password    String?           // 旧字段，迁移期与 AuthIdentity(PASSWORD) 双读
+  tokenVersion Int     @default(0) // 改密/解绑后 +1，旧会话失效
+  lastLoginAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -26,6 +29,76 @@ model User {
   memories        AgentMemory[]
   apiTokens       ApiToken[]
   calendarEvents  CalendarEvent[]   @relation("CalendarEventCreator")
+  authIdentities  AuthIdentity[]
+}
+
+enum AuthProvider {
+  PASSWORD
+  PHONE
+  WECHAT
+}
+
+// 统一身份：每种登录凭证一行，(provider, providerAccountId) 全局唯一
+model AuthIdentity {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          AuthProvider
+  providerAccountId String       // PASSWORD=email / PHONE=E.164 / WECHAT=unionid||openid
+  secretHash        String?
+  unionid           String?
+  openid            String?
+  isPrimary         Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  lastUsedAt        DateTime?
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([unionid])
+}
+
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  purpose    String    @default("LOGIN")
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, purpose])
+}
+
+model WechatTicket {
+  id         String    @id @default(cuid())
+  ticket     String    @unique
+  state      String    @unique
+  status     String    @default("PENDING")
+  userId     String?
+  unionid    String?
+  openid     String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+// OIDC/OAuth2 一次性授权码（SSO：第三方应用 code 换 token）
+model OAuthCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  clientId    String
+  userId      String
+  redirectUri String
+  scope       String    @default("openid profile")
+  nonce       String?
+  codeChallenge String?
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([clientId])
 }
 
 model Workspace {
@@ -190,6 +263,8 @@ model Collection {
   description String?
   schema      Json
   views       Json
+  // 轻量自动化规则（触发器+动作，客户端执行）：[{id,name,enabled,trigger,action}]
+  automations Json     @default("[]")
   type        CollectionType @default(TABLE)
   sortIndex   Int       @default(0)
   workspaceId String
@@ -242,10 +317,40 @@ model CollectionRow {
   document     Document?  @relation(fields: [documentId], references: [id])
   data         Json
   sortIndex    Int        @default(0)
+  // 创建人/修改人：写入时落显示名快照（展示足够，避免跨表 join）
+  createdBy    String?
+  updatedBy    String?
+  comments     RowComment[]
+  revisions    RowRevision[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@index([collectionId, sortIndex])
+}
+
+// 多维表格记录评论
+model RowComment {
+  id        String        @id @default(cuid())
+  rowId     String
+  row       CollectionRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  author    String
+  body      String
+  createdAt DateTime      @default(now())
+
+  @@index([rowId, createdAt])
+}
+
+// 多维表格记录修改历史：每次 PATCH data 时记录变更字段快照
+model RowRevision {
+  id        String        @id @default(cuid())
+  rowId     String
+  row       CollectionRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  author    String?
+  // { fieldId: { from, to } }
+  diff      Json
+  createdAt DateTime      @default(now())
+
+  @@index([rowId, createdAt])
 }
 
 model KnowledgeObject {

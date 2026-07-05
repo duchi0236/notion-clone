@@ -26,6 +26,9 @@ yarn-error.log*
 # Local env files
 .env
 .env*.local
+.env.production
+.env.staging
+!.env*.example
 
 # Vercel
 .vercel
@@ -39,3 +42,9 @@ next-env.d.ts
 .vscode/
 *.swp
 *.swo
+
+# 本地开发 JWT 密钥（绝不提交；生产用 env）
+.auth-dev-keys/
+
+# realtime collab persistence
+collab-data/

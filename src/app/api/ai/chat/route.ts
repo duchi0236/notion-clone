@@ -18,6 +18,29 @@ function stripVerb(text: string, verbs: RegExp) {
   return text.replace(verbs, "").replace(/^[\s:：,，"'「」]+|[\s:：,，"'「」]+$/g, "").trim();
 }
 
+// Free-form chat (anything that is not a structured workspace command) is
+// delegated to the unified Agent service over HTTP — server-to-server, so no
+// CORS and the agent endpoint never reaches the browser. Returns null when the
+// agent is unreachable so the caller can degrade to the built-in help text.
+const AGENT_URL = process.env.AGENT_URL ?? "http://localhost:8787";
+
+async function askAgent(message: string, sessionId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${AGENT_URL}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message, sessionId, mode: "standard", policy: "read-only" }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { responses?: string[] };
+    const reply = (data.responses ?? []).join("\n\n").trim();
+    return reply || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const { user, workspace } = await ensureWorkspace();
   const body = await req.json().catch(() => ({}));
@@ -91,7 +114,11 @@ async function respond(message: string, workspaceId: string, userId: string, ena
     return { reply: `最近编辑的文档「${doc.title}」摘要：\n${sum}`, results: [{ id: doc.id, title: doc.title || "无标题" }] };
   }
 
-  // ---- Default / help -------------------------------------------------------
+  // ---- Free-form chat → unified Agent (DeepSeek, with per-workspace memory) --
+  const agentReply = await askAgent(message, `clawnote:${workspaceId}`);
+  if (agentReply) return { reply: agentReply };
+
+  // ---- Default / help (agent unreachable) -----------------------------------
   return {
     reply:
       "我是 ClawNote 的工作区助手。当前未接入外部大模型，但我可以直接在工作区里帮你：\n" +

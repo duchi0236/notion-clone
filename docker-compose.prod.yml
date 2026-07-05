@@ -24,6 +24,27 @@ services:
       - uploads:/app/public/uploads
       - backups:/app/backups
 
+  collab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["node", "scripts/collab-server.cjs"]
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "1234"
+      COLLAB_PERSISTENCE_DIR: /app/collab-data
+    volumes:
+      - collab_data:/app/collab-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1234/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
@@ -49,6 +70,7 @@ services:
     restart: unless-stopped
     depends_on:
       - app
+      - collab
     ports:
       - "80:80"
       - "443:443"
@@ -61,3 +83,4 @@ volumes:
   redis_data:
   uploads:
   backups:
+  collab_data:

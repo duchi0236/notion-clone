@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureWorkspace } from "@/lib/clawnote-store";
+
+async function findScopedDocument(id: string) {
+  const { workspace } = await ensureWorkspace();
+  return prisma.document.findFirst({ where: { id, workspaceId: workspace.id } });
+}
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+  const document = await findScopedDocument(params.id);
+  if (!document) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+
   const versions = await prisma.documentVersion.findMany({
     where: { documentId: params.id },
     orderBy: { version: "desc" },
@@ -13,7 +22,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json().catch(() => ({}));
-  const document = await prisma.document.findUnique({ where: { id: params.id } });
+  const document = await findScopedDocument(params.id);
   if (!document) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
   const last = await prisma.documentVersion.findFirst({

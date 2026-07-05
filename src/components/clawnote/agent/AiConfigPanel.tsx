@@ -42,15 +42,45 @@ export function AiConfigPanel() {
   const [mediaKeys, setMediaKeys] = useState<Record<string, string>>({}); // 新输入的媒体 Key（写入用）
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadConfig = () => {
+    setLoading(true);
+    setLoadError(false);
+    void fetch("/api/ai/config")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.config) setConfig(d.config);
+        else setLoadError(true);
+      })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    void fetch("/api/ai/config").then((r) => r.json()).then((d) => d.config && setConfig(d.config)).catch(() => null);
+    loadConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!config) {
+    if (loadError) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center text-sm text-slate-500">
+          <p>加载 AI 配置失败，请检查网络后重试。</p>
+          <button
+            onClick={loadConfig}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 active:bg-slate-100"
+          >
+            重试
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex h-full items-center justify-center text-slate-400">
-        <Loader2 className="h-5 w-5 animate-spin" />
+        <Loader2 className={cn("h-5 w-5", loading && "animate-spin")} />
       </div>
     );
   }
@@ -70,6 +100,7 @@ export function AiConfigPanel() {
   async function save() {
     if (!config) return;
     setSaving(true);
+    setSaveError(false);
     const body: Record<string, unknown> = {
       provider: config.provider,
       model: config.model,
@@ -100,6 +131,9 @@ export function AiConfigPanel() {
       setMediaKeys({});
       setSaved(true);
       setTimeout(() => setSaved(false), 1800);
+    } else {
+      setSaveError(true);
+      setTimeout(() => setSaveError(false), 4000);
     }
   }
 
@@ -121,7 +155,18 @@ export function AiConfigPanel() {
         </div>
         <div className="grid gap-4">
           <Field label="供应商">
-            <select value={config.provider} onChange={(e) => { set("provider", e.target.value); set("model", ""); }} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400">
+            <select
+              value={config.provider}
+              onChange={(e) => {
+                const nextProvider = e.target.value;
+                const nextModels = AI_PROVIDERS.find((p) => p.id === nextProvider)?.models ?? [];
+                // 新供应商若仍支持当前 model（或为自由输入型）则保留，避免误触静默丢值
+                const keepModel = config.model && (nextModels.length === 0 || nextModels.includes(config.model));
+                set("provider", nextProvider);
+                if (!keepModel) set("model", "");
+              }}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+            >
               {AI_PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </Field>
@@ -154,7 +199,7 @@ export function AiConfigPanel() {
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label={`温度 ${config.temperature.toFixed(1)}`}>
-                  <input type="range" min={0} max={2} step={0.1} value={config.temperature} onChange={(e) => set("temperature", Number(e.target.value))} className="w-full accent-slate-900" />
+                  <input type="range" min={0} max={2} step={0.1} value={config.temperature} onChange={(e) => set("temperature", Number(e.target.value))} aria-label="温度" aria-valuetext={config.temperature.toFixed(1)} className="w-full accent-slate-900" />
                 </Field>
                 <Field label="最大 Tokens">
                   <input type="number" min={256} max={32000} step={256} value={config.maxTokens} onChange={(e) => set("maxTokens", Number(e.target.value))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400" />
@@ -235,7 +280,7 @@ export function AiConfigPanel() {
                   </div>
                   <div className="text-xs text-slate-500">{s.desc}</div>
                 </div>
-                <Switch checked={on} onChange={() => toggleSkill(s.id)} />
+                <Switch checked={on} onChange={() => toggleSkill(s.id)} label={`${s.name}（${on ? "已启用" : "已关闭"}）`} />
               </div>
             );
           })}
@@ -243,11 +288,13 @@ export function AiConfigPanel() {
       </section>
 
       <div className="mt-5 flex items-center gap-3">
-        <button onClick={() => void save()} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+        <button onClick={() => void save()} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 active:bg-slate-950 disabled:opacity-50">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
           {saved ? "已保存" : "保存配置"}
         </button>
-        <span className="text-xs text-slate-400">配置即时生效；关闭的技能助手将不再执行。</span>
+        <span role="status" aria-live="polite" className={cn("text-xs", saveError ? "text-rose-600" : "text-slate-400")}>
+          {saveError ? "保存失败，请检查网络后重试。" : saved ? "配置已保存并即时生效。" : "配置即时生效；关闭的技能助手将不再执行。"}
+        </span>
       </div>
     </div>
   );
@@ -265,10 +312,20 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function Switch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label?: string }) {
   return (
-    <button type="button" onClick={onChange} className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", checked ? "bg-slate-900" : "bg-slate-200")}>
-      <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", checked ? "left-4" : "left-0.5")} />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      // 视觉轨道尺寸不变（h-5 w-9）；外层透明 padding 把触控热区扩到 ≥32px
+      className="-m-1.5 flex shrink-0 items-center p-1.5"
+    >
+      <span className={cn("relative block h-5 w-9 rounded-full transition-colors", checked ? "bg-slate-900" : "bg-slate-200")}>
+        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", checked ? "left-4" : "left-0.5")} />
+      </span>
     </button>
   );
 }

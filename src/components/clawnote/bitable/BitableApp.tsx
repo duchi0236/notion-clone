@@ -3,23 +3,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, LayoutGrid, MoreHorizontal, Pencil, Plus, Table2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDismiss } from "@/hooks/useDismiss";
 import { uid } from "../pro/api";
 import { bitableApi } from "./api";
-import type { BaseSummary, Field, Row, Table, View, ViewType } from "./types";
+import type { Automation, BaseSummary, Field, Row, Table, View, ViewType } from "./types";
 import { newId, primaryField } from "./types";
-import { applyView } from "./fieldMeta";
+import { applyView, OPTION_COLOR_KEYS } from "./fieldMeta";
+import { exportRowsToXlsx } from "./excel";
 import { GridView } from "./GridView";
 import { KanbanView } from "./KanbanView";
 import { GalleryView } from "./GalleryView";
 import { FormView } from "./FormView";
 import { CalendarBitableView } from "./CalendarBitableView";
 import { GanttView } from "./GanttView";
+import { DashboardView } from "./DashboardView";
 import { Toolbar } from "./Toolbar";
 import { FieldEditor } from "./FieldEditor";
-import { RecordCard } from "./RecordCard";
+import { RecordDrawer } from "./RecordDrawer";
 import { LinkPicker } from "./LinkPicker";
 
-const VIEW_LABELS: Record<ViewType, string> = { grid: "表格", kanban: "看板", gallery: "画册", form: "表单", calendar: "日历", gantt: "甘特" };
+const VIEW_LABELS: Record<ViewType, string> = { grid: "表格", kanban: "看板", gallery: "画册", form: "表单", calendar: "日历", gantt: "甘特", dashboard: "仪表盘" };
 
 export default function BitableApp() {
   const [bases, setBases] = useState<BaseSummary[]>([]);
@@ -35,6 +38,13 @@ export default function BitableApp() {
   const [recordRowId, setRecordRowId] = useState<string | null>(null);
   const [linkCtx, setLinkCtx] = useState<{ rowId: string; field: Field } | null>(null);
   const resizeTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const addViewMenuRef = useRef<HTMLDivElement>(null);
+  const addViewTriggerRef = useRef<HTMLButtonElement>(null);
+  useDismiss({
+    open: addViewOpen,
+    onClose: () => { setAddViewOpen(false); addViewTriggerRef.current?.focus(); },
+    refs: [addViewMenuRef, addViewTriggerRef],
+  });
 
   // ---- Load bases ----------------------------------------------------------
   useEffect(() => {
@@ -92,22 +102,68 @@ export default function BitableApp() {
     void bitableApi.updateTable(tableId, { schema, views });
   }
 
+  // ---- 轻量自动化：单遍执行（动作不再级联触发其它规则，避免循环）----------
+  // 按类型把动作值轻度归一（数字/勾选），select 存的是选项 id、原样返回。
+  function coerceActionValue(schema: Field[], fieldId: string, value: unknown): unknown {
+    const f = schema.find((x) => x.id === fieldId);
+    if (!f) return value;
+    if (["number", "currency", "rating", "progress"].includes(f.type)) {
+      const n = Number(value);
+      return Number.isNaN(n) ? null : n;
+    }
+    if (f.type === "checkbox") return ["true", "1", "是", "✓", "yes"].includes(String(value).trim().toLowerCase()) || value === true;
+    return value;
+  }
+  // 返回自动化命中后要补写的字段 patch。kind=created 时 fieldEquals 按 seed 值判断。
+  function automationPatch(table: Table, rowData: Record<string, unknown>, kind: "created" | "updated", changedFieldId?: string): Record<string, unknown> {
+    const patch: Record<string, unknown> = {};
+    for (const a of (table.automations ?? []).filter((x) => x.enabled)) {
+      if (a.trigger.type === "rowCreated") {
+        if (kind !== "created") continue;
+      } else {
+        if (kind === "updated" && a.trigger.fieldId !== changedFieldId) continue;
+        if (String(rowData[a.trigger.fieldId] ?? "") !== String(a.trigger.value ?? "")) continue;
+      }
+      if (a.action.fieldId === changedFieldId) continue; // 不覆盖刚被用户改的字段
+      patch[a.action.fieldId] = coerceActionValue(table.schema, a.action.fieldId, a.action.value);
+    }
+    return patch;
+  }
+
   // Rows
   async function addRow(seed: Record<string, unknown> = {}) {
     if (!activeTable) return;
+    const auto = automationPatch(activeTable, seed, "created");
+    const data = { ...seed, ...auto };
     const tempId = uid("row");
-    const row: Row = { id: tempId, data: seed, sortIndex: activeTable.rows.length };
+    const row: Row = { id: tempId, data, sortIndex: activeTable.rows.length };
     patchTableLocal(activeTable.id, (t) => ({ ...t, rows: [...t.rows, row] }));
-    const res = await bitableApi.createRow(activeTable.id, seed);
+    const res = await bitableApi.createRow(activeTable.id, data);
     if (res?.row) patchTableLocal(activeTable.id, (t) => ({ ...t, rows: t.rows.map((r) => (r.id === tempId ? res.row : r)) }));
   }
   function updateCell(rowId: string, fieldId: string, value: unknown) {
     if (!activeTable) return;
+    const cur = activeTable.rows.find((r) => r.id === rowId);
+    const nextData = { ...(cur?.data ?? {}), [fieldId]: value };
+    const auto = automationPatch(activeTable, nextData, "updated", fieldId);
+    const patch = { [fieldId]: value, ...auto };
     patchTableLocal(activeTable.id, (t) => ({
       ...t,
-      rows: t.rows.map((r) => (r.id === rowId ? { ...r, data: { ...r.data, [fieldId]: value } } : r)),
+      rows: t.rows.map((r) => (r.id === rowId ? { ...r, data: { ...r.data, ...patch } } : r)),
     }));
-    void bitableApi.updateRow(rowId, { data: { [fieldId]: value } });
+    void bitableApi.updateRow(rowId, { data: patch });
+  }
+  // 看板拖拽等的批量排序/改组：本地即时应用 + 一次事务持久化
+  function applyReorder(updates: { id: string; sortIndex: number; data?: Record<string, unknown> }[]) {
+    if (!activeTable || updates.length === 0) return;
+    patchTableLocal(activeTable.id, (t) => ({
+      ...t,
+      rows: t.rows.map((r) => {
+        const u = updates.find((x) => x.id === r.id);
+        return u ? { ...r, sortIndex: u.sortIndex, data: u.data ? { ...r.data, ...u.data } : r.data } : r;
+      }),
+    }));
+    void bitableApi.reorderRows(activeTable.id, updates);
   }
   async function deleteRow(rowId: string) {
     if (!activeTable) return;
@@ -228,6 +284,89 @@ export default function BitableApp() {
     setLinkCtx({ rowId, field });
   }
 
+  // ---- Excel 导出 / 导入 / 自动化持久化 -------------------------------------
+  function handleExport() {
+    if (!activeTable || !activeView) return;
+    const hidden = new Set(activeView.hiddenFieldIds ?? []);
+    const fields = activeTable.schema.filter((f) => !hidden.has(f.id));
+    exportRowsToXlsx(`${activeTable.name}-${activeView.name}`, fields, viewRows, ctx);
+  }
+
+  // 表头按字段名映射；未匹配的表头自动建文本字段；select/multiSelect 自动补建选项。
+  async function handleImport(headers: string[], records: Record<string, string>[]) {
+    if (!activeTable || !activeBaseId) return;
+    // 工作副本（options 需要就地补建，先浅拷贝避免污染 state）
+    const schema: Field[] = activeTable.schema.map((f) => ({ ...f, options: f.options ? [...f.options] : f.options }));
+    let schemaChanged = false;
+    const mapping = new Map<string, Field>();
+    for (const h of headers) {
+      const exist = schema.find((f) => f.name === h);
+      if (exist) mapping.set(h, exist);
+      else {
+        const nf: Field = { id: newId("fld"), name: h, type: "text", width: 160 };
+        schema.push(nf);
+        mapping.set(h, nf);
+        schemaChanged = true;
+      }
+    }
+    const ensureOption = (f: Field, name: string) => {
+      let opt = f.options?.find((o) => o.name === name);
+      if (!opt) {
+        opt = { id: newId("opt"), name, color: OPTION_COLOR_KEYS[(f.options?.length ?? 0) % OPTION_COLOR_KEYS.length] };
+        f.options = [...(f.options ?? []), opt];
+        schemaChanged = true;
+      }
+      return opt.id;
+    };
+    const parseVal = (f: Field, raw: string): unknown => {
+      const v = raw.trim();
+      switch (f.type) {
+        case "number":
+        case "currency":
+        case "rating":
+        case "progress": {
+          const n = Number(v.replace(/[,¥$%\s]/g, ""));
+          return v === "" || Number.isNaN(n) ? null : n;
+        }
+        case "checkbox":
+          return ["✓", "true", "1", "是", "yes"].includes(v.toLowerCase());
+        case "select":
+          return v ? ensureOption(f, v) : "";
+        case "multiSelect":
+          return v ? v.split(/[,，、;；]/).map((s) => s.trim()).filter(Boolean).map((n) => ensureOption(f, n)) : [];
+        case "date":
+        case "text":
+        case "longText":
+        case "url":
+        case "email":
+        case "phone":
+        case "person":
+          return v;
+        default:
+          return undefined; // formula/lookup/attachment/元数据等不可导入
+      }
+    };
+    if (schemaChanged) {
+      patchTableLocal(activeTable.id, (t) => ({ ...t, schema }));
+      persistSchemaViews(activeTable.id, schema, undefined);
+    }
+    for (const rec of records) {
+      const data: Record<string, unknown> = {};
+      mapping.forEach((f, h) => {
+        const v = parseVal(f, rec[h] ?? "");
+        if (v !== undefined) data[f.id] = v;
+      });
+      await bitableApi.createRow(activeTable.id, data);
+    }
+    await loadBase(activeBaseId); // 拉全量，带回服务端生成的元数据
+  }
+
+  function patchAutomations(next: Automation[]) {
+    if (!activeTable) return;
+    patchTableLocal(activeTable.id, (t) => ({ ...t, automations: next }));
+    void bitableApi.updateTable(activeTable.id, { automations: next });
+  }
+
   // ---- Derived rows for the active view ------------------------------------
   const visibleFields = useMemo(() => {
     if (!activeTable || !activeView) return [];
@@ -237,7 +376,7 @@ export default function BitableApp() {
 
   const viewRows = useMemo(() => {
     if (!activeTable || !activeView) return [];
-    return applyView(activeTable.rows, activeTable.schema, activeView.filters ?? [], activeView.sorts ?? [], search);
+    return applyView(activeTable.rows, activeTable.schema, activeView.filters ?? [], activeView.sorts ?? [], search, activeView.filterGroup);
   }, [activeTable, activeView, search]);
 
   // ---- Render --------------------------------------------------------------
@@ -341,27 +480,42 @@ export default function BitableApp() {
                 />
               ))}
               <div className="relative">
-                <button onClick={() => setAddViewOpen((v) => !v)} className="flex items-center gap-1 rounded-t-lg px-2 py-1.5 text-sm text-slate-400 hover:text-slate-700" title="新增视图">
+                <button
+                  type="button"
+                  ref={addViewTriggerRef}
+                  onClick={() => setAddViewOpen((v) => !v)}
+                  className="flex items-center gap-1 rounded-t-lg px-2 py-1.5 text-sm text-slate-400 hover:text-slate-700"
+                  title="新增视图"
+                  aria-haspopup="menu"
+                  aria-expanded={addViewOpen}
+                >
                   <Plus className="h-3.5 w-3.5" /> 视图
                 </button>
                 {addViewOpen && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setAddViewOpen(false)} />
-                    <div className="absolute left-0 top-full z-30 mt-1 w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
-                      {(["grid", "kanban", "gallery", "calendar", "gantt", "form"] as ViewType[]).map((t) => (
-                        <button key={t} onClick={() => addView(t)} className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-50">
-                          {VIEW_LABELS[t]}
-                        </button>
-                      ))}
-                    </div>
-                  </>
+                  <div ref={addViewMenuRef} role="menu" className="absolute left-0 top-full z-30 mt-1 w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-xl">
+                    {(["grid", "kanban", "gallery", "calendar", "gantt", "form", "dashboard"] as ViewType[]).map((t) => (
+                      <button type="button" role="menuitem" key={t} onClick={() => addView(t)} className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-50">
+                        {VIEW_LABELS[t]}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
 
-            <Toolbar view={activeView} schema={activeTable.schema} search={search} onSearch={setSearch} onPatchView={patchView} />
+            <Toolbar
+              view={activeView}
+              schema={activeTable.schema}
+              search={search}
+              onSearch={setSearch}
+              onPatchView={patchView}
+              onExport={handleExport}
+              onImport={handleImport}
+              automations={activeTable.automations ?? []}
+              onPatchAutomations={patchAutomations}
+            />
 
-            <div className="min-h-0 flex-1">
+            <div key={activeView.id} className="min-h-0 flex-1 animate-fade-in">
               {activeView.type === "grid" && (
                 <GridView
                   fields={visibleFields}
@@ -370,6 +524,7 @@ export default function BitableApp() {
                   schema={activeTable.schema}
                   groupField={activeTable.schema.find((f) => f.id === activeView.rowGroupFieldId) ?? null}
                   aggregations={activeView.aggregations}
+                  formats={activeView.formats}
                   onUpdateCell={updateCell}
                   onAddRow={() => addRow()}
                   onOpenRecord={setRecordRowId}
@@ -393,7 +548,11 @@ export default function BitableApp() {
                   onUpdateCell={updateCell}
                   onOpenRecord={setRecordRowId}
                   onAddRow={(gv) => addRow(activeView.groupFieldId && gv ? { [activeView.groupFieldId]: gv } : {})}
+                  onReorder={applyReorder}
                 />
+              )}
+              {activeView.type === "dashboard" && (
+                <DashboardView table={activeTable} view={activeView} rows={viewRows} ctx={ctx} onPatchView={patchView} />
               )}
               {activeView.type === "gallery" && (
                 <GalleryView fields={visibleFields} rows={viewRows} schema={activeTable.schema} ctx={ctx} onOpenRecord={setRecordRowId} onAddRow={() => addRow()} />
@@ -441,14 +600,15 @@ export default function BitableApp() {
         />
       )}
       {recordRow && activeTable && (
-        <RecordCard
+        <RecordDrawer
           table={activeTable}
-          row={recordRow}
           ctx={ctx}
-          onUpdateCell={updateCell}
-          onDelete={() => deleteRow(recordRow.id)}
+          rowId={recordRow.id}
+          orderedRowIds={viewRows.some((r) => r.id === recordRow.id) ? viewRows.map((r) => r.id) : [recordRow.id, ...viewRows.map((r) => r.id)]}
           onClose={() => setRecordRowId(null)}
-          onPickLink={(field) => openLinkPicker(recordRow.id, field)}
+          onUpdateCell={updateCell}
+          onDelete={(id) => deleteRow(id)}
+          onNavigate={setRecordRowId}
         />
       )}
       {linkCtx && linkTarget && (
@@ -484,6 +644,14 @@ function ViewTab({
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(view.name);
+  // Hooks must run unconditionally before any early return (Rules of Hooks).
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  useDismiss({
+    open: menu,
+    onClose: () => { setMenu(false); menuTriggerRef.current?.focus(); },
+    refs: [menuRef, menuTriggerRef],
+  });
 
   if (editing) {
     return (
@@ -502,41 +670,46 @@ function ViewTab({
   }
 
   return (
-    <div className="group/vt relative">
+    <div
+      className={cn(
+        "group/vt relative flex items-center gap-1.5 rounded-t-lg py-1.5 pl-3 pr-1.5 text-sm transition-[color,border]",
+        active ? "border-b-2 border-slate-900 font-medium text-slate-900" : "text-slate-500 hover:text-slate-800",
+      )}
+    >
       <button
+        type="button"
         onClick={onActivate}
         onDoubleClick={() => { setDraft(view.name); setEditing(true); }}
-        className={cn(
-          "flex items-center gap-1.5 rounded-t-lg py-1.5 pl-3 pr-1.5 text-sm",
-          active ? "border-b-2 border-slate-900 font-medium text-slate-900" : "text-slate-500 hover:text-slate-800",
-        )}
+        className="flex items-center gap-1.5 text-left"
       >
         {view.name}
-        <span className="text-[10px] text-slate-400">{VIEW_LABELS[view.type]}</span>
-        <span
-          onClick={(e) => { e.stopPropagation(); setMenu((m) => !m); }}
-          className={cn("flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-700", active ? "opacity-100" : "opacity-0 group-hover/vt:opacity-100")}
-        >
-          <MoreHorizontal className="h-3.5 w-3.5" />
-        </span>
+        {view.name !== VIEW_LABELS[view.type] && <span className="text-[10px] text-slate-400">{VIEW_LABELS[view.type]}</span>}
+      </button>
+      <button
+        type="button"
+        ref={menuTriggerRef}
+        aria-label="视图操作"
+        aria-haspopup="menu"
+        aria-expanded={menu}
+        onClick={(e) => { e.stopPropagation(); setMenu((m) => !m); }}
+        className={cn("flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-700", active ? "opacity-100" : "opacity-0 group-hover/vt:opacity-100 group-focus-within/vt:opacity-100 [@media(hover:none)]:opacity-100")}
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" />
       </button>
       {menu && (
-        <>
-          <div className="fixed inset-0 z-20" onClick={() => setMenu(false)} />
-          <div className="claw-solid absolute left-2 top-full z-30 mt-1 w-32 rounded-lg border border-slate-200 p-1 shadow-xl">
-            <button onClick={() => { setDraft(view.name); setEditing(true); setMenu(false); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-50">
-              <Pencil className="h-3.5 w-3.5" /> 重命名
+        <div ref={menuRef} role="menu" className="claw-solid absolute left-2 top-full z-30 mt-1 w-32 rounded-lg border border-slate-200 p-1 shadow-xl">
+          <button type="button" role="menuitem" onClick={() => { setDraft(view.name); setEditing(true); setMenu(false); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-50">
+            <Pencil className="h-3.5 w-3.5" /> 重命名
+          </button>
+          <button type="button" role="menuitem" onClick={() => { onDuplicate(); setMenu(false); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-50">
+            <Copy className="h-3.5 w-3.5" /> 复制
+          </button>
+          {canDelete && (
+            <button type="button" role="menuitem" onClick={() => { onDelete(); setMenu(false); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-rose-500 hover:bg-rose-50">
+              <Trash2 className="h-3.5 w-3.5" /> 删除
             </button>
-            <button onClick={() => { onDuplicate(); setMenu(false); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-600 hover:bg-slate-50">
-              <Copy className="h-3.5 w-3.5" /> 复制
-            </button>
-            {canDelete && (
-              <button onClick={() => { onDelete(); setMenu(false); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-rose-500 hover:bg-rose-50">
-                <Trash2 className="h-3.5 w-3.5" /> 删除
-              </button>
-            )}
-          </div>
-        </>
+          )}
+        </div>
       )}
     </div>
   );

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, Clock, MapPin, Palette, Repeat, Trash2, Users, X } from "lucide-react";
+import { Bell, Clock, Loader2, MapPin, Palette, Repeat, Trash2, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useModalA11y } from "@/hooks/useModalA11y";
 import { COLOR_KEYS, EVENT_COLORS, type EventColor } from "./colors";
 import { REMINDER_OPTIONS, REPEAT_OPTIONS, type Calendar, type CalendarEvent, type RepeatRule } from "./types";
 import { toDateInput, toLocalInput } from "./dates";
@@ -57,26 +58,51 @@ export function EventEditor({
 }: {
   draft: EditorDraft;
   calendars: Calendar[];
-  onSave: (draft: EditorDraft) => void;
-  onDelete?: () => void;
+  onSave: (draft: EditorDraft) => void | Promise<void>;
+  onDelete?: () => void | Promise<void>;
   onClose: () => void;
 }) {
   const [form, setForm] = useState<EditorDraft>(draft);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const panelRef = useModalA11y<HTMLDivElement>({ open: true, onClose, initialFocus: titleRef });
 
-  useEffect(() => setForm(draft), [draft]);
+  const invalidRange = form.end.getTime() <= form.start.getTime();
+  const busy = saving || deleting;
+
+  async function handleSave() {
+    if (busy || invalidRange) return;
+    setSaving(true);
+    try {
+      await onSave(form);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!onDelete || busy) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   useEffect(() => {
-    titleRef.current?.focus();
+    setForm(draft);
     titleRef.current?.select();
-  }, []);
+  }, [draft]);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onSave(form);
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void handleSave();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [form, onClose, onSave]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, busy, invalidRange]);
 
   function set<K extends keyof EditorDraft>(key: K, value: EditorDraft[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -97,10 +123,19 @@ export function EventEditor({
   const isNew = !form.id;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4" onMouseDown={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4"
+      onMouseDown={(e) => {
+        // 仅当鼠标在遮罩上「按下」才关闭，避免输入框内起拖、遮罩上松手被误判为点击外部
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isNew ? "新建事件" : "编辑事件"}
         className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
-        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <h2 className="text-sm font-semibold text-slate-900">{isNew ? "新建事件" : "编辑事件"}</h2>
@@ -162,10 +197,17 @@ export function EventEditor({
                   type={form.allDay ? "date" : "datetime-local"}
                   value={form.allDay ? toDateInput(form.end) : toLocalInput(form.end)}
                   onChange={(e) => set("end", readDateInput(e.target.value, form.end, form.allDay))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-400"
+                  aria-invalid={invalidRange}
+                  className={cn(
+                    "mt-1 w-full rounded-lg border px-2 py-1.5 text-sm text-slate-700 outline-none",
+                    invalidRange
+                      ? "border-red-300 focus:border-red-400"
+                      : "border-slate-200 focus:border-slate-400",
+                  )}
                 />
               </label>
             </div>
+            {invalidRange && <p className="mt-2 text-xs text-red-600">结束时间需晚于开始时间</p>}
           </div>
 
           {/* Calendar group */}
@@ -203,8 +245,10 @@ export function EventEditor({
                   type="button"
                   onClick={() => set("color", key)}
                   title={EVENT_COLORS[key].label}
+                  aria-label={EVENT_COLORS[key].label}
+                  aria-pressed={form.color === key}
                   className={cn(
-                    "h-6 w-6 rounded-full ring-2 ring-offset-2 transition",
+                    "h-6 w-6 rounded-full ring-2 ring-offset-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-1",
                     EVENT_COLORS[key].dot,
                     form.color === key ? "ring-slate-400" : "ring-transparent",
                   )}
@@ -277,23 +321,30 @@ export function EventEditor({
         <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
           {onDelete && !isNew ? (
             <button
-              onClick={onDelete}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-red-600 hover:bg-red-50"
+              onClick={() => void handleDelete()}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Trash2 className="h-4 w-4" /> 删除
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} 删除
             </button>
           ) : (
             <span />
           )}
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">
+            <button
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
               取消
             </button>
             <button
-              onClick={() => onSave(form)}
-              className="rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+              onClick={() => void handleSave()}
+              disabled={busy || invalidRange}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              保存
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving ? "保存中…" : "保存"}
             </button>
           </div>
         </div>

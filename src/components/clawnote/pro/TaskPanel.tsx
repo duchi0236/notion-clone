@@ -1,8 +1,18 @@
 "use client";
 
-import { CalendarDays, GalleryHorizontal, KanbanSquare, Plus, Table2, Trash2 } from "lucide-react";
+import { CalendarDays, GalleryHorizontal, Inbox, KanbanSquare, Plus, Table2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { confirm } from "@/components/ui/confirm";
 import type { Task, TaskView } from "./types";
+
+function EmptyTasks() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-slate-200 bg-white py-16 text-center">
+      <Inbox className="h-8 w-8 text-slate-300" />
+      <p className="text-sm text-slate-500">还没有任务，点「新增任务」开始</p>
+    </div>
+  );
+}
 
 export function TaskPanel({
   tasks,
@@ -26,7 +36,10 @@ export function TaskPanel({
           <h2 className="text-2xl font-bold">项目跟进表</h2>
           <p className="text-sm text-slate-500">Table / Board / Gallery / Calendar 多视图。</p>
         </div>
-        <button onClick={createTask} className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white">
+        <button
+          onClick={createTask}
+          className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white transition-transform hover:bg-violet-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 focus-visible:ring-offset-2"
+        >
           <Plus className="mr-1 inline h-4 w-4" />新增任务
         </button>
       </div>
@@ -41,8 +54,9 @@ export function TaskPanel({
           <button
             key={key}
             onClick={() => setTaskView(key)}
+            aria-pressed={taskView === key}
             className={cn(
-              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm",
+              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 focus-visible:ring-offset-2",
               taskView === key ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-600"
             )}
           >
@@ -53,18 +67,27 @@ export function TaskPanel({
 
       {taskView === "table" && <TaskTable tasks={tasks} updateTask={updateTask} deleteTask={deleteTask} />}
       {taskView === "board" && <TaskBoard tasks={tasks} updateTask={updateTask} />}
-      {taskView === "gallery" && <TaskGallery tasks={tasks} />}
-      {taskView === "calendar" && <TaskCalendar tasks={tasks} />}
+      {taskView === "gallery" && (tasks.length === 0 ? <EmptyTasks /> : <TaskGallery tasks={tasks} />)}
+      {taskView === "calendar" && (tasks.length === 0 ? <EmptyTasks /> : <TaskCalendar tasks={tasks} />)}
     </div>
   );
 }
 
 function TaskTable({ tasks, updateTask, deleteTask }: { tasks: Task[]; updateTask: (id: string, patch: Partial<Task>) => void; deleteTask: (id: string) => void }) {
+  async function removeTask(task: Task) {
+    if (await confirm({ title: `删除任务「${task.name || "未命名"}」？`, danger: true, confirmText: "删除" })) {
+      deleteTask(task.id);
+    }
+  }
+  if (tasks.length === 0) return <EmptyTasks />;
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200">
       <table className="w-full bg-white text-sm">
         <thead className="bg-slate-50 text-left text-slate-500">
-          <tr>{["任务", "负责人", "状态", "优先级", "截止", "进度", ""].map((head) => <th key={head} className="p-3">{head}</th>)}</tr>
+          <tr>
+            {["任务", "负责人", "状态", "优先级", "截止", "进度"].map((head) => <th key={head} className="p-3">{head}</th>)}
+            <th className="p-3"><span className="sr-only">操作</span></th>
+          </tr>
         </thead>
         <tbody>
           {tasks.map((task) => (
@@ -74,8 +97,26 @@ function TaskTable({ tasks, updateTask, deleteTask }: { tasks: Task[]; updateTas
               <td className="p-3"><select value={task.status} onChange={(e) => updateTask(task.id, { status: e.target.value as Task["status"] })} className="rounded-xl border px-2 py-1"><option>未开始</option><option>进行中</option><option>已完成</option></select></td>
               <td className="p-3"><select value={task.priority} onChange={(e) => updateTask(task.id, { priority: e.target.value as Task["priority"] })} className="rounded-xl border px-2 py-1"><option>低</option><option>中</option><option>高</option></select></td>
               <td className="p-3"><input type="date" value={task.dueDate} onChange={(e) => updateTask(task.id, { dueDate: e.target.value })} className="bg-transparent" /></td>
-              <td className="p-3"><input type="number" value={task.progress} onChange={(e) => updateTask(task.id, { progress: Number(e.target.value) })} className="w-16 rounded-lg border px-2 py-1" />%</td>
-              <td><button onClick={() => deleteTask(task.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></button></td>
+              <td className="p-3">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={task.progress}
+                  onChange={(e) => updateTask(task.id, { progress: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                  className="w-16 rounded-lg border px-2 py-1"
+                />%
+              </td>
+              <td>
+                <button
+                  onClick={() => void removeTask(task)}
+                  aria-label="删除任务"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -88,18 +129,24 @@ function TaskBoard({ tasks, updateTask }: { tasks: Task[]; updateTask: (id: stri
   const statuses: Task["status"][] = ["未开始", "进行中", "已完成"];
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
-      {statuses.map((status) => (
-        <section key={status} className="w-80 flex-shrink-0 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-          <div className="mb-3 flex justify-between"><h3 className="font-semibold">{status}</h3><span className="text-xs text-slate-500">{tasks.filter((task) => task.status === status).length}</span></div>
-          {tasks.filter((task) => task.status === status).map((task) => (
-            <div key={task.id} className="mb-3 rounded-2xl border bg-white p-4 shadow-sm">
-              <div className="font-medium">{task.name}</div>
-              <div className="mt-2 text-xs text-slate-500">{task.owner} · {task.priority} · {task.progress}%</div>
-              <div className="mt-3 flex gap-2">{statuses.filter((next) => next !== status).map((next) => <button key={next} onClick={() => updateTask(task.id, { status: next })} className="rounded-lg bg-slate-100 px-2 py-1 text-xs">→ {next}</button>)}</div>
-            </div>
-          ))}
-        </section>
-      ))}
+      {statuses.map((status) => {
+        const items = tasks.filter((task) => task.status === status);
+        return (
+          <section key={status} className="w-80 flex-shrink-0 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex justify-between"><h3 className="font-semibold">{status}</h3><span className="text-xs text-slate-500">{items.length}</span></div>
+            {items.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-400">暂无记录</p>
+            )}
+            {items.map((task) => (
+              <div key={task.id} className="mb-3 rounded-2xl border bg-white p-4 shadow-sm">
+                <div className="font-medium">{task.name}</div>
+                <div className="mt-2 text-xs text-slate-500">{task.owner} · {task.priority} · {task.progress}%</div>
+                <div className="mt-3 flex gap-2">{statuses.filter((next) => next !== status).map((next) => <button key={next} onClick={() => updateTask(task.id, { status: next })} className="rounded-lg bg-slate-100 px-2 py-1 text-xs transition-colors hover:bg-slate-200 active:scale-95">→ {next}</button>)}</div>
+              </div>
+            ))}
+          </section>
+        );
+      })}
     </div>
   );
 }

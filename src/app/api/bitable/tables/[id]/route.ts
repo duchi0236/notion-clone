@@ -18,6 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       icon: body.icon ?? existing.icon,
       schema: body.schema ?? undefined,
       views: body.views ?? undefined,
+      automations: body.automations ?? undefined,
     },
     include: { rows: { orderBy: { sortIndex: "asc" } } },
   });

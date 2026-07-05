@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, Clock3, Code2, Copy, List, Loader2, MessageSquare, PanelRightClose, Plus, Share2, Star, Trash2, X } from "lucide-react";
 import { ClawTipTapEditor } from "@/components/editor/ClawTipTapEditor";
 import { HtmlDocView } from "./HtmlDocView";
 import { isFullHtmlDoc, starterFullHtml } from "@/lib/html-doc";
+import { confirm } from "@/components/ui/confirm";
 import { formatDate } from "@/lib/utils";
 import type { Doc } from "./types";
 import { docDisplayTitle, htmlToText, summarize } from "./api";
@@ -34,6 +35,7 @@ export function DocumentPanel({
   toggleFavorite,
   onRestored,
   saveState = "idle",
+  onRetrySave,
   autoFocusTitle = false,
   onTitleFocused,
 }: {
@@ -46,6 +48,7 @@ export function DocumentPanel({
   toggleFavorite: () => void;
   onRestored: () => void;
   saveState?: "idle" | "saving" | "saved" | "error";
+  onRetrySave?: () => void;
   autoFocusTitle?: boolean;
   onTitleFocused?: () => void;
 }) {
@@ -54,28 +57,84 @@ export function DocumentPanel({
   const [customIcon, setCustomIcon] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const iconPickerWrapRef = useRef<HTMLDivElement>(null);
+  const shareTriggerRef = useRef<HTMLButtonElement>(null);
+  const inspectorRef = useRef<HTMLElement>(null);
+  // 打开右侧 inspector / 分享弹层前记录触发元素，关闭后归还焦点
+  const inspectorRestoreRef = useRef<HTMLElement | null>(null);
 
   // 新建文档后自动聚焦标题，避免攒出一堆「无标题」
   useEffect(() => {
-    if (autoFocusTitle && titleRef.current) {
-      titleRef.current.focus();
-      titleRef.current.select();
+    if (!autoFocusTitle) return;
+    // titleRef 尚未挂载时不要提前消费 onTitleFocused（否则 autoFocus 标记会被清掉而错过聚焦）
+    if (!titleRef.current) return;
+    // 用 rAF 包裹，等布局稳定后再聚焦，避免新建瞬间时序错过
+    const raf = requestAnimationFrame(() => {
+      titleRef.current?.focus();
+      titleRef.current?.select();
       onTitleFocused?.();
-    }
+    });
+    return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.clientKey ?? doc?.id, autoFocusTitle]);
 
-  // Esc 关闭右侧面板 / 图标选择器（与编辑器自身的快捷键不冲突）
+  // Esc 关闭右侧面板 / 图标选择器（与编辑器自身的快捷键不冲突）。
+  // 作为多层弹层 Esc 的唯一协调者：命中一层即 preventDefault/stopPropagation 并 return，
+  // 避免一次 Esc 连关多层。捕获阶段绑定，先于子组件内部处理。
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
-      if (iconPickerOpen) setIconPickerOpen(false);
-      else if (shareOpen) setShareOpen(false);
-      else if (inspector) setInspector(null);
+      if (iconPickerOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIconPickerOpen(false);
+        return;
+      }
+      if (shareOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShareOpen(false);
+        return;
+      }
+      if (inspector) {
+        e.preventDefault();
+        e.stopPropagation();
+        setInspector(null);
+        return;
+      }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [iconPickerOpen, shareOpen, inspector]);
+
+  // 图标选择器：点外部关闭（Esc 交由上面的协调者统一处理，避免重复绑定 Esc 连关多层）。
+  useEffect(() => {
+    if (!iconPickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (iconPickerWrapRef.current?.contains(e.target as Node)) return;
+      setIconPickerOpen(false);
+    };
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, [iconPickerOpen]);
+
+  // 右侧 inspector 抽屉的焦点管理（非阻断侧栏，不锁滚、不强制 Tab 陷阱，Esc 交由协调者处理）：
+  // 打开时记录触发元素并把焦点送入抽屉首个可聚焦元素，关闭后把焦点归还触发元素。
+  useEffect(() => {
+    if (inspector === null) return;
+    inspectorRestoreRef.current = (document.activeElement as HTMLElement) ?? null;
+    const raf = requestAnimationFrame(() => {
+      const root = inspectorRef.current;
+      const first = root?.querySelector<HTMLElement>(
+        'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      );
+      (first ?? root)?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      inspectorRestoreRef.current?.focus?.();
+    };
+  }, [inspector]);
 
   if (!doc) {
     return (
@@ -109,11 +168,16 @@ export function DocumentPanel({
           <div className="flex items-center gap-1.5">
             <IconButton title={doc.isFavorite ? "取消收藏" : "收藏"} active={doc.isFavorite} onClick={toggleFavorite}><Star className={`h-4 w-4 ${doc.isFavorite ? "fill-current" : ""}`} /></IconButton>
             <div className="relative">
-              <IconButton title="分享" active={doc.isPublished || shareOpen} onClick={() => setShareOpen((v) => !v)}><Share2 className="h-4 w-4" /></IconButton>
+              <IconButton ref={shareTriggerRef} title="分享" active={doc.isPublished || shareOpen} onClick={() => setShareOpen((v) => !v)}><Share2 className="h-4 w-4" /></IconButton>
               {shareOpen && (
                 <SharePopover
                   documentId={currentDoc.id}
-                  onClose={() => setShareOpen(false)}
+                  triggerRef={shareTriggerRef}
+                  onClose={() => {
+                    setShareOpen(false);
+                    // 关闭后把焦点还给触发按钮
+                    shareTriggerRef.current?.focus();
+                  }}
                   onPublishedChange={(published) => updateDoc({ isPublished: published })}
                 />
               )}
@@ -126,9 +190,15 @@ export function DocumentPanel({
             <IconButton
               title={isFullHtmlDoc(doc.html) ? "切回富文本编辑" : "切换为整页 HTML 渲染"}
               active={isFullHtmlDoc(doc.html)}
-              onClick={() => {
+              onClick={async () => {
                 if (isFullHtmlDoc(doc.html)) {
-                  if (confirm("切回富文本？整页 HTML 将作为普通内容显示，建议先复制源码备份。")) {
+                  if (
+                    await confirm({
+                      title: "切回富文本编辑？",
+                      body: "整页 HTML 将作为普通内容显示，建议先复制源码备份。",
+                      confirmText: "切回富文本",
+                    })
+                  ) {
                     updateDoc({ html: "<p></p>", text: "", summary: "" });
                   }
                 } else {
@@ -146,7 +216,7 @@ export function DocumentPanel({
           {doc.coverImage && <div className="mb-7 h-36 rounded-[24px] bg-cover bg-center shadow-inner" style={{ backgroundImage: `url(${doc.coverImage})` }} />}
           <div className="mb-7">
             <div className="flex items-start gap-3">
-              <div className="relative mt-1">
+              <div ref={iconPickerWrapRef} className="relative mt-1">
                 <button
                   className="inline-flex rounded-xl outline-none transition hover:-translate-y-0.5 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-300"
                   title="更改页面图标"
@@ -211,6 +281,14 @@ export function DocumentPanel({
                   ref={titleRef}
                   value={doc.title}
                   onChange={(event) => updateDoc({ title: event.target.value })}
+                  onKeyDown={(event) => {
+                    // Enter（非 IME 拼写中）把焦点移入正文首段，自然衔接写作
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                      event.preventDefault();
+                      const editor = document.querySelector<HTMLElement>(".ProseMirror");
+                      editor?.focus();
+                    }
+                  }}
                   placeholder="无标题"
                   className="block w-full bg-transparent text-[38px] font-semibold leading-[1.1] tracking-normal text-slate-950 outline-none placeholder:text-slate-300 sm:text-[44px]"
                 />
@@ -220,7 +298,16 @@ export function DocumentPanel({
                   <span>更新 {formatDate(doc.updatedAt)}</span>
                   {saveState === "saving" && <span className="flex items-center gap-1 text-slate-400"><Loader2 className="h-3 w-3 animate-spin" />保存中</span>}
                   {saveState === "saved" && <span className="flex items-center gap-1 text-emerald-600"><Check className="h-3 w-3" />已保存</span>}
-                  {saveState === "error" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">保存失败，正在重试…</span>}
+                  {saveState === "error" && (
+                    <span className="flex items-center gap-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">
+                      保存失败
+                      {onRetrySave && (
+                        <button type="button" onClick={onRetrySave} className="font-medium underline underline-offset-2 hover:text-rose-900">
+                          重试
+                        </button>
+                      )}
+                    </span>
+                  )}
                   {doc.isPublished && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">已发布</span>}
                 </div>
               </div>
@@ -257,7 +344,13 @@ export function DocumentPanel({
       {!inspector && <DocumentOutline key={doc.clientKey ?? doc.id} docId={doc.id} />}
 
       {inspector && (
-        <aside className="w-[360px] shrink-0 overflow-y-auto border-l border-slate-200/70 bg-white/72 backdrop-blur-xl">
+        <aside
+          ref={inspectorRef}
+          role="region"
+          aria-label={inspector === "outline" ? "大纲" : inspector === "versions" ? "版本历史" : "评论"}
+          tabIndex={-1}
+          className="w-[360px] shrink-0 overflow-y-auto border-l border-slate-200/70 bg-white/72 backdrop-blur-xl outline-none"
+        >
           <div className="sticky top-0 z-10 flex h-12 items-center justify-between border-b border-slate-200/70 bg-white/78 px-4 backdrop-blur-xl">
             <h2 className="text-sm font-semibold">{inspector === "outline" ? "大纲" : inspector === "versions" ? "版本历史" : "评论"}</h2>
             <button onClick={() => setInspector(null)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-950">
@@ -288,30 +381,28 @@ function buildBreadcrumbs(docs: Doc[], doc: Doc) {
   return items;
 }
 
-function IconButton({
-  children,
-  title,
-  onClick,
-  active,
-  tone = "default",
-}: {
-  children: React.ReactNode;
-  title: string;
-  onClick?: () => void;
-  active?: boolean;
-  tone?: "default" | "danger";
-}) {
+const IconButton = forwardRef<
+  HTMLButtonElement,
+  {
+    children: React.ReactNode;
+    title: string;
+    onClick?: () => void;
+    active?: boolean;
+    tone?: "default" | "danger";
+  }
+>(function IconButton({ children, title, onClick, active, tone = "default" }, ref) {
   return (
     <button
+      ref={ref}
       title={title}
       onClick={onClick}
       className={
         tone === "danger"
-          ? "inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-          : `inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 ${active ? "bg-slate-100 text-slate-950" : ""}`
+          ? "inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-500 active:scale-95 active:bg-red-100"
+          : `inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 active:scale-95 active:bg-slate-200 ${active ? "bg-slate-100 text-slate-950" : ""}`
       }
     >
       {children}
     </button>
   );
-}
+});

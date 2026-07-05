@@ -15,7 +15,14 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T | null>
 }
 
 export function htmlToText(html: string) {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  // 先移除 head/style/script 整块内容，避免 CSS/JS 源码被当正文提取进摘要。
+  return html
+    .replace(/<head[\s\S]*?<\/head>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function summarize(value: string, max = 140) {

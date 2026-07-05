@@ -1,13 +1,25 @@
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { LOCAL_MODE } from "@/lib/runtime-mode";
 import type { InboxSource, MemoryStatus, Prisma } from "@prisma/client";
 
 const DEMO_EMAIL = "local@clawnote.dev";
 const DEMO_WORKSPACE_NAME = "ClawNote 文档空间";
 
+export class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+    this.name = "UnauthorizedError";
+  }
+}
+
 export async function ensureWorkspace() {
   const session = await getServerSession(authOptions).catch(() => null);
+  // Defense in depth: src/middleware.ts already rejects unauthenticated API
+  // requests in production, but never fall back to the shared demo workspace
+  // unless local mode is explicitly enabled.
+  if (!session?.user?.email && !LOCAL_MODE) throw new UnauthorizedError();
   const email = session?.user?.email?.trim().toLowerCase() || DEMO_EMAIL;
   const name = session?.user?.name || "Local User";
 

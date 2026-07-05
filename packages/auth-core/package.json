@@ -1,0 +1,21 @@
+{
+  "name": "@clawnote/auth-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "统一登录核心（账号密码 / 手机验证码 / 微信）：身份归并 + JWT/JWKS，存储/短信/微信/限流均注入。web/mobile/desktop 共用。",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./memory-store": "./src/memory-store.ts"
+  },
+  "scripts": {
+    "test": "tsx test/smoke.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "bcryptjs": "*",
+    "jose": "^5"
+  }
+}

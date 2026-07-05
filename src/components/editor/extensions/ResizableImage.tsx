@@ -2,7 +2,7 @@
 
 import Image from "@tiptap/extension-image";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlignCenter, AlignLeft, AlignRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,8 +45,12 @@ function ImageView(props: NodeViewProps) {
     caption: string;
   };
   const wrapRef = useRef<HTMLDivElement>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const [hover, setHover] = useState(false);
+  const [resizing, setResizing] = useState(false);
+  const [resizeW, setResizeW] = useState<number | null>(null);
   const show = hover || selected;
+  useEffect(() => () => cleanupRef.current?.(), []);
 
   function startResize(e: React.MouseEvent) {
     e.preventDefault();
@@ -57,14 +61,27 @@ function ImageView(props: NodeViewProps) {
     const startX = e.clientX;
     const startW = img.getBoundingClientRect().width;
     const maxW = container.getBoundingClientRect().width;
+    const prevUserSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "ew-resize";
+    setResizing(true);
+    setResizeW(Math.round(startW));
     function move(ev: MouseEvent) {
       const w = Math.max(80, Math.min(maxW, startW + (ev.clientX - startX)));
+      setResizeW(Math.round(w));
       updateAttributes({ width: Math.round(w) });
     }
     function up() {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
+      document.body.style.userSelect = prevUserSelect;
+      document.body.style.cursor = prevCursor;
+      cleanupRef.current = null;
+      setResizing(false);
+      setResizeW(null);
     }
+    cleanupRef.current = up; // 卸载时兜底，避免拖拽中卸载导致 body 样式/监听残留
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
   }
@@ -103,14 +120,31 @@ function ImageView(props: NodeViewProps) {
             </div>
           )}
 
-          {/* Resize handle */}
+          {/* Resize handle — 视觉细条不变，外包透明热区扩到 ≥32px 命中区 */}
           {show && (
             <span
               onMouseDown={startResize}
               contentEditable={false}
-              className="absolute right-1 top-1/2 h-10 w-1.5 -translate-y-1/2 cursor-ew-resize rounded-full bg-slate-700/70 ring-2 ring-white"
+              className="group/handle absolute right-0 top-1/2 flex h-12 w-8 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-end pr-1"
               title="拖动调整大小"
-            />
+            >
+              <span
+                className={cn(
+                  "h-10 w-1.5 rounded-full bg-slate-700/70 ring-2 ring-white group-active/handle:bg-slate-900",
+                  resizing && "bg-slate-900",
+                )}
+              />
+            </span>
+          )}
+
+          {/* 拖拽中显示当前宽度 */}
+          {resizing && resizeW != null && (
+            <span
+              contentEditable={false}
+              className="absolute right-2 top-2 z-20 rounded-md bg-slate-900/85 px-2 py-0.5 text-xs font-medium text-white"
+            >
+              {resizeW}px
+            </span>
           )}
         </div>
       </div>
@@ -120,6 +154,7 @@ function ImageView(props: NodeViewProps) {
         <input
           value={caption}
           onChange={(e) => updateAttributes({ caption: e.target.value })}
+          aria-label="图片说明"
           placeholder={show ? "添加图注…" : ""}
           className="max-w-full bg-transparent text-center text-xs text-slate-500 outline-none placeholder:text-slate-300"
           style={{ width: caption || show ? "100%" : "auto" }}

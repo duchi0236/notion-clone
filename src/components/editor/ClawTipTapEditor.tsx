@@ -37,14 +37,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const lowlight = createLowlight(common);
 
 // Real-time collaboration is opt-in: set NEXT_PUBLIC_COLLAB=1 and run the
-// y-websocket server (npm run collab) to enable multi-user editing.
+// collab server (npm run collab) to enable multi-user editing. The provider is
+// created disconnected; we connect only after fetching an auth ticket from
+// /api/collab/token (which also carries the real user identity for cursors).
 const COLLAB_ENABLED = process.env.NEXT_PUBLIC_COLLAB === "1";
 const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS || "ws://localhost:1234";
 const CURSOR_COLORS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"];
 
-function randomUser() {
-  const color = CURSOR_COLORS[Math.floor(Math.random() * CURSOR_COLORS.length)];
-  return { name: `用户${Math.floor(Math.random() * 1000)}`, color };
+function colorFor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return CURSOR_COLORS[hash % CURSOR_COLORS.length];
 }
 import {
   AlignCenter,
@@ -52,6 +55,7 @@ import {
   AlignRight,
   Bold,
   Brain,
+  Check,
   CheckSquare,
   ChevronDown,
   Code,
@@ -134,12 +138,43 @@ export function ClawTipTapEditor({
 }) {
   const collab = COLLAB_ENABLED && !!docId;
   // One Y.Doc + websocket provider per document (the editor remounts per doc).
+  // Created disconnected; the auth effect below fetches a ticket and connects.
   const yState = useMemo(() => {
     if (!collab) return null;
     const ydoc = new Y.Doc();
-    const provider = new WebsocketProvider(COLLAB_WS_URL, `clawnote-${docId}`, ydoc);
-    return { ydoc, provider, user: randomUser() };
+    const provider = new WebsocketProvider(COLLAB_WS_URL, `clawnote-${docId}`, ydoc, {
+      connect: false,
+    });
+    return { ydoc, provider, user: { name: "…", color: CURSOR_COLORS[0] } };
   }, [collab, docId]);
+
+  // Fetch a collab ticket, apply the real user identity to awareness, connect.
+  useEffect(() => {
+    if (!collab || !yState || !docId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/collab/token?docId=${encodeURIComponent(docId)}`);
+        if (!res.ok) throw new Error(`collab token: ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        yState.provider.params.token = String(data.token ?? "");
+        const name = String(data.user?.name ?? "访客");
+        yState.provider.awareness.setLocalStateField("user", {
+          name,
+          color: String(data.user?.color ?? colorFor(name)),
+        });
+        yState.provider.connect();
+      } catch {
+        // Local/dev collab server without auth: connect anyway; a production
+        // server will reject the unauthenticated upgrade with 401.
+        if (!cancelled) yState.provider.connect();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [collab, yState, docId]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -147,11 +182,18 @@ export function ClawTipTapEditor({
   const selectedIndexRef = useRef(0);
   const showMenuRef = useRef(false);
   const activeBlockRef = useRef<HTMLElement | null>(null);
+  const slashHighlightRef = useRef<HTMLButtonElement | null>(null);
+  const blockMenuRef = useRef<HTMLDivElement | null>(null);
+  const draggedBlockRef = useRef<HTMLElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copiedSelection, setCopiedSelection] = useState(false);
+  const [dropIndicatorTop, setDropIndicatorTop] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [railTop, setRailTop] = useState(12);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 36, left: 0 });
   const [blockMenu, setBlockMenu] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -226,8 +268,26 @@ export function ClawTipTapEditor({
     setSelectedIndex(0);
   }
 
+  function syncMenuToCaret() {
+    const ed = editorRef.current;
+    const root = rootRef.current;
+    if (!ed || !root) return;
+    try {
+      const { from } = ed.state.selection;
+      const caret = ed.view.coordsAtPos(from);
+      const rootRect = root.getBoundingClientRect();
+      setMenuPos({
+        top: Math.round(caret.bottom - rootRect.top + 8),
+        left: Math.max(0, Math.round(caret.left - rootRect.left)),
+      });
+    } catch {
+      /* keep previous position */
+    }
+  }
+
   function openSlashMenu() {
     showMenuRef.current = true;
+    syncMenuToCaret();
     setShowMenu(true);
     setSlashQuery("");
     selectedIndexRef.current = 0;
@@ -370,6 +430,40 @@ export function ClawTipTapEditor({
     };
   }, [editor]);
 
+  // Block drag: render a drop indicator line at the targeted block while a
+  // grip-initiated drag is in flight, and clear the dragged-block styling on end.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!editor || !root) return;
+    const clearDrag = () => {
+      draggedBlockRef.current?.classList.remove("opacity-50");
+      draggedBlockRef.current = null;
+      setDropIndicatorTop(null);
+      root.removeAttribute("data-dragging");
+    };
+    const onDragOver = (event: DragEvent) => {
+      if (!draggedBlockRef.current) return;
+      const block = findBlockAtPoint(event.clientX, event.clientY);
+      if (!block) {
+        setDropIndicatorTop(null);
+        return;
+      }
+      const rootRect = root.getBoundingClientRect();
+      const blockRect = block.getBoundingClientRect();
+      const below = event.clientY > blockRect.top + blockRect.height / 2;
+      const edge = (below ? blockRect.bottom : blockRect.top) - rootRect.top;
+      setDropIndicatorTop(Math.round(edge));
+    };
+    root.addEventListener("dragover", onDragOver);
+    root.addEventListener("drop", clearDrag);
+    root.addEventListener("dragend", clearDrag);
+    return () => {
+      root.removeEventListener("dragover", onDragOver);
+      root.removeEventListener("drop", clearDrag);
+      root.removeEventListener("dragend", clearDrag);
+    };
+  }, [editor]);
+
   useEffect(() => {
     if (!editor || collab) return; // in collab mode the Y.Doc is the source of truth
     if (content && content !== editor.getHTML()) editor.commands.setContent(content, false);
@@ -382,7 +476,12 @@ export function ClawTipTapEditor({
     const { provider, ydoc } = yState;
     const seed = () => {
       const fragment = ydoc.getXmlFragment("default");
-      if (fragment.length === 0 && content) editor.commands.setContent(content, false);
+      // Seed only when the shared doc is empty AND we are the only connected
+      // peer — prevents two first-openers from double-seeding the content.
+      const peers = provider.awareness.getStates().size;
+      if (fragment.length === 0 && peers <= 1 && content) {
+        editor.commands.setContent(content, false);
+      }
     };
     provider.on("sync", seed);
     return () => {
@@ -400,15 +499,38 @@ export function ClawTipTapEditor({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
+  // Block handle menu: focus first item on open, close on Escape.
+  useEffect(() => {
+    if (!blockMenu) return;
+    const focusTimer = window.setTimeout(() => {
+      blockMenuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    }, 0);
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setBlockMenu(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [blockMenu]);
+
   async function uploadFile(file: File) {
     if (!editor) return;
     setUploading(true);
+    setUploadError(null);
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/files", { method: "POST", body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.file) return;
+      const res = await fetch("/api/files", { method: "POST", body: form }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({})) : {};
+      if (!res || !res.ok || !data.file) {
+        setUploadError(`「${file.name}」上传失败，请重试`);
+        return;
+      }
       insertUploaded(data.file as UploadedFile);
     } finally {
       setUploading(false);
@@ -548,6 +670,12 @@ export function ClawTipTapEditor({
     (view as unknown as { dragging: unknown }).dragging = { slice, move: true };
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", " ");
+    const block = activeBlockRef.current;
+    if (block) {
+      block.classList.add("opacity-50");
+      draggedBlockRef.current = block;
+    }
+    rootRef.current?.setAttribute("data-dragging", "true");
     setBlockMenu(false);
   }
 
@@ -555,6 +683,35 @@ export function ClawTipTapEditor({
     if (!editor) return;
     setLinkDialogOpen(true);
   };
+
+  const copyResetRef = useRef<number | null>(null);
+  async function copySelection() {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const text = ed.state.doc.textBetween(ed.state.selection.from, ed.state.selection.to);
+    let ok = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(area);
+      }
+    } catch {
+      ok = false;
+    }
+    if (!ok) return;
+    setCopiedSelection(true);
+    if (copyResetRef.current) window.clearTimeout(copyResetRef.current);
+    copyResetRef.current = window.setTimeout(() => setCopiedSelection(false), 1200);
+  }
 
   function applyLink(url: string) {
     if (!editor) return;
@@ -816,6 +973,11 @@ export function ClawTipTapEditor({
     setSelectedIndex(next);
   }, [filteredActions.length, selectedIndex]);
 
+  useEffect(() => {
+    if (!showMenu) return;
+    slashHighlightRef.current?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex, showMenu]);
+
   const groupedActions = filteredActions.reduce<Record<CommandGroup, CommandItem[]>>((acc, item) => {
     acc[item.group].push(item);
     return acc;
@@ -835,6 +997,14 @@ export function ClawTipTapEditor({
       onMouseMove={(event) => syncRailToBlock(findBlockAtPoint(event.clientX, event.clientY) ?? findBlockElement(event.target))}
     >
       <input ref={fileInputRef} type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadFile(file); }} />
+
+      {dropIndicatorTop !== null && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-0 right-0 z-20 h-0.5 rounded-full bg-blue-500"
+          style={{ top: dropIndicatorTop }}
+        />
+      )}
 
       <div
         data-block-rail
@@ -867,9 +1037,12 @@ export function ClawTipTapEditor({
 
       {blockMenu && rootRef.current && createPortal(
         <>
-          <div className="fixed inset-0 z-[55]" onClick={() => setBlockMenu(false)} />
+          <div className="fixed inset-0 z-[55]" onMouseDown={() => setBlockMenu(false)} />
           <div
-            className="fixed z-[56] w-48 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl"
+            ref={blockMenuRef}
+            role="menu"
+            aria-label="块操作"
+            className="fixed z-[56] w-48 origin-top animate-in fade-in zoom-in-95 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl duration-[120ms]"
             style={{
               top: rootRef.current.getBoundingClientRect().top + railTop + 28,
               left: Math.max(12, rootRef.current.getBoundingClientRect().left - 18),
@@ -918,7 +1091,7 @@ export function ClawTipTapEditor({
         <Button onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="左对齐"><AlignLeft className="h-4 w-4" /></Button>
         <Button onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="居中"><AlignCenter className="h-4 w-4" /></Button>
         <Button onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="右对齐"><AlignRight className="h-4 w-4" /></Button>
-        <Button onClick={() => navigator.clipboard?.writeText(editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to))} title="复制选中内容"><Copy className="h-4 w-4" /></Button>
+        <Button onClick={copySelection} active={copiedSelection} title={copiedSelection ? "已复制" : "复制选中内容"}>{copiedSelection ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button>
       </BubbleMenu>
 
       <BubbleMenu
@@ -940,7 +1113,13 @@ export function ClawTipTapEditor({
       </BubbleMenu>
 
       {showMenu && (
-        <div className="absolute left-0 top-9 z-30 w-[316px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div
+          role="listbox"
+          aria-label="快速插入块"
+          aria-activedescendant={filteredActions[selectedIndex] ? `slash-option-${selectedIndex}` : undefined}
+          style={{ top: menuPos.top, left: menuPos.left }}
+          className="absolute z-30 w-[316px] origin-top-left animate-in fade-in zoom-in-95 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl duration-[120ms]"
+        >
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
             <div>
               <div className="text-xs font-medium text-slate-500">快速插入</div>
@@ -961,6 +1140,10 @@ export function ClawTipTapEditor({
                     return (
                       <button
                         key={item.label}
+                        id={`slash-option-${index}`}
+                        role="option"
+                        aria-selected={index === selectedIndex}
+                        ref={index === selectedIndex ? slashHighlightRef : undefined}
                         type="button"
                         onMouseEnter={() => {
                           selectedIndexRef.current = index;
@@ -1021,6 +1204,24 @@ export function ClawTipTapEditor({
         )}
 
       {shortcutsOpen && createPortal(<ShortcutsModal onClose={() => setShortcutsOpen(false)} />, document.body)}
+
+      {uploadError &&
+        createPortal(
+          <div className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2" role="status" aria-live="polite">
+            <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm text-red-600 shadow-2xl">
+              <span>{uploadError}</span>
+              <button
+                type="button"
+                onClick={() => setUploadError(null)}
+                className="rounded-md p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                aria-label="关闭提示"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

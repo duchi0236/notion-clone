@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createDocumentVersion, htmlToText, summarize, upsertSearchIndex } from "@/lib/clawnote-store";
+import { createDocumentVersion, ensureWorkspace, htmlToText, summarize, upsertSearchIndex } from "@/lib/clawnote-store";
 
 export async function POST(_: NextRequest, { params }: { params: { id: string; version: string } }) {
   const versionNumber = Number(params.version);
   if (!Number.isFinite(versionNumber)) {
     return NextResponse.json({ error: "Invalid version number" }, { status: 400 });
   }
+
+  const { workspace } = await ensureWorkspace();
+  const owned = await prisma.document.findFirst({
+    where: { id: params.id, workspaceId: workspace.id },
+    select: { id: true },
+  });
+  if (!owned) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
   const version = await prisma.documentVersion.findUnique({
     where: {

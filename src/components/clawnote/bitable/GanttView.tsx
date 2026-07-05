@@ -83,7 +83,9 @@ export function GanttView({
     );
   }
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  // 本地日期键（不要用 toISOString —— 那是 UTC，会让东/西半球的"今天"高亮错位一天）
+  const localKey = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+  const todayKey = localKey(new Date());
 
   return (
     <div className="flex h-full flex-col">
@@ -112,18 +114,25 @@ export function GanttView({
             <div className="sticky left-0 z-20 shrink-0 border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500" style={{ width: LABEL_W }}>
               记录
             </div>
-            {days.map((d, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "shrink-0 border-b border-r border-slate-100 py-1 text-center text-[10px] leading-tight",
-                  d.getDay() === 0 || d.getDay() === 6 ? "bg-slate-100/60 text-slate-400" : "text-slate-500",
-                )}
-                style={{ width: DAY }}
-              >
-                {d.getMonth() + 1}/{d.getDate()}
-              </div>
-            ))}
+            {days.map((d, i) => {
+              const isToday = localKey(d) === todayKey;
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "shrink-0 border-b border-r border-slate-100 py-1 text-center text-[10px] leading-tight",
+                    isToday
+                      ? "bg-blue-50 font-semibold text-blue-600 ring-1 ring-inset ring-blue-300"
+                      : d.getDay() === 0 || d.getDay() === 6
+                        ? "bg-slate-100/60 text-slate-400"
+                        : "text-slate-500",
+                  )}
+                  style={{ width: DAY }}
+                >
+                  {d.getMonth() + 1}/{d.getDate()}
+                </div>
+              );
+            })}
           </div>
 
           {/* 行 */}
@@ -138,8 +147,8 @@ export function GanttView({
                 <div className="relative flex-1" style={{ height: 36 }}>
                   <button
                     onClick={() => onOpenRecord(row.id)}
-                    className="absolute top-1.5 flex h-6 items-center rounded-md bg-gradient-to-r from-blue-500 to-blue-600 px-2 text-[11px] font-medium text-white shadow-sm transition-transform hover:scale-[1.01]"
-                    style={{ left: offset * DAY + 2, width: Math.max(DAY - 4, span * DAY - 4) }}
+                    className="absolute top-1 flex h-7 items-center rounded-md bg-gradient-to-r from-blue-500 to-blue-600 px-2 text-[11px] font-medium text-white shadow-sm transition-transform hover:scale-[1.01]"
+                    style={{ left: offset * DAY + 2, width: Math.max(36, span * DAY - 4) }}
                     title={String(row.data[primary.id] ?? "")}
                   >
                     <span className="truncate">{String(row.data[primary.id] ?? "")}</span>

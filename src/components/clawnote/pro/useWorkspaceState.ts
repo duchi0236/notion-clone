@@ -197,6 +197,15 @@ export function useWorkspaceState() {
     persistDoc(next);
   }
 
+  // 手动重试保存当前选中文档。saveState === "error" 表示「保存失败」（兜底重建也失败、
+  // 此刻并没有自动重试在跑），UI 应据此显示「保存失败 · 重试」而非「正在重试…」，
+  // 点击重试调用此函数重新走 persistDoc 流程。
+  function retrySave() {
+    if (!selectedDoc) return;
+    setSaveState("saving");
+    persistDoc(selectedDoc);
+  }
+
   async function createDoc(input: CreateDocInput = {}) {
     const title = normalizeTitle(input.title);
     const html = input.html ?? "<p></p>";
@@ -383,6 +392,7 @@ export function useWorkspaceState() {
     reloadDocs,
     reviewMemory,
     saveState,
+    retrySave,
     lastCreatedKey,
     clearLastCreated: () => setLastCreatedKey(null),
     purgeDoc,

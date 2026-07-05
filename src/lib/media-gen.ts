@@ -53,32 +53,55 @@ function mock(kind: MediaKind, prompt: string): GenResult {
 // 单个能力(图/视频/剪辑)的供应商配置，来自控制台(AiConfig.mediaProviders)。
 export type ProviderConfig = { provider?: string; model?: string; apiKey?: string; baseUrl?: string };
 
-// 真实供应商接入位。各家流程基本一致：提交任务 → 轮询任务状态 → 取结果 URL。
-// 这里留好骨架与说明；填好控制台供应商/Key 与对应分支即可启用。
+// OpenAI 兼容图片生成（OpenAI / 智谱 / 通义 / SiliconFlow 等提供
+// /v1/images/generations 兼容端点的供应商均可,通过 baseUrl 切换）。
+async function openaiCompatibleImage(prompt: string, cfg: ProviderConfig, apiKey: string, provider: string): Promise<GenResult> {
+  const base = (cfg.baseUrl || process.env.MEDIA_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+  const res = await fetch(`${base}/images/generations`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: cfg.model || process.env.MEDIA_MODEL || "gpt-image-1",
+      prompt,
+      n: 1,
+      size: "1024x1024",
+    }),
+    signal: AbortSignal.timeout(120_000),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    return { status: "error", kind: "image", provider, error: `供应商返回 ${res.status}: ${detail.slice(0, 200)}` };
+  }
+  const data = await res.json();
+  const item = data.data?.[0];
+  const url = item?.url || (item?.b64_json ? `data:image/png;base64,${item.b64_json}` : undefined);
+  if (!url) return { status: "error", kind: "image", provider, error: "供应商未返回图片数据" };
+  return { status: "done", kind: "image", url, provider };
+}
+
+// 真实供应商接入。图片走 OpenAI 兼容端点(可用 baseUrl 指向任意兼容供应商);
+// 视频供应商(可灵/即梦/Runway…)各家任务轮询协议不同,尚未接入时返回明确错误,
+// 生产环境不会误用占位数据。
 async function callProvider(provider: string, kind: MediaKind, prompt: string, cfg: ProviderConfig): Promise<GenResult> {
   const apiKey = cfg.apiKey || process.env.MEDIA_API_KEY;
   if (!apiKey) return { status: "error", kind, provider, error: "未配置该能力的 API Key（请在 AI 控制台 → 媒体生成 中填写）" };
 
-  // TODO: 按供应商实现。示例（伪代码）：
-  //   const submit = await fetch(`${BASE}/v1/${kind}/generations`, {
-  //     method: "POST",
-  //     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-  //     body: JSON.stringify({ prompt, /* 时长/分辨率/比例等 */ }),
-  //   });
-  //   const { taskId } = await submit.json();
-  //   // 轮询 taskId 直到 succeeded，取 url
-  //   return { status: "done", kind, url, poster, provider };
-  //
-  // 常见供应商：kling(可灵) / jimeng(即梦) / runway / pika / luma / openai(sora) / google(veo)
-  switch (provider) {
-    case "kling":
-    case "jimeng":
-    case "runway":
-    case "pika":
-    case "luma":
-    default:
-      return { status: "error", kind, provider, error: `供应商 ${provider} 尚未接入（占位）。请在 media-gen.ts 的 callProvider 中实现。` };
+  if (kind === "image") {
+    switch (provider) {
+      case "openai":
+      case "openai-compatible":
+      case "zhipu":
+      case "dashscope":
+      case "siliconflow":
+        return openaiCompatibleImage(prompt, cfg, apiKey, provider);
+      default:
+        return { status: "error", kind, provider, error: `图片供应商 ${provider} 尚未接入。可将 provider 设为 openai-compatible 并配置 baseUrl 使用任意 OpenAI 兼容端点。` };
+    }
   }
+
+  // 视频生成:各家(kling/jimeng/runway/pika/luma/sora/veo)提交-轮询协议差异大,
+  // 按需在此实现;未接入前返回明确错误而非占位内容。
+  return { status: "error", kind, provider, error: `视频供应商 ${provider} 尚未接入,请先使用 mock 模式或在 media-gen.ts 中实现该供应商。` };
 }
 
 export async function generateMedia(kind: MediaKind, prompt: string, cfg: ProviderConfig = {}): Promise<GenResult> {

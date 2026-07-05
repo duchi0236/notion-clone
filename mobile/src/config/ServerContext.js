@@ -7,8 +7,12 @@ import Constants from "expo-constants";
 const STORE_KEY = "clawnote.server";
 
 function inferDevBaseUrl() {
+  // 生产/预览构建：必须用注入的正式 serverUrl，绝不回落开发机
   const configured = Constants.expoConfig?.extra?.serverUrl;
   if (configured) return String(configured).replace(/\/clawnote\/?$/, "");
+  const appEnv = Constants.expoConfig?.extra?.appEnv;
+  if (appEnv === "production" || appEnv === "preview") return ""; // 强制在「设置」里填正式地址
+  // 仅开发期从 Expo hostUri 推导开发机局域网 IP（Next 跑在 :3001）
   const hostUri = Constants.expoConfig?.hostUri || "";
   const host = hostUri.split(":")[0];
   if (host) return `http://${host}:3001`;

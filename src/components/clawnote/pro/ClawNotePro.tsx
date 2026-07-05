@@ -23,7 +23,6 @@ import {
   PanelLeftOpen,
   KeyRound,
   Link2,
-  MoreHorizontal,
   Moon,
   Network,
   Plus,
@@ -39,6 +38,9 @@ import {
   X,
 } from "lucide-react";
 import { cn, formatDateTime } from "@/lib/utils";
+import { useModalA11y } from "@/hooks/useModalA11y";
+import { prefersReducedMotion } from "@/hooks/useReducedMotion";
+import { confirm } from "@/components/ui/confirm";
 import { docDisplayTitle } from "./api";
 import type { AgentMutation, Doc, Memory, PageNode, View } from "./types";
 import { useWorkspaceState } from "./useWorkspaceState";
@@ -198,7 +200,8 @@ export default function ClawNotePro() {
       {view === "home" && (
         <button
           onClick={() => setPaletteOpen(true)}
-          className="claw-command-lens fixed left-1/2 top-5 z-40 hidden h-12 w-[min(440px,42vw)] -translate-x-1/2 items-center gap-3 px-5 text-left text-sm text-slate-500 transition duration-200 hover:-translate-y-0.5 hover:text-slate-700 lg:flex"
+          aria-label="搜索或创建（⌘K）"
+          className="claw-command-lens fixed left-1/2 top-5 z-40 hidden h-12 w-[min(440px,42vw)] -translate-x-1/2 items-center gap-3 px-5 text-left text-sm text-slate-500 transition duration-200 hover:-translate-y-0.5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 lg:flex"
         >
           <Search className="h-4 w-4 text-slate-400" />
           <span className="min-w-0 flex-1 truncate">搜索或创建...</span>
@@ -208,7 +211,7 @@ export default function ClawNotePro() {
 
       <div
         className={cn(
-          "relative z-10 grid min-h-screen grid-cols-1 gap-3 p-3",
+          "relative z-10 grid min-h-screen grid-cols-1 gap-3 p-3 transition-[grid-template-columns] duration-200 ease-out",
           showSidebar ? "lg:grid-cols-[64px_296px_minmax(0,1fr)]" : "lg:grid-cols-[64px_minmax(0,1fr)]",
         )}
       >
@@ -318,6 +321,7 @@ export default function ClawNotePro() {
             docs={activeDocs}
             updateDoc={store.updateDoc}
             saveState={store.saveState}
+            onRetrySave={store.retrySave}
             autoFocusTitle={!!store.selectedDoc && (store.selectedDoc.clientKey ?? store.selectedDoc.id) === store.lastCreatedKey}
             onTitleFocused={store.clearLastCreated}
             deleteDoc={deleteDocWithUndo}
@@ -377,62 +381,59 @@ export default function ClawNotePro() {
       )}
 
       {mobileTreeOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setMobileTreeOpen(false)} />
-          <div className="absolute bottom-0 left-0 top-0 flex w-[85vw] max-w-[320px] flex-col bg-[#fbfbfa] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <h1 className="text-sm font-semibold leading-5">ClawNote</h1>
-                <p className="text-xs text-slate-500">页面树</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={createRootDoc} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200" title="新建文档">
-                  <Plus className="h-4 w-4" />
-                </button>
-                <button onClick={() => setMobileTreeOpen(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200" title="关闭">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+        <MobileTreeDrawer onClose={() => setMobileTreeOpen(false)}>
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div>
+              <h1 className="text-sm font-semibold leading-5">ClawNote</h1>
+              <p className="text-xs text-slate-500">页面树</p>
             </div>
-            <div className="px-3 pt-3">
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  value={store.query}
-                  onChange={(event) => store.setQuery(event.target.value)}
-                  placeholder="搜索标题、正文、标签"
-                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                />
-              </div>
+            <div className="flex items-center gap-1">
+              <button onClick={createRootDoc} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200" title="新建文档">
+                <Plus className="h-4 w-4" />
+              </button>
+              <button onClick={() => setMobileTreeOpen(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200" title="关闭">
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-3">
-              <DocsSidebar
-                docs={docTree}
-                flatDocs={store.filteredDocs}
-                activeDocs={activeDocs}
-                favoriteDocs={store.favoriteDocs ?? []}
-                archivedDocs={store.archivedDocs ?? []}
-                recentDocs={recentDocIds.map((id) => activeDocs.find((doc) => doc.id === id)).filter(Boolean) as Doc[]}
-                searching={store.query.trim().length > 0}
-                selectedDocId={store.selectedDocId}
-                expandedIds={expandedIds}
-                selectDoc={(id) => {
-                  selectDoc(id);
-                  setMobileTreeOpen(false);
-                }}
-                createRootDoc={createRootDoc}
-                createChildDoc={createChildDoc}
-                toggleExpanded={toggleExpanded}
-                moveDoc={store.moveDoc}
-                restoreDoc={store.restoreDoc}
-                toggleFavorite={store.toggleFavorite}
-                deleteDoc={deleteDocWithUndo}
-                purgeDoc={store.purgeDoc}
-                emptyTrash={store.emptyTrash}
+          </div>
+          <div className="px-3 pt-3">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <Search className="h-4 w-4 text-slate-400" />
+              <input
+                value={store.query}
+                onChange={(event) => store.setQuery(event.target.value)}
+                placeholder="搜索标题、正文、标签"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
               />
             </div>
           </div>
-        </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-3">
+            <DocsSidebar
+              docs={docTree}
+              flatDocs={store.filteredDocs}
+              activeDocs={activeDocs}
+              favoriteDocs={store.favoriteDocs ?? []}
+              archivedDocs={store.archivedDocs ?? []}
+              recentDocs={recentDocIds.map((id) => activeDocs.find((doc) => doc.id === id)).filter(Boolean) as Doc[]}
+              searching={store.query.trim().length > 0}
+              selectedDocId={store.selectedDocId}
+              expandedIds={expandedIds}
+              selectDoc={(id) => {
+                selectDoc(id);
+                setMobileTreeOpen(false);
+              }}
+              createRootDoc={createRootDoc}
+              createChildDoc={createChildDoc}
+              toggleExpanded={toggleExpanded}
+              moveDoc={store.moveDoc}
+              restoreDoc={store.restoreDoc}
+              toggleFavorite={store.toggleFavorite}
+              deleteDoc={deleteDocWithUndo}
+              purgeDoc={store.purgeDoc}
+              emptyTrash={store.emptyTrash}
+            />
+          </div>
+        </MobileTreeDrawer>
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
@@ -445,7 +446,7 @@ export default function ClawNotePro() {
 
       {/* 操作反馈 Toast（删除可撤销等） */}
       {toast && (
-        <div className="fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm text-white shadow-2xl lg:bottom-6">
+        <div role="status" aria-live="polite" className="fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm text-white shadow-2xl lg:bottom-6">
           <span>{toast.message}</span>
           {toast.undo && (
             <button onClick={toast.undo} className="rounded-md px-2 py-0.5 font-medium text-amber-300 hover:bg-white/10">
@@ -477,10 +478,21 @@ function fmtUpdated(iso: string) {
   }
 }
 
+// 展示端防御：DB 存量摘要/正文可能混入导入 HTML 时泄漏的 CSS 源码（形如 body{margin:0;font-family:…}）。
+// 命中「花括号内含冒号」且带典型 CSS 属性词即判定为样式源码，渲染时丢弃（返回空串），不动 DB。
+function cleanExcerpt(raw: string): string {
+  const s = (raw || "").trim();
+  if (/\{[^}]*:[^}]*\}/.test(s) && /\b(?:font-family|font-size|line-height|margin|padding|background|color|display|width|height)\s*:/i.test(s)) return "";
+  return s;
+}
+
 // 一张「纸」：渲染文档真实内容，带折角(dog-ear)、作者底注，hero 更大。对齐 design/01。
 function PaperSheet({ doc, hero, index = 0, onOpen }: { doc: Doc; hero?: boolean; index?: number; onOpen: () => void }) {
   const fold = hero ? 30 : 24;
-  const body = (doc.text || doc.summary || "").trim() || "空白文档，点击开始书写…";
+  const body =
+    cleanExcerpt(doc.text) ||
+    cleanExcerpt(doc.summary) ||
+    ((doc.text || doc.summary || "").trim() ? "（HTML 页面）" : "空白文档，点击开始书写…");
   return (
     <button
       onClick={onOpen}
@@ -686,7 +698,8 @@ function SpaceHome({
                   onClick={() => onNavigate("docs")}
                   className="group flex w-[116px] flex-col gap-3 rounded-2xl bg-white/74 p-3.5 text-left shadow-[0_18px_44px_-24px_rgba(15,23,42,0.28)] ring-1 ring-white/70 backdrop-blur-xl transition-transform hover:-translate-y-1"
                 >
-                  <span className={cn("h-7 w-7 rounded-lg", c.tint)} />
+                  {/* ring-white/20：深色下让近黑色块（bg-slate-950）与背景区分；浅色下几乎不可见，不改观感 */}
+                  <span className={cn("h-7 w-7 rounded-lg ring-1 ring-inset ring-white/20", c.tint)} />
                   <span>
                     <span className="block truncate text-sm font-semibold text-slate-800">{c.name}</span>
                     <span className="text-xs text-slate-400">{c.count} 个文档</span>
@@ -774,6 +787,7 @@ function MacDock({ items }: { items: DockItem[] }) {
     <div
       ref={ref}
       onMouseMove={(e) => {
+        if (prefersReducedMotion()) return; // reduce：不放大，仅保留普通 hover 背景反馈
         const box = ref.current;
         if (!box) return;
         const x = e.clientX - box.getBoundingClientRect().left;
@@ -799,15 +813,46 @@ function MacDock({ items }: { items: DockItem[] }) {
           onClick={it.onClick}
           style={{ transformOrigin: "center", willChange: "transform, margin" }}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium",
+            "flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
             it.primary
-              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm shadow-blue-500/30"
-              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm shadow-blue-500/30 active:brightness-95"
+              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200",
           )}
         >
           {it.icon} {it.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+// 移动端页面树抽屉：滑入/滑出动画 + 焦点陷阱 + Esc + 关闭后焦点归还（背景滚动锁定）。
+function MobileTreeDrawer({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const ref = useModalA11y<HTMLDivElement>({ open: true, onClose });
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(r);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <div
+        className={cn("absolute inset-0 bg-slate-900/40 transition-opacity duration-200", entered ? "opacity-100" : "opacity-0")}
+        onMouseDown={onClose}
+      />
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label="页面树"
+        className={cn(
+          "absolute bottom-0 left-0 top-0 flex w-[85vw] max-w-[320px] flex-col bg-[#fbfbfa] shadow-2xl transition-transform duration-200 ease-out",
+          entered ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -852,7 +897,7 @@ function IconRailButton({
       >
         {icon}
       </button>
-      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100">
+      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">
         {label}
       </span>
     </div>
@@ -916,21 +961,39 @@ function DocsSidebar({
 
   return (
     <div>
-      <div className="mb-3 grid grid-cols-4 gap-1 rounded-lg bg-slate-100 p-1">
-        {[
-          ["tree", "目录"],
-          ["recent", "最近"],
-          ["favorites", "收藏"],
-          ["trash", "回收"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key as SidebarTab)}
-            className={cn("inline-flex h-8 items-center justify-center rounded-md px-2 text-xs text-slate-500 hover:text-slate-950", tab === key && "bg-white text-slate-950 shadow-sm")}
-          >
-            {label}
-          </button>
-        ))}
+      <div role="tablist" aria-label="页面分组" className="mb-3 grid grid-cols-4 gap-1 rounded-lg bg-slate-100 p-1">
+        {(() => {
+          const tabs: [SidebarTab, string][] = [
+            ["tree", "目录"],
+            ["recent", "最近"],
+            ["favorites", "收藏"],
+            ["trash", "回收"],
+          ];
+          return tabs.map(([key, label], i) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={tab === key}
+              tabIndex={tab === key ? 0 : -1}
+              onClick={() => setTab(key)}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+                event.preventDefault();
+                const dir = event.key === "ArrowRight" ? 1 : -1;
+                const next = tabs[(i + dir + tabs.length) % tabs.length];
+                setTab(next[0]);
+                const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+                buttons?.[(i + dir + tabs.length) % tabs.length]?.focus();
+              }}
+              className={cn(
+                "inline-flex h-8 items-center justify-center rounded-md px-2 text-xs text-slate-500 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+                tab === key && "bg-white text-slate-950 shadow-sm",
+              )}
+            >
+              {label}
+            </button>
+          ));
+        })()}
       </div>
 
       {tab === "tree" && (
@@ -986,10 +1049,18 @@ function DocsSidebar({
           action={
             archivedDocs.length > 0 ? (
               <button
-                onClick={() => {
-                  if (window.confirm(`彻底删除回收站里的 ${archivedDocs.length} 篇文档？此操作不可恢复。`)) emptyTrash();
+                onClick={async () => {
+                  if (
+                    await confirm({
+                      title: "清空回收站",
+                      body: `彻底删除回收站里的 ${archivedDocs.length} 篇文档？此操作不可恢复。`,
+                      danger: true,
+                      confirmText: "彻底删除",
+                    })
+                  )
+                    emptyTrash();
                 }}
-                className="rounded-md px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                className="rounded-md px-2 py-1 text-xs text-red-500 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
               >
                 清空
               </button>
@@ -1001,15 +1072,24 @@ function DocsSidebar({
               <div key={doc.id} className="group flex min-h-8 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-slate-500 hover:bg-slate-100">
                 <PageIcon icon={doc.icon} muted />
                 <span className="min-w-0 flex-1 truncate" title={docDisplayTitle(doc)}>{docDisplayTitle(doc)}</span>
-                <button onClick={() => restoreDoc(doc.id)} className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-slate-700 group-hover:opacity-100" title="恢复">
+                <button onClick={() => restoreDoc(doc.id)} className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-slate-700 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 [@media(hover:none)]:opacity-100" title="恢复" aria-label="恢复">
                   <RotateCcw className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => {
-                    if (window.confirm(`彻底删除「${docDisplayTitle(doc)}」？此操作不可恢复。`)) purgeDoc(doc.id);
+                  onClick={async () => {
+                    if (
+                      await confirm({
+                        title: "彻底删除",
+                        body: `彻底删除「${docDisplayTitle(doc)}」？此操作不可恢复。`,
+                        danger: true,
+                        confirmText: "彻底删除",
+                      })
+                    )
+                      purgeDoc(doc.id);
                   }}
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 [@media(hover:none)]:opacity-100"
                   title="彻底删除"
+                  aria-label="彻底删除"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -1078,8 +1158,11 @@ function DocTreeItem({
       >
         <button
           onClick={() => node.children.length > 0 && toggleExpanded(node.id)}
-          className="ml-1 flex h-6 w-5 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-white hover:text-slate-700"
-          title={expanded ? "收起" : "展开"}
+          disabled={node.children.length === 0}
+          tabIndex={node.children.length === 0 ? -1 : undefined}
+          className="ml-1 flex h-7 w-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-white hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:pointer-events-none"
+          title={node.children.length === 0 ? undefined : expanded ? "收起" : "展开"}
+          aria-label={node.children.length === 0 ? undefined : expanded ? "收起子页面" : "展开子页面"}
         >
           {node.children.length > 0 ? (
             expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
@@ -1087,21 +1170,23 @@ function DocTreeItem({
             <span className="h-3.5 w-3.5" />
           )}
         </button>
-        <button onClick={() => selectDoc(node.id)} className="flex min-w-0 flex-1 items-center gap-2 px-1 py-1.5 text-left text-sm">
+        <button onClick={() => selectDoc(node.id)} className="flex min-w-0 flex-1 items-center gap-2 px-1 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-1">
           <PageIcon icon={node.icon} muted={node.id !== selectedDocId} />
           <span className="flex-1 truncate">{docDisplayTitle(node)}</span>
         </button>
         <button
           onClick={() => toggleFavorite(node.id)}
           title={node.isFavorite ? "取消收藏" : "收藏"}
-          className={cn("inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-amber-500 group-hover:opacity-100", node.isFavorite && "opacity-100 text-amber-500")}
+          aria-label={node.isFavorite ? "取消收藏" : "收藏"}
+          className={cn("inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-amber-500 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 [@media(hover:none)]:opacity-100", node.isFavorite && "opacity-100 text-amber-500")}
         >
           <Star className={cn("h-3.5 w-3.5", node.isFavorite && "fill-current")} />
         </button>
         <button
           onClick={() => createChildDoc(node.id)}
           title="新建子页面"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-slate-950 group-hover:opacity-100"
+          aria-label="新建子页面"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-slate-950 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 [@media(hover:none)]:opacity-100"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -1111,7 +1196,8 @@ function DocTreeItem({
             deleteDoc(node.id);
           }}
           title="移到回收站"
-          className="mr-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-red-500 group-hover:opacity-100"
+          aria-label="移到回收站"
+          className="mr-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-white hover:text-red-500 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 [@media(hover:none)]:opacity-100"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -1165,7 +1251,7 @@ function DocList({ docs, selectedDocId, onSelect }: { docs: Doc[]; selectedDocId
           key={doc.id}
           onClick={() => onSelect(doc.id)}
           className={cn(
-            "flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-slate-100",
+            "flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-1",
             doc.id === selectedDocId && "bg-slate-200 text-slate-950"
           )}
         >
@@ -1207,6 +1293,9 @@ function CommandPalette({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useModalA11y<HTMLDivElement>({ open: true, onClose, initialFocus: inputRef });
+  const listboxId = "claw-palette-listbox";
 
   const commands = useMemo<PaletteCommand[]>(() => {
     const actions: PaletteCommand[] = [
@@ -1225,7 +1314,7 @@ function CommandPalette({
         id: `doc-${doc.id}`,
         group: "页面",
         label: docDisplayTitle(doc),
-        sub: doc.summary,
+        sub: cleanExcerpt(doc.summary),
         icon: <PageIcon icon={doc.icon} size="md" />,
         keywords: `${doc.title} ${doc.text}`,
         run: () => onSelectDoc(doc.id),
@@ -1241,8 +1330,7 @@ function CommandPalette({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-      else if (event.key === "ArrowDown") {
+      if (event.key === "ArrowDown") {
         event.preventDefault();
         setActive((i) => Math.min(i + 1, commands.length - 1));
       } else if (event.key === "ArrowUp") {
@@ -1255,19 +1343,37 @@ function CommandPalette({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, commands, active]);
+  }, [commands, active]);
 
   const groups: PaletteCommand["group"][] = ["操作", "前往", "页面"];
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950/20 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={onClose}>
-      <div className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="命令面板"
+        className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
           <Search className="h-5 w-5 text-slate-400" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} autoFocus placeholder="搜索文档，或输入命令：新建、日历、表格…" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            role="combobox"
+            aria-expanded
+            aria-controls={listboxId}
+            aria-activedescendant={commands[active] ? `claw-cmd-${commands[active].id}` : undefined}
+            aria-label="搜索文档或命令"
+            placeholder="搜索文档，或输入命令：新建、日历、表格…"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
           <kbd className="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-400">ESC</kbd>
         </div>
-        <div ref={listRef} className="max-h-[420px] overflow-y-auto p-2">
+        <div ref={listRef} id={listboxId} role="listbox" aria-label="命令与页面" className="max-h-[420px] overflow-y-auto p-2">
           {groups.map((group) => {
             const items = commands.filter((c) => c.group === group);
             if (!items.length) return null;
@@ -1279,7 +1385,10 @@ function CommandPalette({
                   return (
                     <button
                       key={cmd.id}
+                      id={`claw-cmd-${cmd.id}`}
                       data-cmd
+                      role="option"
+                      aria-selected={idx === active}
                       onMouseEnter={() => setActive(idx)}
                       onClick={cmd.run}
                       className={cn(
@@ -1331,7 +1440,7 @@ function AgentSidebar({ tab, setTab }: { tab: AiTab; setTab: (t: AiTab) => void 
             key={item.key}
             onClick={() => setTab(item.key)}
             className={cn(
-              "flex w-full flex-col rounded-lg px-2.5 py-2 text-left hover:bg-slate-200/70",
+              "flex w-full flex-col rounded-lg px-2.5 py-2 text-left hover:bg-slate-200/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-1",
               tab === item.key && "bg-slate-200 text-slate-950",
             )}
           >
@@ -1513,25 +1622,160 @@ function MemoryBoard({ memories, reviewMemory }: { memories: Memory[]; reviewMem
   );
 }
 
+type Appearance = { blur: number; alpha: number; radius: number };
+const APPEARANCE_DEFAULT: Appearance = { blur: 20, alpha: 0.72, radius: 24 };
+
 function SettingsPanel() {
+  const { dark, toggle: toggleTheme, glass, toggleGlass } = useTheme();
+  const [appr, setAppr] = useState<Appearance>(APPEARANCE_DEFAULT);
+
+  useEffect(() => {
+    try {
+      const a = JSON.parse(localStorage.getItem("clawnote.appearance") || "{}");
+      setAppr((p) => ({ ...p, ...a }));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function applyAppearance(next: Appearance) {
+    setAppr(next);
+    const s = document.documentElement.style;
+    s.setProperty("--glass-blur", `${next.blur}px`);
+    s.setProperty("--glass-alpha", String(next.alpha));
+    s.setProperty("--glass-alpha-dark", String(Math.max(0, next.alpha - 0.06)));
+    s.setProperty("--claw-radius", `${next.radius}px`);
+    try {
+      localStorage.setItem("clawnote.appearance", JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  const setAppr1 = (patch: Partial<Appearance>) => applyAppearance({ ...appr, ...patch });
+
   return (
-    <div className="mx-auto max-w-6xl px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">设置</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">这里承载文档平台的底层能力：空间、文件、权限、发布、导入导出和数据库配置，不打扰正文写作。</p>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <SettingsLink href="/settings" icon={<Settings />} title="空间设置" desc="名称、成员和基础信息" />
-        <SettingsLink href="/files" icon={<Upload />} title="文件管理" desc="上传、查看和删除附件" />
-        <SettingsLink href="/tokens" icon={<KeyRound />} title="访问密钥" desc="管理 CLI / Agent 调用密钥" />
-        <SettingsCard icon={<Share2 />} title="发布与分享" desc="公开链接、只读发布、链接过期和密码访问的产品入口。" />
-        <SettingsCard icon={<ShieldCheck />} title="权限模型" desc="workspace / page / database / view 五层权限的体验骨架。" />
-        <SettingsCard icon={<Database />} title="数据库" desc="Table / Board / List / Calendar / Gallery 视图逐步进入文档内。" />
-        <SettingsCard icon={<Network />} title="知识地图" desc="双链、标签、父子关系和引用关系形成图谱。" />
-        <SettingsCard icon={<Link2 />} title="导入导出" desc="为 Markdown、HTML 和 JSON API 保留稳定交换格式。" />
-        <SettingsCard icon={<MoreHorizontal />} title="高级" desc="版本策略、审计日志、Agent mutation 策略。" />
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-5xl px-8 py-10">
+        <div className="mb-7">
+          <h1 className="text-3xl font-bold tracking-tight">空间设置</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">外观、材质、空间与底层能力都在这里，实时生效，不打扰正文写作。</p>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* 外观与材质 */}
+          <section className="rounded-2xl bg-white p-6 ring-1 ring-slate-900/5">
+            <h2 className="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <Droplets className="h-4 w-4 text-slate-500" /> 外观与材质
+            </h2>
+
+            {/* 主题 */}
+            <SettingRow label="主题" hint="浅色 / 深色">
+              <div className="flex rounded-lg bg-slate-100 p-0.5 text-sm">
+                <button onClick={() => dark && toggleTheme()} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1.5", !dark ? "bg-white font-medium text-slate-900 shadow-sm" : "text-slate-500")}>
+                  <Sun className="h-4 w-4" /> 浅色
+                </button>
+                <button onClick={() => !dark && toggleTheme()} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1.5", dark ? "bg-white font-medium text-slate-900 shadow-sm" : "text-slate-500")}>
+                  <Moon className="h-4 w-4" /> 深色
+                </button>
+              </div>
+            </SettingRow>
+
+            {/* 玻璃质感 */}
+            <SettingRow label="液体玻璃" hint="导航与浮层的半透磨砂质感">
+              <SettingsSwitch checked={glass} onChange={toggleGlass} label="液体玻璃" />
+            </SettingRow>
+
+            {/* 材质滑块 */}
+            <div className={cn("space-y-4 border-t border-slate-100 pt-4 transition-opacity", !glass && "pointer-events-none opacity-40")}>
+              <SliderRow label="模糊" value={`${appr.blur}px`} min={0} max={40} step={1} v={appr.blur} disabled={!glass} onChange={(blur) => setAppr1({ blur })} />
+              <SliderRow label="透明度" value={`${Math.round(appr.alpha * 100)}%`} min={45} max={95} step={1} v={Math.round(appr.alpha * 100)} disabled={!glass} onChange={(p) => setAppr1({ alpha: p / 100 })} />
+              <SliderRow label="圆角" value={`${appr.radius}px`} min={8} max={32} step={1} v={appr.radius} disabled={!glass} onChange={(radius) => setAppr1({ radius })} />
+            </div>
+            <button onClick={() => applyAppearance(APPEARANCE_DEFAULT)} className="mt-4 text-xs font-medium text-slate-400 hover:text-blue-600">
+              恢复默认材质
+            </button>
+          </section>
+
+          {/* 空间与成员（实时预览随上方设置变化的浮层即整页外壳本身） */}
+          <section className="rounded-2xl bg-white p-6 ring-1 ring-slate-900/5">
+            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <ShieldCheck className="h-4 w-4 text-slate-500" /> 空间与成员
+            </h2>
+            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-lg text-white">🧠</span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-slate-800">我的知识库</div>
+                <div className="text-xs text-slate-400">个人空间 · 1 名成员</div>
+              </div>
+            </div>
+            <Link href="/settings" className="mt-3 flex items-center justify-between rounded-lg px-2 py-2 text-sm text-slate-600 hover:bg-slate-50">
+              成员与权限 <ChevronRight className="h-4 w-4 text-slate-400" />
+            </Link>
+            <Link href="/tokens" className="flex items-center justify-between rounded-lg px-2 py-2 text-sm text-slate-600 hover:bg-slate-50">
+              访问密钥（Agent / CLI） <ChevronRight className="h-4 w-4 text-slate-400" />
+            </Link>
+          </section>
+        </div>
+
+        {/* 管理入口 */}
+        <h2 className="mb-3 mt-8 text-sm font-semibold text-slate-700">空间能力</h2>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <SettingsLink href="/files" icon={<Upload />} title="文件管理" desc="上传、查看和删除附件" />
+          <SettingsCard icon={<Share2 />} title="发布与分享" desc="公开链接、只读发布、链接过期和密码访问。" />
+          <SettingsCard icon={<ShieldCheck />} title="权限模型" desc="workspace / page / database / view 五层权限。" />
+          <SettingsCard icon={<Database />} title="数据库" desc="表格 / 看板 / 画册 / 日历 / 甘特 视图。" />
+          <SettingsCard icon={<Network />} title="知识地图" desc="双链、标签、父子与引用关系形成图谱。" />
+          <SettingsCard icon={<Link2 />} title="导入导出" desc="Markdown、HTML 与 JSON API 交换格式。" />
+        </div>
       </div>
     </div>
+  );
+}
+
+function SettingRow({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between py-2.5">
+      <div>
+        <div className="text-sm font-medium text-slate-700">{label}</div>
+        {hint && <div className="text-xs text-slate-400">{hint}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SliderRow({ label, value, v, min, max, step, onChange, disabled }: { label: string; value: string; v: number; min: number; max: number; step: number; onChange: (v: number) => void; disabled?: boolean }) {
+  // 自绘轨道：bg-slate-200 会被 .dark 重映射为深灰，进度用蓝色渐变按百分比铺底，
+  // 拇指经 ::-webkit-slider-thumb / ::-moz-range-thumb 统一为蓝色——深色下轨道不再是 UA 的刺眼纯白。
+  const pct = max > min ? Math.min(100, Math.max(0, ((v - min) / (max - min)) * 100)) : 0;
+  return (
+    <label className="block">
+      <span className="mb-1.5 flex items-center justify-between text-xs">
+        <span className="font-medium text-slate-600">{label}</span>
+        <span className="tabular-nums text-slate-400">{value}</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={v}
+        disabled={disabled}
+        aria-label={label}
+        aria-valuetext={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-blue-600 disabled:cursor-not-allowed disabled:opacity-50 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(15,23,42,0.35)]"
+        style={{ backgroundImage: "linear-gradient(#2563eb,#2563eb)", backgroundSize: `${pct}% 100%`, backgroundRepeat: "no-repeat" }}
+      />
+    </label>
+  );
+}
+
+function SettingsSwitch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button type="button" onClick={onChange} role="switch" aria-checked={checked} aria-label={label} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", checked ? "bg-blue-600" : "bg-slate-200")}>
+      <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", checked ? "left-[22px]" : "left-0.5")} />
+    </button>
   );
 }
 

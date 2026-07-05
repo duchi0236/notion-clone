@@ -1,0 +1,92 @@
+// @clawnote/auth-core 的「自有库」schema —— 身份数据独立于业务库。
+// 用法：在本包目录 `AUTH_DATABASE_URL=... npx prisma db push --schema prisma/schema.prisma`
+// 生成的 Prisma Client 用于实现 AuthStore 接口（见 README）。客户端(ClawNote 业务库)不直连此库，仅用 JWKS 验签。
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("AUTH_DATABASE_URL")
+}
+
+enum AuthProvider {
+  PASSWORD
+  PHONE
+  WECHAT
+  // 预留：GITHUB / GOOGLE …
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique // 可空：纯手机/纯微信用户无邮箱
+  phone        String?  @unique // E.164
+  name         String?
+  avatarUrl    String?
+  tokenVersion Int      @default(0) // 改密/解绑后 +1，使旧 JWT 失效（全端登出）
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  identities   AuthIdentity[]
+}
+
+model AuthIdentity {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          AuthProvider
+  providerAccountId String // PASSWORD=email / PHONE=E.164 / WECHAT=unionid||openid
+  secretHash        String? // 仅 PASSWORD（bcrypt）
+  unionid           String?
+  openid            String?
+  isPrimary         Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  lastUsedAt        DateTime?
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([unionid])
+}
+
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String // HMAC-SHA256，不存明文
+  purpose    String    @default("LOGIN")
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, purpose])
+}
+
+model WechatTicket {
+  id         String    @id @default(cuid())
+  ticket     String    @unique
+  state      String    @unique
+  status     String    @default("PENDING") // PENDING | CONFIRMED | CONSUMED
+  userId     String?
+  unionid    String?
+  openid     String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model LoginAudit {
+  id         String       @id @default(cuid())
+  userId     String?
+  provider   AuthProvider
+  success    Boolean
+  reason     String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime     @default(now())
+
+  @@index([userId, createdAt])
+}

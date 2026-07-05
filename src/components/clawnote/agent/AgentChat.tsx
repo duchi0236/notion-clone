@@ -1,10 +1,11 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Check, Copy, FileText, Plus, RotateCcw, Search, Sparkles } from "lucide-react";
+import { ArrowUp, Check, Copy, FileText, Plus, RotateCcw, Search, Sparkles, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "../pro/api";
 import { sanitizeSvg } from "@/lib/sanitize-svg";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 type ChatResult = {
   reply: string;
@@ -19,6 +20,7 @@ type Message = {
   results?: ChatResult["results"];
   createdDoc?: ChatResult["createdDoc"];
   streaming?: boolean;
+  error?: boolean;
 };
 
 const SUGGESTIONS = [
@@ -34,17 +36,66 @@ export function AgentChat({ onOpenDoc }: { onOpenDoc?: (id: string) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const lastUserRef = useRef<string>("");
+  // 用户是否仍贴在底部：主动上滑离开底部时停止自动跟随。
+  const followRef = useRef(true);
+  const reducedMotion = useReducedMotion();
 
-  const scrollToEnd = () => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  useEffect(scrollToEnd, [messages.length, sending]);
+  const scrollToEnd = (force = false) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!force && !followRef.current) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: reducedMotion ? "auto" : "smooth" });
+  };
+
+  // 监听滚动，记录用户是否接近底部（用于流式逐字时不强拽底）。
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      followRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // 新消息进出时回到底部（明确动作，强制跟随）。
+  useEffect(() => {
+    followRef.current = true;
+    scrollToEnd(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, sending]);
 
   // auto-grow textarea
   useEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
-    ta.style.height = "0px";
+    ta.style.height = "auto";
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
   }, [input]);
+
+  async function runRequest(content: string, assistantId: string) {
+    setSending(true);
+    const res = await api<ChatResult>("/api/ai/chat", { method: "POST", body: JSON.stringify({ message: content }) }).catch(() => null);
+    setSending(false);
+    if (!res) {
+      setMessages((m) => [
+        ...m,
+        { id: assistantId, role: "assistant", content: "助手暂时无法回复，请检查网络后重试。", error: true },
+      ]);
+      return;
+    }
+    setMessages((m) => [
+      ...m,
+      {
+        id: assistantId,
+        role: "assistant",
+        content: res.reply ?? "（助手暂时无法回复，请稍后再试）",
+        results: res.results,
+        createdDoc: res.createdDoc,
+        streaming: true,
+      },
+    ]);
+  }
 
   async function send(text: string) {
     const content = text.trim();
@@ -52,26 +103,35 @@ export function AgentChat({ onOpenDoc }: { onOpenDoc?: (id: string) => void }) {
     lastUserRef.current = content;
     setMessages((m) => [...m, { id: `u_${Date.now()}`, role: "user", content }]);
     setInput("");
-    setSending(true);
-    const res = await api<ChatResult>("/api/ai/chat", { method: "POST", body: JSON.stringify({ message: content }) });
-    setSending(false);
-    setMessages((m) => [
-      ...m,
-      {
-        id: `a_${Date.now()}`,
-        role: "assistant",
-        content: res?.reply ?? "（助手暂时无法回复，请稍后再试）",
-        results: res?.results,
-        createdDoc: res?.createdDoc,
-        streaming: true,
-      },
-    ]);
+    await runRequest(content, `a_${Date.now()}`);
+    // 发送完成后焦点归还输入框，便于连续提问。
+    requestAnimationFrame(() => taRef.current?.focus());
+  }
+
+  // 重新生成 / 失败重试：不再 push 一条 user，移除最后一条 assistant 后重新请求。
+  async function regenerate() {
+    const content = lastUserRef.current.trim();
+    if (!content || sending) return;
+    setMessages((m) => {
+      const next = [...m];
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (next[i].role === "assistant") {
+          next.splice(i, 1);
+          break;
+        }
+      }
+      return next;
+    });
+    await runRequest(content, `a_${Date.now()}`);
+    requestAnimationFrame(() => taRef.current?.focus());
   }
 
   function markDone(id: string) {
     setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, streaming: false } : msg)));
   }
 
+  // 流式打字期间「停止」：立即完成当前 assistant 的逐字。
+  const streamingId = messages.find((m) => m.streaming)?.id ?? null;
   const empty = messages.length === 0;
 
   return (
@@ -91,8 +151,9 @@ export function AgentChat({ onOpenDoc }: { onOpenDoc?: (id: string) => void }) {
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s.text}
-                    onClick={() => send(s.text)}
-                    className="group rounded-2xl border border-slate-200 bg-white p-3.5 text-left transition-all hover:border-slate-300 hover:shadow-sm"
+                    onClick={() => void send(s.text)}
+                    disabled={sending}
+                    className="group rounded-2xl border border-slate-200 bg-white p-3.5 text-left transition-all hover:border-slate-300 hover:shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                   >
                     <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-slate-900 group-hover:text-white">
                       {s.icon}
@@ -113,7 +174,7 @@ export function AgentChat({ onOpenDoc }: { onOpenDoc?: (id: string) => void }) {
                     </div>
                   </div>
                 ) : (
-                  <AssistantMessage key={m.id} message={m} onOpenDoc={onOpenDoc} onTick={scrollToEnd} onDone={() => markDone(m.id)} onRetry={() => send(lastUserRef.current)} />
+                  <AssistantMessage key={m.id} message={m} onOpenDoc={onOpenDoc} onTick={() => scrollToEnd()} onDone={() => markDone(m.id)} onRetry={() => void regenerate()} reducedMotion={reducedMotion} />
                 ),
               )}
               {sending && (
@@ -137,20 +198,34 @@ export function AgentChat({ onOpenDoc }: { onOpenDoc?: (id: string) => void }) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  void send(input);
+                  if (!sending) void send(input);
                 }
               }}
               rows={1}
-              placeholder="发消息给工作区助手…"
-              className="max-h-40 min-h-[26px] flex-1 resize-none bg-transparent py-1 text-[15px] leading-7 outline-none placeholder:text-slate-400"
+              disabled={sending}
+              placeholder={sending ? "助手回复中…" : "发消息给工作区助手…"}
+              className="min-h-[26px] flex-1 resize-none border-0 bg-transparent py-1 text-[15px] leading-7 outline-none focus:ring-0 placeholder:text-slate-400 disabled:opacity-60"
             />
-            <button
-              onClick={() => void send(input)}
-              disabled={!input.trim() || sending}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition-all hover:bg-slate-700 disabled:scale-90 disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              <ArrowUp className="h-[18px] w-[18px]" />
-            </button>
+            {streamingId ? (
+              <button
+                onClick={() => markDone(streamingId)}
+                aria-label="停止"
+                title="停止"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition-all hover:bg-slate-700"
+              >
+                <Square className="h-[15px] w-[15px] fill-current" />
+              </button>
+            ) : (
+              <button
+                onClick={() => void send(input)}
+                disabled={!input.trim() || sending}
+                aria-label="发送"
+                title="发送"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition-all hover:bg-slate-700 disabled:scale-90 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                <ArrowUp className="h-[18px] w-[18px]" />
+              </button>
+            )}
           </div>
           <p className="mt-2 text-center text-[11px] text-slate-400">助手可在工作区内执行搜索 / 新建 / 总结 · Enter 发送，Shift+Enter 换行</p>
         </div>
@@ -165,15 +240,53 @@ function AssistantMessage({
   onTick,
   onDone,
   onRetry,
+  reducedMotion,
 }: {
   message: Message;
   onOpenDoc?: (id: string) => void;
   onTick: () => void;
   onDone: () => void;
   onRetry: () => void;
+  reducedMotion: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const clipboardOk = typeof navigator !== "undefined" && !!navigator.clipboard;
   const showExtras = !message.streaming;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setCopyFailed(false);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2000);
+    }
+  };
+
+  // 错误气泡：错误色 + 「重试」，重试复用最后一条 user 不再 push。
+  if (message.error) {
+    return (
+      <div className="clawnote-msg-in flex gap-3">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-800 to-slate-950 text-white">
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
+            <span>{message.content}</span>
+            <button
+              onClick={onRetry}
+              className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-2 py-0.5 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 active:bg-rose-200"
+            >
+              <RotateCcw className="h-3 w-3" /> 重试
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="clawnote-msg-in group flex gap-3">
@@ -183,9 +296,9 @@ function AssistantMessage({
       <div className="min-w-0 flex-1">
         <div className="text-[15px] leading-7 text-slate-800">
           {message.streaming ? (
-            <Typewriter text={message.content} onTick={onTick} onDone={onDone} />
+            <Typewriter text={message.content} onTick={onTick} onDone={onDone} reducedMotion={reducedMotion} />
           ) : (
-            <RichContent text={message.content} />
+            <RichContent text={message.content} onTick={onTick} />
           )}
         </div>
 
@@ -199,20 +312,23 @@ function AssistantMessage({
         )}
 
         {showExtras && (
-          <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
             <ActionBtn
-              title="复制"
-              onClick={() => {
-                navigator.clipboard?.writeText(message.content);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              }}
+              title={copyFailed ? "复制失败" : copied ? "已复制" : "复制"}
+              ariaLabel={copyFailed ? "复制失败" : copied ? "已复制" : "复制回复"}
+              onClick={() => void copy()}
+              disabled={!clipboardOk}
             >
               {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
             </ActionBtn>
-            <ActionBtn title="重新生成" onClick={onRetry}>
+            <ActionBtn title="重新生成" ariaLabel="重新生成回复" onClick={onRetry}>
               <RotateCcw className="h-3.5 w-3.5" />
             </ActionBtn>
+            {(copied || copyFailed) && (
+              <span role="status" className="sr-only">
+                {copyFailed ? "复制失败" : "已复制到剪贴板"}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -220,9 +336,27 @@ function AssistantMessage({
   );
 }
 
-function ActionBtn({ children, onClick, title }: { children: React.ReactNode; onClick: () => void; title: string }) {
+function ActionBtn({
+  children,
+  onClick,
+  title,
+  ariaLabel,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  title: string;
+  ariaLabel?: string;
+  disabled?: boolean;
+}) {
   return (
-    <button onClick={onClick} title={title} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={ariaLabel ?? title}
+      disabled={disabled}
+      className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+    >
       {children}
     </button>
   );
@@ -250,9 +384,16 @@ function DocCard({ id, title, snippet, created, onOpenDoc }: { id: string; title
 // always completes in ~`duration` regardless of how the browser throttles timers
 // (requestAnimationFrame pauses when hidden; setInterval clamps to ~1s). Smooth
 // in the foreground, and robust when the tab is backgrounded.
-function Typewriter({ text, onTick, onDone }: { text: string; onTick: () => void; onDone: () => void }) {
+function Typewriter({ text, onTick, onDone, reducedMotion }: { text: string; onTick: () => void; onDone: () => void; reducedMotion: boolean }) {
   const [len, setLen] = useState(0);
   useEffect(() => {
+    // 尊重 reduced-motion：直接整段呈现，跳过逐字。
+    if (reducedMotion) {
+      setLen(text.length);
+      onTick();
+      onDone();
+      return;
+    }
     const duration = Math.min(1400, Math.max(350, text.length * 12));
     const start = performance.now();
     const timer = setInterval(() => {
@@ -266,7 +407,7 @@ function Typewriter({ text, onTick, onDone }: { text: string; onTick: () => void
     }, 24);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
+  }, [text, reducedMotion]);
   return <span className="clawnote-caret whitespace-pre-wrap">{text.slice(0, len)}</span>;
 }
 
@@ -329,7 +470,7 @@ function parseBlocks(text: string): ContentBlock[] {
   return blocks;
 }
 
-function RichContent({ text }: { text: string }) {
+function RichContent({ text, onTick }: { text: string; onTick?: () => void }) {
   const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
     <div className="space-y-2.5">
@@ -337,7 +478,7 @@ function RichContent({ text }: { text: string }) {
         if (b.type === "code") return <CodeBlock key={i} lang={b.lang} content={b.content} />;
         if (b.type === "svg") return <ChatSvg key={i} content={b.content} />;
         if (b.type === "html") return <ChatHtml key={i} content={b.content} />;
-        if (b.type === "image") return <ChatImage key={i} src={b.src} alt={b.alt} />;
+        if (b.type === "image") return <ChatImage key={i} src={b.src} alt={b.alt} onLoad={onTick} />;
         return <Markdown key={i} text={b.content} />;
       })}
     </div>
@@ -380,19 +521,32 @@ function ChatSvg({ content }: { content: string }) {
   );
 }
 
-function ChatImage({ src, alt }: { src: string; alt: string }) {
+function ChatImage({ src, alt, onLoad }: { src: string; alt: string; onLoad?: () => void }) {
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   if (!isSafeImgUrl(src) || broken) return null;
   return (
     <figure className="flex flex-col items-center gap-1.5">
-      {/* 模型生成 / 引用的图片；仅允许 http(s) 与 data:image */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        onError={() => setBroken(true)}
-        className="max-h-[440px] max-w-full rounded-xl border border-slate-200 object-contain"
-      />
+      {/* 占位骨架：加载完成前保持最小高度，避免图片到位后把视图顶离底部 */}
+      <div className="relative w-full">
+        {!loaded && <div className="h-40 w-full animate-pulse rounded-xl border border-slate-200 bg-slate-100" />}
+        {/* 模型生成 / 引用的图片；仅允许 http(s) 与 data:image */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onLoad={() => {
+            setLoaded(true);
+            onLoad?.();
+          }}
+          onError={() => setBroken(true)}
+          className={cn(
+            "mx-auto max-h-[440px] max-w-full rounded-xl border border-slate-200 object-contain",
+            loaded ? "block" : "hidden",
+          )}
+        />
+      </div>
       {alt && <figcaption className="text-xs text-slate-400">{alt}</figcaption>}
     </figure>
   );
