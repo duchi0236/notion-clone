@@ -569,8 +569,7 @@ html.dark .ProseMirror tr:hover td {
   white-space: nowrap;
 }
 
-/* ===========================================================================
-   Liquid Glass theme (html.glass). Apple "Liquid Glass" 风格：氛围背景 + 磨砂
+/* ====================================================================   Liquid Glass theme (html.glass). Apple "Liquid Glass" 风格：氛围背景 + 磨砂
    半透明外壳 + 发丝高光边。沿用 dark 一样的"覆盖 Tailwind 工具类"机制，正文
    阅读区做轻磨砂保持可读，导航/工具栏/弹窗做重磨砂。与 dark 叠加时走深色玻璃。
    =========================================================================== */
@@ -965,5 +964,634 @@ input[type="range"] {
   button:active:not(:disabled),
   [role="button"]:active {
     transform: none;
+=======
+/* Minimal document mode */
+.document-only-editor > div {
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.document-only-editor .ProseMirror {
+  min-height: 460px;
+  padding: 6px 0 88px !important;
+  max-width: 860px;
+  line-height: 1.9;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.document-only-editor .ProseMirror h1,
+.document-only-editor .ProseMirror h2,
+.document-only-editor .ProseMirror h3 {
+  color: #0f172a;
+  scroll-margin-top: 96px;
+}
+
+.document-only-editor .ProseMirror h2 {
+  margin-top: 2.2em;
+}
+
+.document-only-editor .ProseMirror p {
+  margin: 0.75em 0;
+}
+
+.document-only-editor .ProseMirror > :first-child,
+.notion-grade-editor .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.document-only-editor .ProseMirror table {
+  font-size: 14px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.document-only-editor .sticky {
+  position: sticky;
+  top: 56px;
+  border: 0 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* Markdown-like preview typography */
+.advanced-document-preview {
+  max-width: 860px;
+  padding: 16px 0 96px;
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.advanced-document-preview > div + div {
+  margin-top: 1.5rem;
+}
+
+.advanced-document-preview h1,
+.advanced-document-preview h2,
+.advanced-document-preview h3,
+.advanced-document-preview h4 {
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.25;
+  scroll-margin-top: 96px;
+}
+
+.advanced-document-preview h1 {
+  margin: 1.5rem 0 1rem;
+  font-size: 2.25rem;
+  letter-spacing: 0;
+}
+
+.advanced-document-preview h2 {
+  margin: 2.25rem 0 0.85rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.4rem;
+  font-size: 1.55rem;
+}
+
+.advanced-document-preview h3 {
+  margin: 1.75rem 0 0.7rem;
+  font-size: 1.25rem;
+}
+
+.advanced-document-preview h4 {
+  margin: 1.35rem 0 0.55rem;
+  font-size: 1.05rem;
+}
+
+.advanced-document-preview p {
+  margin: 0.8rem 0;
+}
+
+.advanced-document-preview a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.advanced-document-preview strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+.advanced-document-preview em {
+  color: #334155;
+}
+
+.advanced-document-preview ul,
+.advanced-document-preview ol {
+  margin: 0.8rem 0;
+  padding-left: 1.5rem;
+}
+
+.advanced-document-preview ul {
+  list-style: disc;
+}
+
+.advanced-document-preview ol {
+  list-style: decimal;
+}
+
+.advanced-document-preview li {
+  margin: 0.35rem 0;
+  padding-left: 0.2rem;
+}
+
+.advanced-document-preview li > p {
+  margin: 0.25rem 0;
+}
+
+.advanced-document-preview blockquote {
+  margin: 1.25rem 0;
+  border-left: 4px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0.85rem 1rem;
+  color: #475569;
+}
+
+.advanced-document-preview code {
+  border-radius: 0.35rem;
+  background: #f1f5f9;
+  padding: 0.15rem 0.35rem;
+  color: #be123c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+.advanced-document-preview pre {
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  background: #0f172a;
+  padding: 1rem;
+  color: #e2e8f0;
+}
+
+.advanced-document-preview pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.9rem;
+}
+
+.advanced-document-preview table {
+  width: 100%;
+  margin: 1.25rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  font-size: 0.92rem;
+}
+
+.advanced-document-preview th,
+.advanced-document-preview td {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.advanced-document-preview th {
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.advanced-document-preview tr:last-child td {
+  border-bottom: 0;
+}
+
+.advanced-document-preview th:last-child,
+.advanced-document-preview td:last-child {
+  border-right: 0;
+}
+
+.advanced-document-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+
+.advanced-document-preview hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.advanced-document-preview ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.advanced-document-preview ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.55rem;
+  padding-left: 0;
+}
+
+.advanced-document-preview ul[data-type="taskList"] input[type="checkbox"] {
+  margin-top: 0.55rem;
+}
+
+.advanced-document-preview details.notion-toggle {
+  margin: 1rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  padding: 0.8rem 1rem;
+}
+
+.advanced-document-preview details.notion-toggle summary {
+  cursor: pointer;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.advanced-document-preview .notion-callout {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  border: 1px solid #dbeafe;
+  border-radius: 0.9rem;
+  background: #eff6ff;
+  padding: 0.85rem 1rem;
+  color: #1e3a8a;
+}
+
+.advanced-document-preview .notion-callout p {
+  margin: 0;
+}
+
+.advanced-document-preview .notion-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.advanced-document-preview .notion-columns > div {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  background: #f8fafc;
+  padding: 0.9rem;
+}
+
+.advanced-document-preview .notion-page-mention,
+.advanced-document-preview .notion-database-embed {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  padding: 0.15rem 0.45rem;
+  color: #1e40af;
+  text-decoration: none;
+}
+
+/* Notion-grade editor polish */
+.notion-grade-editor {
+  --editor-muted: #64748b;
+  --editor-border: #e2e8f0;
+}
+
+.notion-grade-editor .notion-grade-content {
+  line-height: 1.85;
+  color: #1f2937;
+  caret-color: #2563eb;
+}
+
+.notion-grade-editor .ProseMirror p {
+  margin: 0.35rem 0;
+  min-height: 1.85rem;
+  border-radius: 8px;
+}
+
+.notion-grade-editor .ProseMirror p:hover,
+.notion-grade-editor .ProseMirror li:hover,
+.notion-grade-editor .ProseMirror h1:hover,
+.notion-grade-editor .ProseMirror h2:hover,
+.notion-grade-editor .ProseMirror h3:hover {
+  background: linear-gradient(90deg, rgba(248, 250, 252, 0.8), rgba(255, 255, 255, 0));
+}
+
+.notion-grade-editor .ProseMirror h1 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 2.05rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.notion-grade-editor .ProseMirror h2 {
+  margin-top: 1.75rem;
+  margin-bottom: 0.55rem;
+  font-size: 1.45rem;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.notion-grade-editor .ProseMirror h3 {
+  margin-top: 1.35rem;
+  margin-bottom: 0.4rem;
+  font-size: 1.1rem;
+  line-height: 1.45;
+}
+
+.notion-grade-editor .ProseMirror blockquote {
+  margin: 1rem 0;
+  border-left: 4px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 0 14px 14px 0;
+  padding: 0.7rem 1rem;
+  color: #475569;
+}
+
+.notion-grade-editor .ProseMirror ul,
+.notion-grade-editor .ProseMirror ol {
+  margin: 0.35rem 0;
+  padding-left: 1.5rem;
+}
+
+.notion-grade-editor .ProseMirror li {
+  margin: 0.25rem 0;
+  border-radius: 8px;
+}
+
+.notion-grade-editor .ProseMirror pre {
+  margin: 1rem 0;
+  border-radius: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.notion-grade-editor .ProseMirror code {
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 6px;
+}
+
+.notion-grade-editor .ProseMirror .tableWrapper {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.9rem 0 1.1rem;
+  overflow-x: auto;
+  border-radius: 12px;
+}
+
+.notion-grade-editor .ProseMirror table {
+  display: table;
+  width: auto;
+  max-width: 100%;
+  margin: 0.9rem 0 1.1rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.notion-grade-editor .ProseMirror .tableWrapper table {
+  max-width: none;
+  margin: 0;
+}
+
+.notion-grade-editor .ProseMirror th {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.notion-grade-editor .ProseMirror th,
+.notion-grade-editor .ProseMirror td {
+  position: relative;
+  border: 0;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.45rem 0.6rem;
+  vertical-align: top;
+}
+
+.notion-grade-editor .ProseMirror th p,
+.notion-grade-editor .ProseMirror td p {
+  min-height: 1.3rem;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.notion-grade-editor .ProseMirror th p:hover,
+.notion-grade-editor .ProseMirror td p:hover {
+  background: transparent;
+}
+
+.notion-grade-editor .ProseMirror tr:last-child td {
+  border-bottom: 0;
+}
+
+.notion-grade-editor .ProseMirror th:last-child,
+.notion-grade-editor .ProseMirror td:last-child {
+  border-right: 0;
+}
+
+.notion-grade-editor .ProseMirror .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: -1px;
+  z-index: 20;
+  width: 6px;
+  background: #60a5fa;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.notion-grade-editor .ProseMirror th:hover .column-resize-handle,
+.notion-grade-editor .ProseMirror td:hover .column-resize-handle {
+  opacity: 0.75;
+}
+
+.notion-grade-editor .ProseMirror.resize-cursor,
+.notion-grade-editor .ProseMirror.resize-cursor * {
+  cursor: col-resize !important;
+}
+
+.notion-grade-editor .ProseMirror img {
+  margin: 1rem 0;
+  max-height: 560px;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.notion-grade-editor .ProseMirror hr {
+  margin: 2rem 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.notion-grade-editor .ProseMirror ul[data-type="taskList"] {
+  padding-left: 0;
+}
+
+.notion-grade-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.55rem;
+  border-radius: 10px;
+}
+
+.notion-grade-editor .ProseMirror ul[data-type="taskList"] li:hover {
+  background: #f8fafc;
+}
+
+.notion-grade-editor .ProseMirror a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle {
+  margin: 0.8rem 0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle:hover {
+  background: #f1f5f9;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #334155;
+  list-style: none;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle summary::-webkit-details-marker {
+  display: none;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 0.15s ease;
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.notion-grade-editor .ProseMirror details.notion-toggle p {
+  margin-left: 1.2rem;
+  color: #475569;
+}
+
+.notion-grade-editor .ProseMirror .notion-callout {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 1rem 0;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  background: #eff6ff;
+  padding: 0.85rem 1rem;
+  color: #1e3a8a;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.06);
+}
+
+.notion-grade-editor .ProseMirror .notion-callout p {
+  margin: 0;
+}
+
+.notion-grade-editor .ProseMirror .notion-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.notion-grade-editor .ProseMirror .notion-columns > div {
+  min-height: 72px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+}
+
+.notion-grade-editor .ProseMirror .notion-math {
+  margin: 1rem 0;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: #334155;
+  text-align: center;
+}
+
+.notion-grade-editor .ProseMirror .notion-database-embed {
+  margin: 1rem 0;
+  border-radius: 18px;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(135deg, #eff6ff, #ffffff);
+  padding: 1rem;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.notion-grade-editor .ProseMirror .notion-page-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+  padding: 0.1rem 0.4rem;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.notion-grade-editor .ProseMirror pre code.language-mermaid {
+  color: #bfdbfe;
+}
+
+.notion-grade-editor .ProseMirror .selectedCell:after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(37, 99, 235, 0.08);
+  content: "";
+  pointer-events: none;
+}
+
+.notion-grade-editor .ProseMirror-focused {
+  outline: none;
+}
+
+@media (max-width: 900px) {
+  .document-only-editor .ProseMirror {
+    max-width: 100%;
+    font-size: 15px;
+  }
+
+  .advanced-document-preview {
+    max-width: 100%;
+    font-size: 15px;
+  }
+
+  .advanced-document-preview .notion-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .notion-grade-editor .ProseMirror .notion-columns {
+    grid-template-columns: 1fr;
   }
 }

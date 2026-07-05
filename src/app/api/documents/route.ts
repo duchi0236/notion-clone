@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const contentHtml = body.contentHtml ?? body.html ?? "<p></p>";
   const contentText = body.contentText ?? htmlToText(contentHtml);
+  const siblingCount = await prisma.document.count({
+    where: { workspaceId: workspace.id, parentId: body.parentId ?? null, isArchived: false },
+  });
 
   const document = await prisma.document.create({
     data: {

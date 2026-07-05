@@ -13,11 +13,23 @@ const LOCAL_MODE =
 // - /api/agent/*: authenticated separately via Bearer token (verifyAgentRequest)
 const PUBLIC_API = [/^\/api\/auth(\/|$)/, /^\/api\/health$/, /^\/api\/agent(\/|$)/];
 
+// Pages that require a session (redirect to /login) when not in local mode.
+const PROTECTED_PAGES = ["/workspace", "/clawnote", "/trash"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname === "/") {
     return NextResponse.redirect(new URL("/clawnote", request.url));
+  }
+
+  if (!LOCAL_MODE && PROTECTED_PAGES.some((route) => pathname.startsWith(route))) {
+    const token = await getToken({ req: request });
+    if (!token) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("from", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   if (pathname.startsWith("/api/")) {
@@ -51,5 +63,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/api/:path*"],
+  matcher: ["/", "/api/:path*", "/workspace/:path*", "/clawnote/:path*", "/trash/:path*"],
 };

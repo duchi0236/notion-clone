@@ -1,5 +1,5 @@
 // ClawNote - Personal AI knowledge and document workspace
-// PostgreSQL + Prisma schema for Notion/Yuque-like documents, tables, memories, inbox, and OpenClaw integration.
+// PostgreSQL + Prisma schema for Notion/Yuque-like documents, tables, memories, inbox, calendar, and OpenClaw integration.
 
 generator client {
   provider = "prisma-client-js"
@@ -185,6 +185,7 @@ model Document {
   collectionRows CollectionRow[]
   calendarEvents CalendarEvent[]
   searchIndex    SearchIndex?
+  calendarEvents CalendarEvent[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt

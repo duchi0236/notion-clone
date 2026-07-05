@@ -33,3 +33,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   return NextResponse.json({ collection });
 }
+
+export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+  const { workspace } = await ensureWorkspace();
+  const existing = await prisma.collection.findFirst({ where: { id: params.id, workspaceId: workspace.id } });
+  if (!existing) return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+  await prisma.collection.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}
