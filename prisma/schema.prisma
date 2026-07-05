@@ -185,7 +185,6 @@ model Document {
   collectionRows CollectionRow[]
   calendarEvents CalendarEvent[]
   searchIndex    SearchIndex?
-  calendarEvents CalendarEvent[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
