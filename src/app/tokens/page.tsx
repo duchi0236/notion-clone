@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { Copy, KeyRound, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 
 type AccessRecord = {
@@ -59,51 +59,56 @@ export default function TokensPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f7fb] p-8 text-slate-900">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between">
+    <main className="claw-standalone px-4 sm:px-6">
+      <div className="claw-page-wrap">
+        <div className="claw-page-top">
           <div>
-            <h1 className="text-3xl font-bold">访问密钥</h1>
-            <p className="mt-1 text-sm text-slate-500">用于 OpenClaw 调用 ClawNote Agent API。</p>
+            <p className="claw-page-kicker">Agent access</p>
+            <h1 className="claw-page-title">访问密钥</h1>
+            <p className="claw-page-desc">用于 OpenClaw 或其他 Agent 调用 ClawNote API。密钥只在创建后显示一次，后续只能撤销重建。</p>
           </div>
-          <Link href="/clawnote" className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm hover:border-violet-300">返回工作台</Link>
+          <div className="claw-page-actions">
+            <Link href="/clawnote" className="claw-ghost-button"><ArrowLeft className="h-4 w-4" />返回工作台</Link>
+          </div>
         </div>
 
-        <form onSubmit={create} className="mb-6 rounded-3xl border border-slate-200 bg-white p-5">
+        <form onSubmit={create} className="claw-card mb-6 p-5">
           <label className="block text-sm">
             <span className="mb-1 block text-slate-600">名称</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-400" />
+            <input value={name} onChange={(event) => setName(event.target.value)} className="claw-input w-full px-4 py-3" />
           </label>
-          <button className="mt-4 inline-flex items-center rounded-2xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+          <button className="claw-primary-button mt-4">
             <Plus className="mr-2 h-4 w-4" />创建
           </button>
         </form>
 
-        {message && <div className="mb-4 rounded-2xl bg-violet-50 px-4 py-3 text-sm text-violet-700">{message}</div>}
+        {message && <div className="claw-status mb-4 px-4 py-3 text-sm">{message}</div>}
 
         {newValue && (
-          <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-5">
+          <div className="mb-6 rounded-[18px] border border-amber-200 bg-amber-50 p-5">
             <div className="mb-2 font-semibold text-amber-800">新建值，只显示一次</div>
-            <div className="flex items-center gap-2 rounded-2xl bg-white p-3 font-mono text-sm">
+            <div className="flex items-center gap-2 rounded-[14px] bg-white p-3 font-mono text-sm">
               <span className="flex-1 break-all">{newValue}</span>
-              <button type="button" onClick={() => copy(newValue)} className="rounded-xl border border-slate-200 p-2"><Copy className="h-4 w-4" /></button>
+              <button type="button" onClick={() => copy(newValue)} className="claw-ghost-button min-h-0 p-2" title="复制密钥"><Copy className="h-4 w-4" /></button>
             </div>
           </div>
         )}
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-          <div className="grid grid-cols-[1fr_1fr_180px_100px] border-b border-slate-100 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500">
-            <span>名称</span><span>权限</span><span>最后使用</span><span>操作</span>
-          </div>
-          {records.length === 0 && <div className="p-8 text-center text-sm text-slate-500">暂无记录</div>}
-          {records.map((record) => (
-            <div key={record.id} className="grid grid-cols-[1fr_1fr_180px_100px] items-center border-b border-slate-100 px-4 py-3 text-sm last:border-0">
-              <span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-violet-600" />{record.name}</span>
-              <span className="truncate text-slate-500">{record.scopes.join(", ")}</span>
-              <span className="text-slate-500">{record.lastUsedAt ? formatDateTime(record.lastUsedAt) : "未使用"}</span>
-              <button type="button" onClick={() => remove(record.id)} className="rounded-xl border border-slate-200 p-2 text-red-500 hover:border-red-300"><Trash2 className="h-4 w-4" /></button>
+        <div className="claw-table overflow-x-auto">
+          <div className="min-w-[760px]">
+            <div className="claw-table-head grid-cols-[1fr_1fr_180px_100px]">
+              <span>名称</span><span>权限</span><span>最后使用</span><span>操作</span>
             </div>
-          ))}
+            {records.length === 0 && <div className="p-8 text-center text-sm text-slate-500">暂无记录</div>}
+            {records.map((record) => (
+              <div key={record.id} className="claw-table-row grid-cols-[1fr_1fr_180px_100px]">
+                <span className="flex min-w-0 items-center gap-2"><KeyRound className="h-4 w-4 shrink-0 text-blue-600" /><span className="truncate">{record.name}</span></span>
+                <span className="truncate text-slate-500">{record.scopes.join(", ")}</span>
+                <span className="text-slate-500">{record.lastUsedAt ? formatDateTime(record.lastUsedAt) : "未使用"}</span>
+                <button type="button" onClick={() => remove(record.id)} className="claw-danger-button min-h-0 p-2" title="删除密钥"><Trash2 className="h-4 w-4" /></button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </main>

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Save, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2, Users } from "lucide-react";
 
 type Member = { id: string; role: string; user: { email: string; name?: string | null } };
 type Workspace = {
@@ -92,59 +92,62 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f7fb] p-8 text-slate-900">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between">
+    <main className="claw-standalone px-4 sm:px-6">
+      <div className="claw-page-wrap">
+        <div className="claw-page-top">
           <div>
-            <h1 className="text-3xl font-bold">工作区设置</h1>
-            <p className="mt-1 text-sm text-slate-500">管理 ClawNote 个人知识库的基础信息和成员。</p>
+            <p className="claw-page-kicker">Workspace</p>
+            <h1 className="claw-page-title">工作区设置</h1>
+            <p className="claw-page-desc">管理 ClawNote 个人知识库的基础信息和成员。常用设置保留在纸面表单里，统计和成员列表放在右侧便于快速核对。</p>
           </div>
-          <Link href="/clawnote" className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm hover:border-violet-300">返回工作台</Link>
+          <div className="claw-page-actions">
+            <Link href="/clawnote" className="claw-ghost-button"><ArrowLeft className="h-4 w-4" />返回工作台</Link>
+          </div>
         </div>
 
-        <div className="grid grid-cols-[1fr_360px] gap-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <section className="space-y-6">
-            <form onSubmit={save} className="rounded-3xl border border-slate-200 bg-white p-6">
+            <form onSubmit={save} className="claw-card p-6">
               <h2 className="mb-5 text-lg font-bold">基础信息</h2>
-              <div className="grid grid-cols-[90px_1fr] gap-4">
+              <div className="grid gap-4 sm:grid-cols-[90px_1fr]">
                 <label className="block text-sm">
                   <span className="mb-1 block text-slate-600">图标</span>
-                  <input value={icon} onChange={(event) => setIcon(event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-center text-2xl outline-none focus:border-violet-400" />
+                  <input value={icon} onChange={(event) => setIcon(event.target.value)} className="claw-input w-full px-4 py-3 text-center text-2xl" />
                 </label>
                 <label className="block text-sm">
                   <span className="mb-1 block text-slate-600">名称</span>
-                  <input value={name} onChange={(event) => setName(event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-400" />
+                  <input value={name} onChange={(event) => setName(event.target.value)} className="claw-input w-full px-4 py-3" />
                 </label>
               </div>
               <label className="mt-4 block text-sm">
                 <span className="mb-1 block text-slate-600">描述</span>
-                <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-400" />
+                <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="claw-input w-full px-4 py-3" />
               </label>
-              {message && <div className="mt-4 rounded-2xl bg-violet-50 px-4 py-3 text-sm text-violet-700">{message}</div>}
-              <button className="mt-5 inline-flex items-center rounded-2xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+              {message && <div className="claw-status mt-4 px-4 py-3 text-sm">{message}</div>}
+              <button className="claw-primary-button mt-5">
                 <Save className="mr-2 h-4 w-4" />保存
               </button>
             </form>
 
-            <form onSubmit={addMember} className="rounded-3xl border border-slate-200 bg-white p-6">
+            <form onSubmit={addMember} className="claw-card p-6">
               <h2 className="mb-5 flex items-center gap-2 text-lg font-bold"><Users className="h-5 w-5" />添加成员</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <input value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} placeholder="邮箱" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-400" />
-                <input value={memberName} onChange={(event) => setMemberName(event.target.value)} placeholder="名称" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-400" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} placeholder="邮箱" className="claw-input px-4 py-3 text-sm" />
+                <input value={memberName} onChange={(event) => setMemberName(event.target.value)} placeholder="名称" className="claw-input px-4 py-3 text-sm" />
               </div>
               <div className="mt-3 flex gap-3">
-                <select value={memberRole} onChange={(event) => setMemberRole(event.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-400">
+                <select value={memberRole} onChange={(event) => setMemberRole(event.target.value)} className="claw-input px-4 py-3 text-sm">
                   <option value="ADMIN">ADMIN</option>
                   <option value="MEMBER">MEMBER</option>
                   <option value="GUEST">GUEST</option>
                 </select>
-                <button className="inline-flex items-center rounded-2xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"><Plus className="mr-2 h-4 w-4" />添加</button>
+                <button className="claw-primary-button"><Plus className="mr-2 h-4 w-4" />添加</button>
               </div>
             </form>
           </section>
 
           <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <div className="claw-card p-6">
               <h2 className="mb-4 text-lg font-bold">统计</h2>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <Stat label="文档" value={workspace?._count?.documents ?? 0} />
@@ -154,21 +157,21 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <div className="claw-card p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><Users className="h-5 w-5" />成员</h2>
               <div className="space-y-3">
                 {workspace?.members?.map((member) => (
-                  <div key={member.id} className="rounded-2xl bg-slate-50 p-3 text-sm">
+                  <div key={member.id} className="claw-card-flat p-3 text-sm">
                     <div className="font-medium">{member.user.name ?? member.user.email}</div>
                     <div className="text-xs text-slate-500">{member.user.email}</div>
                     <div className="mt-3 flex items-center gap-2">
-                      <select value={member.role} onChange={(event) => updateRole(member.id, event.target.value)} className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs">
+                      <select value={member.role} onChange={(event) => updateRole(member.id, event.target.value)} className="claw-input flex-1 px-3 py-2 text-xs">
                         <option value="OWNER">OWNER</option>
                         <option value="ADMIN">ADMIN</option>
                         <option value="MEMBER">MEMBER</option>
                         <option value="GUEST">GUEST</option>
                       </select>
-                      <button onClick={() => removeMember(member.id)} className="rounded-xl border border-slate-200 bg-white p-2 text-red-500"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => removeMember(member.id)} className="claw-danger-button min-h-0 p-2" title="移除成员"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
                 ))}
@@ -182,5 +185,5 @@ export default function SettingsPage() {
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-2xl bg-slate-50 p-3"><div className="text-xs text-slate-500">{label}</div><div className="text-2xl font-bold">{value}</div></div>;
+  return <div className="claw-card-flat p-3"><div className="text-xs text-slate-500">{label}</div><div className="text-2xl font-bold">{value}</div></div>;
 }

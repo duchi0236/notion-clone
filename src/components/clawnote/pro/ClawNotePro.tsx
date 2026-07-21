@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Bot,
+  Archive,
+  Bookmark,
+  BookOpen,
   CalendarDays,
   Check,
   ChevronDown,
@@ -19,8 +22,10 @@ import {
   FolderTree,
   Home,
   ArrowUpRight,
+  Compass,
   PanelLeftClose,
   PanelLeftOpen,
+  ImageIcon,
   KeyRound,
   Link2,
   Moon,
@@ -30,6 +35,7 @@ import {
   Search,
   Settings,
   Sun,
+  Tags,
   Share2,
   ShieldCheck,
   Star,
@@ -188,12 +194,8 @@ export default function ClawNotePro() {
   }
 
   return (
-    <div className="claw-canvas relative min-h-screen text-slate-900">
-      {/* 全局氛围背景：柔光团制造玻璃景深 */}
+    <div className={cn("claw-canvas relative min-h-screen text-slate-900", view === "home" && "claw-home-shell")}>
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -left-28 -top-32 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(circle,rgba(20,110,245,0.13),transparent_66%)] blur-3xl" />
-        <div className="absolute right-[-10%] top-[-12%] h-[38rem] w-[38rem] rounded-full bg-[radial-gradient(circle,rgba(148,163,184,0.2),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-1/3 h-[28rem] w-[42rem] rounded-full bg-[radial-gradient(circle,rgba(125,151,184,0.12),transparent_68%)] blur-3xl" />
         <div className="claw-grain absolute inset-0 opacity-[0.22]" />
       </div>
 
@@ -201,43 +203,77 @@ export default function ClawNotePro() {
         <button
           onClick={() => setPaletteOpen(true)}
           aria-label="搜索或创建（⌘K）"
-          className="claw-command-lens fixed left-1/2 top-5 z-40 hidden h-12 w-[min(440px,42vw)] -translate-x-1/2 items-center gap-3 px-5 text-left text-sm text-slate-500 transition duration-200 hover:-translate-y-0.5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 lg:flex"
+          className="claw-command-lens fixed left-1/2 top-9 z-40 hidden h-14 w-[min(530px,42vw)] -translate-x-1/2 items-center gap-4 px-6 text-left text-[15px] text-slate-500 transition duration-200 hover:-translate-y-0.5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 lg:flex"
         >
-          <Search className="h-4 w-4 text-slate-400" />
+          <Search className="h-5 w-5 text-slate-400" />
           <span className="min-w-0 flex-1 truncate">搜索或创建...</span>
-          <span className="rounded-lg border border-white/70 bg-white/70 px-2 py-1 text-[11px] font-medium text-slate-400 shadow-sm">⌘ K</span>
+          <span className="text-sm font-medium text-slate-400">⌘K</span>
+        </button>
+      )}
+
+      {view === "home" && (
+        <button
+          onClick={createRootDoc}
+          aria-label="新建文档"
+          className="claw-home-create fixed right-10 top-9 z-40 hidden h-16 w-16 items-center justify-center rounded-full text-slate-800 transition duration-200 hover:-translate-y-0.5 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 lg:flex"
+        >
+          <FilePlus2 className="h-7 w-7" />
         </button>
       )}
 
       <div
         className={cn(
           "relative z-10 grid min-h-screen grid-cols-1 gap-3 p-3 transition-[grid-template-columns] duration-200 ease-out",
-          showSidebar ? "lg:grid-cols-[64px_296px_minmax(0,1fr)]" : "lg:grid-cols-[64px_minmax(0,1fr)]",
+          view === "home"
+            ? "lg:grid-cols-[96px_minmax(0,1fr)]"
+            : showSidebar
+              ? "lg:grid-cols-[64px_296px_minmax(0,1fr)]"
+              : "lg:grid-cols-[64px_minmax(0,1fr)]",
         )}
       >
-      <nav className="claw-dock sticky top-3 z-30 hidden h-[calc(100vh-1.5rem)] flex-col items-center gap-1 px-2 py-3 lg:flex">
-        <button
-          onClick={() => setView("home")}
-          title="回到主页"
-          className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-500/30 transition-transform hover:scale-105"
-        >
-          C
-        </button>
-        <IconRailButton
-          active={false}
-          onClick={() => setSidebarCollapsed((v) => !v)}
-          icon={sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-          label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
-        />
-        <div className="my-1 h-px w-7 bg-slate-200/70" />
-        <IconRailButton active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
-        <IconRailButton active={view === "docs"} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
-        <IconRailButton active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays />} label="日历" />
-        <IconRailButton active={view === "bitable"} onClick={() => setView("bitable")} icon={<Grid3x3 />} label="多维表格" />
-        <IconRailButton active={view === "ai"} onClick={() => setView("ai")} icon={<Bot />} label="AI 接入" />
-        <IconRailButton active={glass} onClick={toggleGlass} icon={<Droplets />} label={glass ? "关闭玻璃质感" : "液体玻璃"} wrapperClassName="mt-auto" />
-        <IconRailButton active={false} onClick={toggleTheme} icon={dark ? <Sun /> : <Moon />} label={dark ? "浅色模式" : "深色模式"} />
-        <IconRailButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings />} label="设置" />
+      <nav className={cn("claw-dock sticky top-3 z-30 hidden h-[calc(100vh-1.5rem)] flex-col items-center gap-1 px-2 py-3 lg:flex", view === "home" && "claw-home-rail")}>
+        {view === "home" ? (
+          <>
+            <IconRailButton active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
+            <IconRailButton active={false} onClick={() => setPaletteOpen(true)} icon={<Search />} label="搜索" />
+            <IconRailButton active={false} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
+            <IconRailButton active={false} onClick={() => setView("docs")} icon={<Bookmark />} label="收藏" />
+            <IconRailButton active={false} onClick={() => setView("docs")} icon={<Tags />} label="标签" />
+            <IconRailButton active={false} onClick={() => setView("bitable")} icon={<Archive />} label="资料库" />
+            <IconRailButton active={false} onClick={() => setView("docs")} icon={<Trash2 />} label="回收站" />
+            <div className="claw-home-rail-rule mt-auto" />
+            <IconRailButton active={false} onClick={toggleTheme} icon={dark ? <Sun /> : <Moon />} label={dark ? "浅色模式" : "深色模式"} />
+            <IconRailButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings />} label="设置" />
+            <button type="button" onClick={() => setView("settings")} className="claw-home-avatar" aria-label="个人设置">
+              C
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setView("home")}
+              title="回到主页"
+              className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-500/30 transition-transform hover:scale-105"
+            >
+              C
+            </button>
+            <IconRailButton
+              active={false}
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              icon={sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+              label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+            />
+            <div className="my-1 h-px w-7 bg-slate-200/70" />
+            <IconRailButton active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
+            <IconRailButton active={view === "docs"} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
+            <IconRailButton active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays />} label="日历" />
+            <IconRailButton active={view === "bitable"} onClick={() => setView("bitable")} icon={<Grid3x3 />} label="多维表格" />
+            <IconRailButton active={view === "ai"} onClick={() => setView("ai")} icon={<Bot />} label="AI 接入" />
+            <IconRailButton active={glass} onClick={toggleGlass} icon={<Droplets />} label={glass ? "关闭玻璃质感" : "液体玻璃"} wrapperClassName="mt-auto" />
+            <IconRailButton active={false} onClick={toggleTheme} icon={dark ? <Sun /> : <Moon />} label={dark ? "浅色模式" : "深色模式"} />
+            <IconRailButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings />} label="设置" />
+          </>
+        )}
       </nav>
       <aside className={cn("claw-panel sticky top-3 z-20 hidden h-[calc(100vh-1.5rem)] min-h-0 flex-col overflow-hidden", showSidebar && "lg:flex")}>
         <div className="px-4 pb-3 pt-4">
@@ -488,7 +524,7 @@ function cleanExcerpt(raw: string): string {
 
 // 一张「纸」：渲染文档真实内容，带折角(dog-ear)、作者底注，hero 更大。对齐 design/01。
 function PaperSheet({ doc, hero, index = 0, onOpen }: { doc: Doc; hero?: boolean; index?: number; onOpen: () => void }) {
-  const fold = hero ? 30 : 24;
+  const fold = hero ? 76 : 30;
   const body =
     cleanExcerpt(doc.text) ||
     cleanExcerpt(doc.summary) ||
@@ -496,62 +532,71 @@ function PaperSheet({ doc, hero, index = 0, onOpen }: { doc: Doc; hero?: boolean
   return (
     <button
       onClick={onOpen}
-      style={{ marginTop: hero ? 0 : Math.min(index, 3) * 7 }}
+      style={{ "--sheet-offset": `${hero ? 0 : 82 + Math.min(index, 3) * 18}px` } as CSSProperties}
       className={cn(
         "claw-paper-sheet group relative shrink-0 self-start text-left transition duration-300 ease-out hover:-translate-y-1 focus-visible:-translate-y-1",
-        hero ? "w-[360px]" : "w-[248px]",
+        hero ? "claw-paper-hero w-[430px]" : "claw-paper-note w-[270px]",
       )}
     >
       <div
         className={cn(
-          "relative flex h-full flex-col overflow-hidden bg-white p-5 ring-1 ring-slate-900/5",
-          hero ? "min-h-[300px] rounded-[24px]" : "min-h-[232px] rounded-[20px]",
+          "claw-sheet-face relative flex h-full flex-col overflow-hidden bg-white ring-1 ring-slate-900/5",
+          hero ? "min-h-[560px] rounded-[4px] p-11" : "min-h-[390px] rounded-[3px] p-7",
         )}
         style={{
           clipPath: `polygon(0 0, calc(100% - ${fold}px) 0, 100% ${fold}px, 100% 100%, 0 100%)`,
           boxShadow: hero
-            ? "0 30px 70px -28px rgba(15,23,42,0.34), 0 8px 22px -16px rgba(15,23,42,0.16)"
-            : "0 22px 52px -28px rgba(15,23,42,0.25), 0 6px 16px -14px rgba(15,23,42,0.14)",
+            ? "0 42px 80px -34px rgba(15,23,42,0.34), 0 12px 24px -18px rgba(15,23,42,0.22)"
+            : "0 34px 62px -36px rgba(15,23,42,0.26), 0 8px 18px -16px rgba(15,23,42,0.18)",
         }}
       >
-        <div className="mb-4 flex items-center gap-2">
-          <PageIcon icon={doc.icon} size={hero ? "lg" : "md"} />
-          {doc.isFavorite && <Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <h3 className={cn("font-semibold text-slate-950 transition-colors group-hover:text-blue-600", hero ? "max-w-[300px] text-[30px] leading-tight" : "text-[22px] leading-snug")}>
+            {docDisplayTitle(doc)}
+          </h3>
+          {doc.isFavorite && <Star className="mt-1 h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />}
         </div>
-        <h3 className={cn("font-semibold tracking-tight text-slate-950 transition-colors group-hover:text-blue-600", hero ? "text-2xl leading-tight" : "text-[17px] leading-snug")}>
-          {docDisplayTitle(doc)}
-        </h3>
         {doc.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {doc.tags.slice(0, hero ? 4 : 2).map((t) => (
-              <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">#{t}</span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {doc.tags.slice(0, hero ? 4 : 2).map((t, i) => (
+              <span key={t} className={cn("claw-sheet-tag text-[12px] font-semibold", i % 2 === 1 && "claw-sheet-tag-alt")}>#{t}</span>
             ))}
           </div>
         )}
-        <p className={cn("mt-4 flex-1 whitespace-pre-line text-slate-500", hero ? "line-clamp-[6] text-sm leading-7" : "line-clamp-4 text-[13px] leading-6")}>
+        <div className={cn("border-t border-slate-200/75", hero ? "my-7" : "my-5")} />
+        <p className={cn("flex-1 whitespace-pre-line text-slate-600", hero ? "line-clamp-[10] text-[15px] leading-8" : "line-clamp-[7] text-[13px] leading-6")}>
           {body}
         </p>
-        <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 text-xs text-slate-400">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">你</span>
-          <span>{fmtUpdated(doc.updatedAt)} 由你更新</span>
+        <div className={cn("mt-7 flex items-center gap-3 text-slate-400", hero ? "text-sm" : "text-xs")}>
+          <span className={cn("claw-sheet-avatar flex items-center justify-center rounded-full bg-slate-950 font-semibold text-white", hero ? "h-10 w-10 text-[13px]" : "h-8 w-8 text-[11px]")}>
+            C
+          </span>
+          <span className="min-w-0">
+            <span className="block font-medium text-slate-500">Claw</span>
+            <span className="block">{fmtUpdated(doc.updatedAt)}</span>
+          </span>
         </div>
       </div>
       {/* 折角 */}
       <span
-        className="absolute right-0 top-0"
+        className="claw-sheet-fold absolute right-0 top-0"
         style={{
           width: fold,
           height: fold,
           clipPath: "polygon(0 0, 100% 0, 100% 100%)",
-          background: "linear-gradient(135deg, #e6eaf2 0%, #f4f6fb 70%)",
-          boxShadow: "-2px 2px 4px rgba(15,23,42,0.1)",
+          background: "linear-gradient(135deg, #e6e2da 0%, #f6f3ed 68%)",
+          boxShadow: "-8px 8px 16px rgba(15,23,42,0.16)",
         }}
       />
     </button>
   );
 }
 
-const COLLECTION_TINTS = ["bg-slate-950", "bg-blue-500", "bg-amber-500", "bg-emerald-500"];
+const COLLECTION_VISUALS = [
+  { Icon: BookOpen, surface: "claw-collection-book", label: "灵感收集" },
+  { Icon: ImageIcon, surface: "claw-collection-photo", label: "旅行计划" },
+  { Icon: Compass, surface: "claw-collection-compass", label: "阅读清单" },
+];
 
 // 空间主页：问候 + 纸张式最近内容 + 玻璃创建坞 + 合集卡（对齐 design/01-space-home）
 function SpaceHome({
@@ -600,7 +645,7 @@ function SpaceHome({
     return Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
-      .map(([name, count], i) => ({ name, count, tint: COLLECTION_TINTS[i % COLLECTION_TINTS.length] }));
+      .map(([name, count], i) => ({ name, count, visual: COLLECTION_VISUALS[i % COLLECTION_VISUALS.length] }));
   }, [docs]);
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -638,26 +683,26 @@ function SpaceHome({
   }
 
   return (
-    <div className="relative flex h-[calc(100vh-1.5rem)] flex-col overflow-y-auto">
-      <div className="relative mx-auto flex min-h-full w-full max-w-6xl flex-col px-6 pb-10 pt-24 sm:px-10">
+    <div className="claw-home-stage relative flex h-[calc(100vh-1.5rem)] flex-col overflow-y-auto">
+      <div className="claw-home-brand">ClawNote</div>
+      <div className="claw-home-content relative mx-auto flex min-h-full w-full max-w-[1420px] flex-col px-5 pb-14 pt-36 sm:px-10 lg:pt-[176px]">
         {/* 问候 */}
-        <header className="mb-10 max-w-2xl">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.22em] text-slate-400">ClawNote Space</p>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-[48px] sm:leading-[1.05]">
+        <header className="claw-home-header mb-16 max-w-2xl">
+          <h1 className="text-[42px] font-semibold text-slate-950 sm:text-[56px] sm:leading-[1.05]">
             {greeting}，继续创作
           </h1>
-          <p className="mt-4 text-sm leading-6 text-slate-500">
-            {dateLabel} · {docs.length} 篇内容已经整理好，主页只放最近需要继续写的东西。
+          <p className="mt-5 text-[19px] font-medium leading-7 text-slate-500">
+            {dateLabel}
           </p>
         </header>
 
         {/* 最近打开：纸张叠 */}
         <section>
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-[15px] font-semibold text-slate-700">
-              <Clock3 className="h-4 w-4 text-slate-400" /> 最近打开
+          <div className="mb-6 flex items-end justify-between">
+            <h2 className="claw-recent-title text-[20px] font-semibold text-slate-800">
+              最近打开
             </h2>
-            <button onClick={() => onNavigate("docs")} className="flex items-center gap-1 text-xs font-medium text-slate-400 transition-colors hover:text-blue-600">
+            <button onClick={() => onNavigate("docs")} className="hidden items-center gap-1 text-xs font-medium text-slate-400 transition-colors hover:text-blue-600 sm:flex">
               查看全部 <ArrowUpRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -669,40 +714,39 @@ function SpaceHome({
               <FilePlus2 className="h-4 w-4" /> 还没有文档，新建第一篇
             </button>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+            <div className="claw-recent-row flex items-start gap-9 overflow-x-auto pb-10 pr-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {recent[0] && <PaperSheet doc={recent[0]} hero onOpen={() => onOpenDoc(recent[0].id)} />}
-              <div className="flex min-w-0 gap-4 overflow-x-auto pb-5 pl-1 pt-2 pr-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {recent.slice(1).map((doc, i) => (
-                  <PaperSheet key={doc.id} doc={doc} index={i} onOpen={() => onOpenDoc(doc.id)} />
-                ))}
-              </div>
+              {recent.slice(1, 4).map((doc, i) => (
+                <PaperSheet key={doc.id} doc={doc} index={i} onOpen={() => onOpenDoc(doc.id)} />
+              ))}
             </div>
           )}
         </section>
 
         {/* 玻璃创建坞（左） + 合集卡（右） */}
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-6 pt-12">
+        <div className="claw-home-bottom mt-auto flex flex-wrap items-end justify-between gap-8 pt-8">
           <MacDock
             items={[
-              { icon: <FilePlus2 className="h-4 w-4" />, label: "新建文档", primary: true, onClick: onCreateDoc },
-              { icon: <Upload className="h-4 w-4" />, label: "导入文件", onClick: () => fileRef.current?.click() },
-              { icon: <FileText className="h-4 w-4" />, label: "从模板新建", onClick: newFromTemplate },
+              { icon: <FilePlus2 className="h-8 w-8" />, label: "新建文档", primary: true, onClick: onCreateDoc },
+              { icon: <Upload className="h-7 w-7" />, label: "导入文件", onClick: () => fileRef.current?.click() },
+              { icon: <Grid3x3 className="h-7 w-7" />, label: "从模板新建", onClick: newFromTemplate },
             ]}
           />
 
           {collections.length > 0 && (
-            <div className="flex items-end gap-3">
+            <div className="claw-collections flex items-end gap-16">
               {collections.map((c) => (
                 <button
                   key={c.name}
                   onClick={() => onNavigate("docs")}
-                  className="group flex w-[116px] flex-col gap-3 rounded-2xl bg-white/74 p-3.5 text-left shadow-[0_18px_44px_-24px_rgba(15,23,42,0.28)] ring-1 ring-white/70 backdrop-blur-xl transition-transform hover:-translate-y-1"
+                  className="group flex w-[112px] flex-col items-center gap-4 text-center transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                 >
-                  {/* ring-white/20：深色下让近黑色块（bg-slate-950）与背景区分；浅色下几乎不可见，不改观感 */}
-                  <span className={cn("h-7 w-7 rounded-lg ring-1 ring-inset ring-white/20", c.tint)} />
-                  <span>
-                    <span className="block truncate text-sm font-semibold text-slate-800">{c.name}</span>
-                    <span className="text-xs text-slate-400">{c.count} 个文档</span>
+                  <span className={cn("claw-collection-object flex items-center justify-center", c.visual.surface)}>
+                    <c.visual.Icon className="h-9 w-9" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[16px] font-medium text-slate-700">{c.visual.label}</span>
+                    <span className="mt-1 block text-[15px] text-slate-400">{c.count}个文档</span>
                   </span>
                 </button>
               ))}
@@ -802,7 +846,7 @@ function MacDock({ items }: { items: DockItem[] }) {
         hovering.current = false;
         ensureRaf();
       }}
-      className="relative flex items-center gap-1 rounded-2xl border border-transparent bg-white/75 px-2.5 py-2 shadow-[0_18px_44px_-14px_rgba(15,23,42,0.22)] backdrop-blur-xl"
+      className="claw-home-action-dock relative flex items-center gap-2 rounded-[22px] border border-transparent bg-white/75 px-3 py-2 shadow-[0_18px_44px_-14px_rgba(15,23,42,0.22)] backdrop-blur-xl"
     >
       {items.map((it, i) => (
         <button
@@ -813,10 +857,11 @@ function MacDock({ items }: { items: DockItem[] }) {
           onClick={it.onClick}
           style={{ transformOrigin: "center", willChange: "transform, margin" }}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+            "flex min-w-[118px] flex-col items-center justify-center gap-2 rounded-[18px] px-4 py-4 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+            i > 0 && "claw-home-dock-segment",
             it.primary
-              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm shadow-blue-500/30 active:brightness-95"
-              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200",
+              ? "bg-white text-blue-600 shadow-[0_14px_36px_-22px_rgba(15,23,42,0.5)] ring-1 ring-white/80 active:brightness-95"
+              : "text-slate-600 hover:bg-white/50 hover:text-slate-900 active:bg-white/65",
           )}
         >
           {it.icon} {it.label}
@@ -890,6 +935,7 @@ function IconRailButton({
       <button
         onClick={onClick}
         aria-label={label}
+        data-active={active ? "true" : "false"}
         className={cn(
           "flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 [&_svg]:h-5 [&_svg]:w-5",
           active && "bg-blue-100/70 text-blue-600 hover:bg-blue-100/70 hover:text-blue-600"
@@ -1702,7 +1748,7 @@ function SettingsPanel() {
               <ShieldCheck className="h-4 w-4 text-slate-500" /> 空间与成员
             </h2>
             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-lg text-white">🧠</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-lg text-white">🧠</span>
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-slate-800">我的知识库</div>
                 <div className="text-xs text-slate-400">个人空间 · 1 名成员</div>

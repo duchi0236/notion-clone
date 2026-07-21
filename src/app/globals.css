@@ -180,15 +180,27 @@ html.dark body {
 }
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --primary: 221.2 83.2% 53.3%;
+  --background: 220 33% 98%;
+  --foreground: 220 23% 8%;
+  --primary: 212 100% 52%;
   --primary-foreground: 210 40% 98%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --border: 214.3 31.8% 91.4%;
+  --muted: 216 27% 95%;
+  --muted-foreground: 218 9% 52%;
+  --accent: 213 100% 96%;
+  --accent-foreground: 214 100% 33%;
+  --border: 215 24% 88%;
+  --claw-canvas: #f5f7fa;
+  --claw-paper: #ffffff;
+  --claw-ink: #15171a;
+  --claw-secondary: #7a828e;
+  --claw-hairline: #d9dfe7;
+  --claw-accent: #0a84ff;
+  --claw-accent-strong: #0068d8;
+  --claw-success: #2f855a;
+  --claw-warning: #b7791f;
+  --claw-danger: #c2414b;
+  --claw-shadow: 0 24px 70px -34px rgba(16, 24, 40, 0.34);
+  --claw-soft-shadow: 0 16px 44px -30px rgba(16, 24, 40, 0.28);
   /* Motion design tokens — shared duration/easing so components stay consistent. */
   --claw-duration-fast: 150ms;
   --claw-duration: 220ms;
@@ -196,15 +208,24 @@ html.dark body {
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
+  --background: 222 35% 6%;
+  --foreground: 210 40% 96%;
+  --primary: 212 100% 62%;
   --primary-foreground: 222.2 47.4% 11.2%;
-  --muted: 217.2 32.6% 17.5%;
+  --muted: 220 23% 14%;
   --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
+  --accent: 218 30% 18%;
   --accent-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
+  --border: 219 20% 22%;
+  --claw-canvas: #080d15;
+  --claw-paper: #111720;
+  --claw-ink: #eef2f7;
+  --claw-secondary: #9aa3b2;
+  --claw-hairline: #253040;
+  --claw-accent: #4da0ff;
+  --claw-accent-strong: #76b7ff;
+  --claw-shadow: 0 24px 70px -28px rgba(0, 0, 0, 0.72);
+  --claw-soft-shadow: 0 16px 44px -26px rgba(0, 0, 0, 0.62);
 }
 
 * {
@@ -214,7 +235,36 @@ html.dark body {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-feature-settings: "rlig" 1, "calt" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+p,
+li {
+  text-wrap: pretty;
+}
+
+.tracking-tight,
+.tracking-tighter,
+.tracking-wide,
+.tracking-wider,
+.tracking-widest {
+  letter-spacing: 0 !important;
 }
 
 /* TipTap Editor Styles */
@@ -726,25 +776,37 @@ html.dark .space-home-bg {
    结构（浮动、圆角、景深）始终生效；深色跟随 .dark 切换。
    =========================================================================== */
 .claw-canvas {
-  background: linear-gradient(180deg, #f2f5fb 0%, #f7f8fc 44%, #ffffff 100%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(245, 247, 250, 0.94) 46%, rgba(255, 255, 255, 0.98) 100%),
+    repeating-linear-gradient(90deg, rgba(15, 23, 42, 0.018) 0 1px, transparent 1px 72px),
+    var(--claw-canvas);
+  color: var(--claw-ink);
+  isolation: isolate;
 }
 html.dark .claw-canvas {
-  background: linear-gradient(180deg, #070b13 0%, #0b111c 45%, #070a11 100%);
+  background:
+    linear-gradient(180deg, rgba(8, 13, 21, 0.92) 0%, rgba(11, 17, 28, 0.98) 52%, rgba(7, 10, 17, 1) 100%),
+    repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.035) 0 1px, transparent 1px 72px),
+    var(--claw-canvas);
 }
 .claw-grain {
   background-image:
-    linear-gradient(rgba(15, 23, 42, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 23, 42, 0.018) 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: linear-gradient(to bottom, black, transparent 86%);
+    radial-gradient(rgba(15, 23, 42, 0.05) 0.65px, transparent 0.65px),
+    linear-gradient(rgba(15, 23, 42, 0.015) 1px, transparent 1px);
+  background-size: 6px 6px, 40px 40px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
 }
 .claw-command-lens {
-  background: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: 999px;
-  box-shadow: 0 18px 50px -28px rgba(15, 23, 42, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 20px 55px -30px rgba(15, 23, 42, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(22px) saturate(160%);
   -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+.claw-command-lens:hover {
+  border-color: rgba(10, 132, 255, 0.2);
+  box-shadow: 0 24px 64px -34px rgba(10, 132, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.94);
 }
 .claw-paper-sheet > div::before {
   content: "";
@@ -753,8 +815,10 @@ html.dark .claw-canvas {
   pointer-events: none;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent 34%),
-    repeating-linear-gradient(0deg, transparent 0 31px, rgba(148, 163, 184, 0.08) 32px);
-  opacity: 0.55;
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(148, 163, 184, 0.07) 32px),
+    radial-gradient(rgba(15, 23, 42, 0.05) 0.55px, transparent 0.55px);
+  background-size: auto, auto, 5px 5px;
+  opacity: 0.48;
 }
 .claw-paper-sheet > div > * {
   position: relative;
@@ -806,15 +870,537 @@ html:not(.glass).dark .claw-panel {
 }
 /* 不透明纸张：文档 / 表格 / 日历等数据与长文内容（规格要求禁止透明） */
 .claw-paper {
-  background: #ffffff;
+  background: var(--claw-paper);
   border-radius: var(--claw-radius);
   border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 22px 50px -24px rgba(15, 23, 42, 0.3);
+  box-shadow: var(--claw-shadow);
 }
 html.dark .claw-paper {
-  background: #0f141d;
+  background: var(--claw-paper);
   border-color: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 22px 50px -24px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--claw-shadow);
+}
+
+/* ClawNote home: match the provided soft paper workspace reference. */
+.claw-home-shell.claw-canvas {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(250, 250, 248, 0.96) 58%, #ffffff 100%),
+    radial-gradient(900px 520px at 50% 0%, rgba(15, 23, 42, 0.045), transparent 68%),
+    repeating-linear-gradient(90deg, rgba(18, 24, 38, 0.012) 0 1px, transparent 1px 54px),
+    #fbfbfa;
+  color: #15191f;
+}
+html.dark .claw-home-shell.claw-canvas {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(250, 250, 248, 0.96) 58%, #ffffff 100%),
+    radial-gradient(900px 520px at 50% 0%, rgba(15, 23, 42, 0.045), transparent 68%),
+    repeating-linear-gradient(90deg, rgba(18, 24, 38, 0.012) 0 1px, transparent 1px 54px),
+    #fbfbfa !important;
+  color: #15191f !important;
+  color-scheme: light;
+}
+.claw-home-shell .claw-grain {
+  opacity: 0.14 !important;
+  background-image:
+    radial-gradient(rgba(15, 23, 42, 0.052) 0.5px, transparent 0.5px),
+    radial-gradient(rgba(15, 23, 42, 0.025) 0.45px, transparent 0.45px);
+  background-position: 0 0, 3px 3px;
+  background-size: 7px 7px, 11px 11px;
+  mask-image: linear-gradient(to bottom, black, transparent 94%);
+}
+.claw-home-stage {
+  overflow-x: hidden;
+}
+.claw-home-brand {
+  position: fixed;
+  left: clamp(150px, 9.6vw, 184px);
+  top: 75px;
+  z-index: 35;
+  font-size: 21px;
+  line-height: 1;
+  font-weight: 700;
+  color: #1d232b;
+}
+.claw-home-create {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  box-shadow: 0 20px 42px -24px rgba(15, 23, 42, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+.claw-home-rail {
+  top: 24px;
+  width: 92px;
+  height: calc(100vh - 48px);
+  gap: 18px;
+  padding: 74px 14px 24px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.58);
+  border-color: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 24px 58px -36px rgba(15, 23, 42, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+html.dark .claw-home-shell .claw-home-rail {
+  background: rgba(255, 255, 255, 0.62) !important;
+  border-color: rgba(255, 255, 255, 0.66) !important;
+  box-shadow: 0 24px 58px -36px rgba(15, 23, 42, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+}
+.claw-home-rail button {
+  color: #7d858f;
+}
+.claw-home-rail button:not(.claw-home-avatar) {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: transparent;
+}
+.claw-home-rail button:not(.claw-home-avatar):hover {
+  background: rgba(255, 255, 255, 0.72);
+  color: #252b33;
+}
+.claw-home-rail button[data-active="true"] {
+  color: #2d73ff !important;
+  background: transparent !important;
+}
+.claw-home-rail button svg {
+  width: 27px !important;
+  height: 27px !important;
+  stroke-width: 1.9;
+}
+.claw-home-rail-rule {
+  width: 44px;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.24);
+}
+.claw-home-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.36), transparent 22%),
+    #111820;
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 10px 20px -14px rgba(15, 23, 42, 0.45);
+}
+.claw-home-shell .claw-command-lens {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 18px 42px -26px rgba(15, 23, 42, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+html.dark .claw-home-shell .claw-command-lens,
+html.dark .claw-home-shell .claw-home-create,
+html.dark .claw-home-shell .claw-home-action-dock {
+  background-color: rgba(255, 255, 255, 0.84) !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
+}
+.claw-recent-title {
+  position: relative;
+  display: inline-flex;
+  padding-bottom: 12px;
+}
+.claw-recent-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 34px;
+  height: 2px;
+  background: #2f343b;
+  border-radius: 999px;
+}
+.claw-home-shell .claw-paper-sheet {
+  filter: saturate(0.96);
+  margin-top: var(--sheet-offset, 0);
+}
+.claw-home-shell .claw-paper-sheet > div {
+  background-color: #fffdfa !important;
+  color: #20262e;
+}
+.claw-sheet-face {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), transparent 42%),
+    radial-gradient(rgba(15, 23, 42, 0.035) 0.45px, transparent 0.45px);
+  background-size: auto, 5px 5px;
+}
+.claw-home-shell .claw-paper-sheet > div::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), transparent 38%),
+    radial-gradient(rgba(15, 23, 42, 0.055) 0.42px, transparent 0.42px);
+  background-size: auto, 5px 5px;
+  opacity: 0.34;
+}
+.claw-sheet-tag {
+  color: #5aa37e;
+}
+.claw-sheet-tag-alt {
+  color: #d49b44;
+}
+.claw-sheet-avatar {
+  box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.52);
+}
+.claw-home-action-dock {
+  min-height: 128px;
+  background: rgba(255, 255, 255, 0.66);
+  border-color: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 18px 42px -24px rgba(15, 23, 42, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.claw-home-dock-segment {
+  position: relative;
+}
+.claw-home-dock-segment::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 24%;
+  width: 1px;
+  height: 52%;
+  background: rgba(148, 163, 184, 0.28);
+}
+.claw-collection-object {
+  width: 84px;
+  height: 104px;
+  color: #6b7280;
+  box-shadow: 0 18px 28px -22px rgba(15, 23, 42, 0.42);
+}
+.claw-collection-book {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #cdd8bf 0 14%, #dfe7d2 14% 100%);
+  border: 1px solid rgba(119, 134, 96, 0.18);
+  color: #86976f;
+}
+.claw-collection-photo {
+  position: relative;
+  width: 92px;
+  height: 76px;
+  border-radius: 3px;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(180deg, #e9edf2, #ffffff) border-box;
+  border: 8px solid transparent;
+  color: #6f8793;
+}
+.claw-collection-photo::before {
+  content: "";
+  position: absolute;
+  left: 30px;
+  top: -15px;
+  width: 32px;
+  height: 13px;
+  border-radius: 2px;
+  background: rgba(221, 188, 142, 0.46);
+  transform: rotate(-3deg);
+}
+.claw-collection-compass {
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 38% 36%, #fff9df, #d3a653 72%, #9a7431);
+  border: 4px solid #7f5f2b;
+  color: #5e4421;
+}
+.claw-home-shell .text-slate-950,
+.claw-home-shell .text-slate-900,
+.claw-home-shell .text-slate-800 {
+  color: #1c222b !important;
+}
+.claw-home-shell .text-slate-700,
+.claw-home-shell .text-slate-600 {
+  color: #555f6c !important;
+}
+.claw-home-shell .text-slate-500 {
+  color: #7b8490 !important;
+}
+.claw-home-shell .text-slate-400 {
+  color: #9aa2ad !important;
+}
+html.dark .claw-home-shell .bg-white,
+html.dark .claw-home-shell .bg-white\/75,
+html.dark .claw-home-shell .bg-white\/70,
+html.dark .claw-home-shell .bg-white\/40 {
+  background-color: rgba(255, 255, 255, 0.86) !important;
+}
+html.dark .claw-home-shell .border-slate-100,
+html.dark .claw-home-shell .border-slate-200,
+html.dark .claw-home-shell .border-slate-300 {
+  border-color: rgba(203, 213, 225, 0.78) !important;
+}
+
+@media (min-width: 1024px) and (max-width: 1440px), (min-width: 1024px) and (max-height: 900px) {
+  .claw-home-shell .claw-command-lens {
+    top: 24px;
+    width: min(460px, 42vw);
+    height: 48px;
+    padding-inline: 20px;
+    font-size: 14px;
+  }
+  .claw-home-create {
+    top: 24px;
+    right: 28px;
+    width: 52px;
+    height: 52px;
+  }
+  .claw-home-create svg {
+    width: 23px;
+    height: 23px;
+  }
+  .claw-home-rail {
+    top: 12px;
+    width: 76px;
+    height: calc(100vh - 24px);
+    gap: 10px;
+    padding: 54px 10px 16px;
+    border-radius: 24px;
+  }
+  .claw-home-rail button:not(.claw-home-avatar) {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+  .claw-home-rail button svg {
+    width: 23px !important;
+    height: 23px !important;
+  }
+  .claw-home-avatar {
+    width: 42px;
+    height: 42px;
+  }
+  .claw-home-rail-rule {
+    width: 38px;
+  }
+  .claw-home-brand {
+    left: 124px;
+    top: 62px;
+    font-size: 18px;
+  }
+  .claw-home-content {
+    max-width: 1120px;
+    padding-top: 112px !important;
+    padding-bottom: 24px !important;
+    padding-left: 32px !important;
+    padding-right: 24px !important;
+  }
+  .claw-home-header {
+    margin-bottom: 34px !important;
+  }
+  .claw-home-header h1 {
+    font-size: 42px !important;
+    line-height: 1.08 !important;
+  }
+  .claw-home-header p {
+    margin-top: 12px !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+  .claw-recent-title {
+    padding-bottom: 9px;
+    font-size: 17px !important;
+  }
+  .claw-recent-row {
+    gap: 24px !important;
+    padding-bottom: 24px !important;
+  }
+  .claw-paper-hero {
+    width: 320px !important;
+  }
+  .claw-paper-note {
+    width: 216px !important;
+    margin-top: calc(var(--sheet-offset, 0px) * 0.45) !important;
+  }
+  .claw-paper-hero .claw-sheet-face {
+    min-height: 380px !important;
+    padding: 30px !important;
+  }
+  .claw-paper-note .claw-sheet-face {
+    min-height: 280px !important;
+    padding: 22px !important;
+  }
+  .claw-paper-hero h3 {
+    max-width: 220px !important;
+    font-size: 24px !important;
+  }
+  .claw-paper-note h3 {
+    font-size: 18px !important;
+  }
+  .claw-paper-hero p {
+    font-size: 13px !important;
+    line-height: 1.7 !important;
+    -webkit-line-clamp: 6 !important;
+  }
+  .claw-paper-note p {
+    font-size: 12px !important;
+    line-height: 1.55 !important;
+    -webkit-line-clamp: 4 !important;
+  }
+  .claw-paper-hero .claw-sheet-fold {
+    width: 54px !important;
+    height: 54px !important;
+  }
+  .claw-paper-note .claw-sheet-fold {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .claw-home-bottom {
+    padding-top: 18px !important;
+  }
+  .claw-home-action-dock {
+    min-height: 92px;
+    border-radius: 18px;
+    padding: 8px 10px;
+  }
+  .claw-home-action-dock button {
+    min-width: 98px !important;
+    gap: 6px !important;
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+    font-size: 13px !important;
+  }
+  .claw-home-action-dock svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .claw-home-dock-segment::before {
+    left: -8px;
+  }
+  .claw-collections {
+    gap: 24px !important;
+  }
+  .claw-collections button {
+    width: 86px !important;
+    gap: 8px !important;
+  }
+  .claw-collections button span span:first-child {
+    font-size: 13px !important;
+  }
+  .claw-collections button span span:last-child {
+    font-size: 12px !important;
+  }
+  .claw-collection-object {
+    width: 58px;
+    height: 72px;
+  }
+  .claw-collection-object svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .claw-collection-photo {
+    width: 64px;
+    height: 54px;
+    border-width: 6px;
+  }
+  .claw-collection-photo::before {
+    left: 19px;
+    top: -12px;
+    width: 26px;
+    height: 10px;
+  }
+  .claw-collection-compass {
+    width: 62px;
+    height: 62px;
+    border-width: 3px;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 760px) {
+  .claw-home-content {
+    padding-top: 88px !important;
+    padding-bottom: 14px !important;
+  }
+  .claw-home-brand {
+    top: 52px;
+  }
+  .claw-home-header {
+    margin-bottom: 22px !important;
+  }
+  .claw-home-header h1 {
+    font-size: 36px !important;
+  }
+  .claw-home-header p {
+    margin-top: 8px !important;
+    font-size: 14px !important;
+  }
+  .claw-recent-row {
+    padding-bottom: 16px !important;
+  }
+  .claw-paper-hero {
+    width: 286px !important;
+  }
+  .claw-paper-note {
+    width: 190px !important;
+    margin-top: calc(var(--sheet-offset, 0px) * 0.32) !important;
+  }
+  .claw-paper-hero .claw-sheet-face {
+    min-height: 322px !important;
+    padding: 24px !important;
+  }
+  .claw-paper-note .claw-sheet-face {
+    min-height: 238px !important;
+    padding: 18px !important;
+  }
+  .claw-paper-hero h3 {
+    max-width: 190px !important;
+    font-size: 21px !important;
+  }
+  .claw-paper-note h3 {
+    font-size: 16px !important;
+  }
+  .claw-paper-hero .claw-sheet-fold {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .claw-paper-note .claw-sheet-fold {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  .claw-home-action-dock {
+    min-height: 78px;
+  }
+  .claw-home-action-dock button {
+    min-width: 88px !important;
+    padding: 8px 10px !important;
+  }
+  .claw-collection-object {
+    width: 50px;
+    height: 60px;
+  }
+  .claw-collection-photo {
+    width: 56px;
+    height: 46px;
+  }
+  .claw-collection-compass {
+    width: 54px;
+    height: 54px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .claw-home-shell .claw-paper-sheet:first-child {
+    transform-origin: left bottom;
+  }
+  .claw-home-brand {
+    left: 128px;
+  }
+  .claw-collections {
+    gap: 2rem;
+  }
+}
+@media (max-width: 1023.98px) {
+  .claw-home-brand {
+    display: none;
+  }
+  .claw-home-stage {
+    height: calc(100dvh - 3.5rem);
+  }
+  .claw-home-shell .claw-paper-sheet {
+    width: min(78vw, 360px) !important;
+  }
+  .claw-home-shell .claw-paper-sheet > div {
+    min-height: 360px;
+  }
+  .claw-home-action-dock {
+    width: 100%;
+    overflow-x: auto;
+  }
 }
 /* 强制不透明表面：浮动工具条等不希望透出背景内容的浮层（玻璃/深色都不透）。
    置于文件末尾，靠书写顺序压过同特异度的玻璃覆写。 */
@@ -837,6 +1423,198 @@ html.glass .claw-solid .border-slate-200 {
 html.glass.dark .claw-solid .border-slate-100,
 html.glass.dark .claw-solid .border-slate-200 {
   border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Standalone management pages: files, tokens, workspace settings, archive. */
+.claw-standalone {
+  min-height: 100dvh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(247, 249, 252, 0.94)),
+    repeating-linear-gradient(90deg, rgba(15, 23, 42, 0.018) 0 1px, transparent 1px 76px),
+    var(--claw-canvas);
+  color: var(--claw-ink);
+}
+html.dark .claw-standalone {
+  background:
+    linear-gradient(180deg, rgba(8, 13, 21, 0.94), rgba(12, 17, 26, 0.98)),
+    repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.035) 0 1px, transparent 1px 76px),
+    var(--claw-canvas);
+}
+.claw-page-wrap {
+  width: min(100% - 2rem, 1180px);
+  margin-inline: auto;
+  padding: 2rem 0 4rem;
+}
+.claw-page-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+.claw-page-kicker {
+  margin-bottom: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--claw-accent);
+}
+.claw-page-title {
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  line-height: 1.08;
+  font-weight: 760;
+  color: var(--claw-ink);
+}
+.claw-page-desc {
+  margin-top: 0.6rem;
+  max-width: 42rem;
+  color: var(--claw-secondary);
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+.claw-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+.claw-card {
+  background: var(--claw-paper);
+  border: 1px solid var(--claw-hairline);
+  border-radius: 20px;
+  box-shadow: var(--claw-soft-shadow);
+}
+.claw-card-flat {
+  background: var(--claw-paper);
+  border: 1px solid var(--claw-hairline);
+  border-radius: 16px;
+}
+.claw-ghost-button,
+.claw-primary-button,
+.claw-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  border-radius: 12px;
+  padding: 0.58rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  transition: background-color var(--claw-duration-fast) var(--claw-ease),
+    border-color var(--claw-duration-fast) var(--claw-ease),
+    color var(--claw-duration-fast) var(--claw-ease),
+    transform var(--claw-duration-fast) var(--claw-ease);
+}
+.claw-ghost-button {
+  border: 1px solid var(--claw-hairline);
+  background: rgba(255, 255, 255, 0.72);
+  color: #3f4856;
+}
+.claw-ghost-button:hover {
+  border-color: rgba(10, 132, 255, 0.32);
+  color: var(--claw-accent-strong);
+  background: #ffffff;
+}
+.claw-primary-button {
+  border: 1px solid rgba(10, 132, 255, 0.16);
+  background: var(--claw-accent);
+  color: #ffffff;
+  box-shadow: 0 12px 30px -18px rgba(10, 132, 255, 0.7);
+}
+.claw-primary-button:hover {
+  background: var(--claw-accent-strong);
+}
+.claw-danger-button {
+  border: 1px solid rgba(194, 65, 75, 0.22);
+  background: #fff;
+  color: var(--claw-danger);
+}
+.claw-danger-button:hover {
+  background: rgba(194, 65, 75, 0.07);
+}
+.claw-input {
+  border: 1px solid var(--claw-hairline);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--claw-ink);
+  outline: none;
+  transition: border-color var(--claw-duration-fast) var(--claw-ease),
+    box-shadow var(--claw-duration-fast) var(--claw-ease);
+}
+.claw-input:focus {
+  border-color: rgba(10, 132, 255, 0.48);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.12);
+}
+.claw-status {
+  border-radius: 14px;
+  border: 1px solid rgba(10, 132, 255, 0.15);
+  background: rgba(10, 132, 255, 0.08);
+  color: var(--claw-accent-strong);
+}
+.claw-table {
+  overflow: hidden;
+  background: var(--claw-paper);
+  border: 1px solid var(--claw-hairline);
+  border-radius: 18px;
+  box-shadow: var(--claw-soft-shadow);
+}
+.claw-table-head,
+.claw-table-row {
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.82rem 1rem;
+}
+.claw-table-head {
+  border-bottom: 1px solid var(--claw-hairline);
+  background: #f7f9fc;
+  color: var(--claw-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.claw-table-row {
+  border-bottom: 1px solid rgba(217, 223, 231, 0.75);
+  font-size: 0.875rem;
+}
+.claw-table-row:last-child {
+  border-bottom: 0;
+}
+.claw-table-row:hover {
+  background: #f8fbff;
+}
+html.dark .claw-card,
+html.dark .claw-card-flat,
+html.dark .claw-table {
+  background: var(--claw-paper);
+  border-color: var(--claw-hairline);
+}
+html.dark .claw-ghost-button,
+html.dark .claw-danger-button,
+html.dark .claw-input {
+  background: rgba(17, 23, 32, 0.94);
+  color: #e7edf6;
+  border-color: var(--claw-hairline);
+}
+html.dark .claw-table-head {
+  background: #151d28;
+}
+html.dark .claw-table-row {
+  border-color: rgba(37, 48, 64, 0.82);
+}
+html.dark .claw-table-row:hover {
+  background: #141c27;
+}
+@media (max-width: 760px) {
+  .claw-page-wrap {
+    width: min(100% - 1rem, 1180px);
+    padding: 1rem 0 5rem;
+  }
+  .claw-page-top {
+    flex-direction: column;
+  }
+  .claw-page-actions {
+    justify-content: flex-start;
+  }
 }
 
 /* ===========================================================================
@@ -964,7 +1742,9 @@ input[type="range"] {
   button:active:not(:disabled),
   [role="button"]:active {
     transform: none;
-=======
+  }
+}
+
 /* Minimal document mode */
 .document-only-editor > div {
   border: 0 !important;

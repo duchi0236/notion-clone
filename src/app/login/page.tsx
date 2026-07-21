@@ -139,26 +139,26 @@ export default function LoginPage() {
         ref={(el) => { tabRefs.current[m] = el; }}
         onClick={() => { setMethod(m); setMessage(null); }}
         onKeyDown={onTabKeyDown}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${selected ? "bg-white font-medium text-slate-900 shadow-sm" : "text-slate-500 active:bg-slate-200"}`}
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${selected ? "bg-white font-medium text-slate-900 shadow-sm" : "text-slate-500 active:bg-slate-200"}`}
       >
         <Icon className="h-4 w-4" /> {label}
       </button>
     );
   };
-  const input = "w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-colors duration-150 focus:border-violet-400 focus-visible:ring-2 focus-visible:ring-violet-300";
+  const input = "claw-input w-full px-4 py-3 transition-colors duration-150";
 
   const notice =
     message?.type === "error"
       ? "bg-rose-50 text-rose-700"
       : message?.type === "success"
         ? "bg-emerald-50 text-emerald-700"
-        : "bg-violet-50 text-violet-700";
+        : "bg-blue-50 text-blue-700";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-slate-900">
-      <div className="claw-solid w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+    <main className="claw-standalone flex min-h-screen items-center justify-center px-4 text-slate-900">
+      <div className="claw-card w-full max-w-md p-8">
         <div className="mb-7 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white"><Brain className="h-6 w-6" /></div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white"><Brain className="h-6 w-6" /></div>
           <div><h1 className="text-2xl font-bold">ClawNote</h1><p className="text-sm text-slate-500">登录你的知识工作台</p></div>
         </div>
 
@@ -171,8 +171,8 @@ export default function LoginPage() {
         {method === "password" && (
           <form onSubmit={submitPassword} role="tabpanel" className="space-y-4">
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 text-sm">
-              <button type="button" aria-pressed={mode === "login"} onClick={() => setMode("login")} className={`rounded-lg px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${mode === "login" ? "bg-white shadow-sm" : "text-slate-500 active:bg-slate-200"}`}>登录</button>
-              <button type="button" aria-pressed={mode === "register"} onClick={() => setMode("register")} className={`rounded-lg px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${mode === "register" ? "bg-white shadow-sm" : "text-slate-500 active:bg-slate-200"}`}>注册</button>
+              <button type="button" aria-pressed={mode === "login"} onClick={() => setMode("login")} className={`rounded-lg px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${mode === "login" ? "bg-white shadow-sm" : "text-slate-500 active:bg-slate-200"}`}>登录</button>
+              <button type="button" aria-pressed={mode === "register"} onClick={() => setMode("register")} className={`rounded-lg px-3 py-1.5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${mode === "register" ? "bg-white shadow-sm" : "text-slate-500 active:bg-slate-200"}`}>注册</button>
             </div>
             {mode === "register" && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="名称（可选）" autoComplete="name" className={input} />}
             <input ref={emailRef} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="邮箱" autoComplete="email" className={input} />
@@ -191,7 +191,7 @@ export default function LoginPage() {
                 onClick={sendCode}
                 disabled={sending || cooldown > 0 || !phone.trim()}
                 aria-label={cooldown > 0 ? `${cooldown}秒后可重新获取验证码` : undefined}
-                className="shrink-0 rounded-2xl border border-violet-200 px-4 text-sm font-medium text-violet-600 transition-colors duration-150 active:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-2xl border border-blue-200 px-4 text-sm font-medium text-blue-600 transition-colors duration-150 active:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {sending ? "发送中…" : cooldown > 0 ? `${cooldown}s` : "获取验证码"}
               </button>
@@ -212,7 +212,7 @@ export default function LoginPage() {
               )}
             </div>
             <p className="text-xs text-slate-400">生产环境此处展示微信二维码扫码登录；当前为开发占位。</p>
-            <button onClick={wechatLogin} disabled={loading} className="flex w-full items-center justify-center rounded-2xl bg-[#07c160] px-4 py-3 font-medium text-white transition-colors duration-150 hover:opacity-90 active:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
+            <button onClick={wechatLogin} disabled={loading} className="flex w-full items-center justify-center rounded-2xl bg-[#07c160] px-4 py-3 font-medium text-white transition-colors duration-150 hover:opacity-90 active:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 微信登录（开发模拟）
             </button>
           </div>
@@ -236,7 +236,7 @@ export default function LoginPage() {
 
 const Submit = forwardRef<HTMLButtonElement, { loading: boolean; label: string }>(function Submit({ loading, label }, ref) {
   return (
-    <button ref={ref} disabled={loading} className="flex w-full items-center justify-center rounded-2xl bg-violet-600 px-4 py-3 font-medium text-white transition-colors duration-150 hover:bg-violet-700 active:bg-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
+    <button ref={ref} disabled={loading} className="flex w-full items-center justify-center rounded-2xl bg-blue-600 px-4 py-3 font-medium text-white transition-colors duration-150 hover:bg-blue-700 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
       {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {label}
     </button>
   );

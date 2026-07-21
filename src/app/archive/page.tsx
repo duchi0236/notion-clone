@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArchiveRestore, FileText, RefreshCw, Trash2 } from "lucide-react";
+import { ArchiveRestore, ArrowLeft, FileText, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type ArchivedDocument = {
@@ -55,46 +55,49 @@ export default function ArchivePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f7fb] p-8 text-slate-900">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between">
+    <main className="claw-standalone px-4 sm:px-6">
+      <div className="claw-page-wrap">
+        <div className="claw-page-top">
           <div>
-            <h1 className="text-3xl font-bold">归档 / 回收站</h1>
-            <p className="mt-1 text-sm text-slate-500">查看已删除或归档的文档，并恢复到文档树。</p>
+            <p className="claw-page-kicker">Archive</p>
+            <h1 className="claw-page-title">归档 / 回收站</h1>
+            <p className="claw-page-desc">查看已删除或归档的文档，并恢复到文档树。危险操作保持低频、清晰和可确认。</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={load} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm hover:border-blue-300">
-              <RefreshCw className="mr-1 inline h-4 w-4" />刷新
+          <div className="claw-page-actions">
+            <button onClick={load} className="claw-ghost-button">
+              <RefreshCw className="h-4 w-4" />刷新
             </button>
-            <Link href="/clawnote" className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm hover:border-blue-300">返回文档</Link>
+            <Link href="/clawnote" className="claw-ghost-button"><ArrowLeft className="h-4 w-4" />返回文档</Link>
           </div>
         </div>
 
-        {message && <div className="mb-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm text-blue-700">{message}</div>}
+        {message && <div className="claw-status mb-4 px-4 py-3 text-sm">{message}</div>}
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-          <div className="grid grid-cols-[1fr_180px_200px] border-b border-slate-100 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500">
-            <span>文档</span><span>更新时间</span><span>操作</span>
-          </div>
-          {loading && <div className="p-8 text-center text-sm text-slate-500">加载中...</div>}
-          {!loading && documents.length === 0 && <div className="p-8 text-center text-sm text-slate-500">暂无归档文档</div>}
-          {documents.map((doc) => (
-            <div key={doc.id} className="grid grid-cols-[1fr_180px_200px] items-center border-b border-slate-100 px-4 py-3 text-sm last:border-0">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 font-medium"><FileText className="h-4 w-4 text-blue-500" />{doc.icon ?? "📄"}<span className="truncate">{doc.title}</span></div>
-                <p className="mt-1 line-clamp-1 text-xs text-slate-500">{doc.summary ?? "暂无摘要"}</p>
-              </div>
-              <span className="text-slate-500">{new Date(doc.updatedAt).toLocaleString()}</span>
-              <div className="flex gap-2">
-                <button onClick={() => restore(doc.id)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-blue-700 hover:border-blue-300">
-                  <ArchiveRestore className="mr-1 inline h-4 w-4" />恢复
-                </button>
-                <button onClick={() => purge(doc.id)} className="rounded-xl border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
-                  <Trash2 className="mr-1 inline h-4 w-4" />删除
-                </button>
-              </div>
+        <div className="claw-table overflow-x-auto">
+          <div className="min-w-[760px]">
+            <div className="claw-table-head grid-cols-[minmax(0,1fr)_180px_220px]">
+              <span>文档</span><span>更新时间</span><span>操作</span>
             </div>
-          ))}
+            {loading && <div className="p-8 text-center text-sm text-slate-500">加载中...</div>}
+            {!loading && documents.length === 0 && <div className="p-8 text-center text-sm text-slate-500">暂无归档文档</div>}
+            {documents.map((doc) => (
+              <div key={doc.id} className="claw-table-row grid-cols-[minmax(0,1fr)_180px_220px]">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 font-medium"><FileText className="h-4 w-4 text-blue-600" />{doc.icon ?? "📄"}<span className="truncate">{doc.title}</span></div>
+                  <p className="mt-1 line-clamp-1 text-xs text-slate-500">{doc.summary ?? "暂无摘要"}</p>
+                </div>
+                <span className="text-slate-500">{new Date(doc.updatedAt).toLocaleString()}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => restore(doc.id)} className="claw-ghost-button min-h-0 px-3 py-2">
+                    <ArchiveRestore className="h-4 w-4" />恢复
+                  </button>
+                  <button onClick={() => purge(doc.id)} className="claw-danger-button min-h-0 px-3 py-2">
+                    <Trash2 className="h-4 w-4" />删除
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </main>

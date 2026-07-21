@@ -498,7 +498,7 @@ export default function CalendarApp() {
             quickError ? "border-red-300" : "border-slate-200",
           )}
         >
-          <Sparkles className={cn("h-4 w-4", quickError ? "text-red-400" : "text-violet-500")} />
+          <Sparkles className={cn("h-4 w-4", quickError ? "text-red-400" : "text-blue-500")} />
           <input
             value={quickText}
             onChange={(e) => {

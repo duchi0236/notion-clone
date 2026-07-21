@@ -38,7 +38,7 @@ export function TaskPanel({
         </div>
         <button
           onClick={createTask}
-          className="rounded-2xl bg-violet-600 px-4 py-2 text-sm text-white transition-transform hover:bg-violet-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 focus-visible:ring-offset-2"
+          className="rounded-2xl bg-blue-600 px-4 py-2 text-sm text-white transition-transform hover:bg-blue-700 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2"
         >
           <Plus className="mr-1 inline h-4 w-4" />新增任务
         </button>
@@ -56,8 +56,8 @@ export function TaskPanel({
             onClick={() => setTaskView(key)}
             aria-pressed={taskView === key}
             className={cn(
-              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 focus-visible:ring-offset-2",
-              taskView === key ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-600"
+              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2",
+              taskView === key ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600"
             )}
           >
             <Icon className="h-4 w-4" />{label}
@@ -152,9 +152,9 @@ function TaskBoard({ tasks, updateTask }: { tasks: Task[]; updateTask: (id: stri
 }
 
 function TaskGallery({ tasks }: { tasks: Task[] }) {
-  return <div className="grid grid-cols-3 gap-4">{tasks.map((task) => <div key={task.id} className="rounded-3xl border border-slate-200 bg-white p-5"><div className="mb-3 h-24 rounded-2xl bg-gradient-to-br from-violet-100 to-indigo-100" /><h3 className="font-semibold">{task.name}</h3><p className="mt-1 text-sm text-slate-500">{task.owner} · {task.status}</p><div className="mt-3 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-violet-500" style={{ width: `${Math.min(100, task.progress)}%` }} /></div></div>)}</div>;
+  return <div className="grid grid-cols-3 gap-4">{tasks.map((task) => <div key={task.id} className="rounded-3xl border border-slate-200 bg-white p-5"><div className="mb-3 h-24 rounded-2xl bg-blue-50" /><h3 className="font-semibold">{task.name}</h3><p className="mt-1 text-sm text-slate-500">{task.owner} · {task.status}</p><div className="mt-3 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-blue-500" style={{ width: `${Math.min(100, task.progress)}%` }} /></div></div>)}</div>;
 }
 
 function TaskCalendar({ tasks }: { tasks: Task[] }) {
-  return <div className="rounded-3xl border border-slate-200 bg-white p-5">{tasks.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map((task) => <div key={task.id} className="flex items-center gap-4 border-b border-slate-100 py-3 last:border-0"><div className="w-28 rounded-xl bg-violet-50 px-3 py-2 text-center text-sm text-violet-700">{task.dueDate}</div><div className="flex-1"><div className="font-medium">{task.name}</div><div className="text-sm text-slate-500">{task.owner} · {task.status} · {task.priority}</div></div></div>)}</div>;
+  return <div className="rounded-3xl border border-slate-200 bg-white p-5">{tasks.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map((task) => <div key={task.id} className="flex items-center gap-4 border-b border-slate-100 py-3 last:border-0"><div className="w-28 rounded-xl bg-blue-50 px-3 py-2 text-center text-sm text-blue-700">{task.dueDate}</div><div className="flex-1"><div className="font-medium">{task.name}</div><div className="text-sm text-slate-500">{task.owner} · {task.status} · {task.priority}</div></div></div>)}</div>;
 }
