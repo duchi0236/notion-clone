@@ -1,6 +1,7 @@
 "use client";
 
-import type { CollectionRow, FieldSchema } from "./types";
+import { fieldOptionLabel, fieldOptionValue, type CollectionRow, type FieldSchema } from "./types";
+import { Select } from "@/components/ui/Select";
 
 export function TableView({ schema, rows, updateRow, deleteRow }: { schema: FieldSchema[]; rows: CollectionRow[]; updateRow: (row: CollectionRow, data: Record<string, unknown>) => void; deleteRow: (id: string) => void }) {
   return (
@@ -48,7 +49,21 @@ function evaluateFormula(formula: string | undefined, row: CollectionRow) {
 
 function Cell({ field, row, value, onChange }: { field: FieldSchema; row: CollectionRow; value: unknown; onChange: (value: string) => void }) {
   if (field.type === "select") {
-    return <select defaultValue={String(value ?? "")} onBlur={(event) => onChange(event.currentTarget.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1"><option value="">空</option>{field.options?.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+    return (
+      <Select
+        value={String(value ?? "")}
+        onChange={onChange}
+        ariaLabel={field.name}
+        triggerClassName="min-h-8 px-2 py-1"
+        options={[
+          { value: "", label: "空" },
+          ...(field.options ?? []).map((option) => ({
+            value: fieldOptionValue(option),
+            label: fieldOptionLabel(option),
+          })),
+        ]}
+      />
+    );
   }
   if (field.type === "checkbox") {
     return <input type="checkbox" defaultChecked={Boolean(value)} onChange={(event) => onChange(event.target.checked ? "true" : "false")} />;

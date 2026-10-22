@@ -45,7 +45,15 @@ export async function middleware(request: NextRequest) {
         } catch {
           /* malformed origin → reject below */
         }
-        if (originHost !== request.nextUrl.host) {
+        const originUrl = originHost ? new URL(origin) : null;
+        const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+        const isEquivalentLocalOrigin =
+          LOCAL_MODE &&
+          originUrl !== null &&
+          loopbackHosts.has(originUrl.hostname) &&
+          loopbackHosts.has(request.nextUrl.hostname) &&
+          originUrl.port === request.nextUrl.port;
+        if (originHost !== request.nextUrl.host && !isEquivalentLocalOrigin) {
           return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
         }
       }

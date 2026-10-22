@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureWorkspace } from "@/lib/clawnote-store";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const { workspace } = await ensureWorkspace();
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";

@@ -1,0 +1,38 @@
+{
+  "name": "@clawnote/openclaw-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "SKILL.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "pack:check": "npm pack --dry-run",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.7.1-0 <2026.8.0"
+  },
+  "devDependencies": {
+    "openclaw": "2026.7.1-2",
+    "typescript": "^5.5.3"
+  },
+  "dependencies": {
+    "typebox": "1.1.39"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.7.1-0",
+      "minGatewayVersion": "2026.7.1"
+    }
+  }
+}

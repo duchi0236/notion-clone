@@ -38,13 +38,16 @@ export function useDatabaseWorkspace() {
   useEffect(() => { void load(); }, []);
 
   const selected = useMemo(() => collections.find((item) => item.id === selectedId), [collections, selectedId]);
+  const effectiveSortBy = selected?.schema.some((field) => field.id === sortBy)
+    ? sortBy
+    : selected?.schema[0]?.id ?? "";
 
   const rows = useMemo(() => {
     const base = selected?.rows ?? [];
     const q = filter.trim().toLowerCase();
     const filtered = q ? base.filter((row) => JSON.stringify(row.data).toLowerCase().includes(q)) : base;
-    return [...filtered].sort((a, b) => String(a.data?.[sortBy] ?? "").localeCompare(String(b.data?.[sortBy] ?? "")));
-  }, [selected?.rows, filter, sortBy]);
+    return [...filtered].sort((a, b) => String(a.data?.[effectiveSortBy] ?? "").localeCompare(String(b.data?.[effectiveSortBy] ?? "")));
+  }, [selected?.rows, filter, effectiveSortBy]);
 
   async function createCollection() {
     const res = await api<{ collection: Collection }>("/api/collections", {
@@ -104,5 +107,5 @@ export function useDatabaseWorkspace() {
     await load();
   }
 
-  return { collections, selected, selectedId, setSelectedId, view, setView, filter, setFilter, sortBy, setSortBy, rows, load, createCollection, updateCollection, createRow, updateRow, deleteRow, addField, updateField, deleteField };
+  return { collections, selected, selectedId, setSelectedId, view, setView, filter, setFilter, sortBy: effectiveSortBy, setSortBy, rows, load, createCollection, updateCollection, createRow, updateRow, deleteRow, addField, updateField, deleteField };
 }

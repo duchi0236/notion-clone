@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, FileText, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Select } from "@/components/ui/Select";
 
 type RowDetail = {
   id: string;
@@ -11,7 +12,12 @@ type RowDetail = {
   collection?: {
     id: string;
     name: string;
-    schema: Array<{ id: string; name: string; type: string; options?: string[] }>;
+    schema: Array<{
+      id: string;
+      name: string;
+      type: string;
+      options?: Array<string | { id: string; name: string; color?: string }>;
+    }>;
   };
   document?: {
     id: string;
@@ -112,17 +118,26 @@ export default function RowDetailPage({ params }: { params: { rowId: string } })
           <h2 className="mb-5 font-bold">属性</h2>
           <div className="space-y-3">
             {row.collection?.schema?.map((field) => (
-              <label key={field.id} className="grid grid-cols-[160px_1fr] items-center gap-4 text-sm">
+              <div key={field.id} className="grid grid-cols-[160px_1fr] items-center gap-4 text-sm">
                 <span className="text-slate-500">{field.name}</span>
                 {field.type === "select" ? (
-                  <select value={String(draft[field.id] ?? "")} onChange={(event) => setDraft((value) => ({ ...value, [field.id]: event.target.value }))} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-300">
-                    <option value="">空</option>
-                    {field.options?.map((option) => <option key={option} value={option}>{option}</option>)}
-                  </select>
+                  <Select
+                    value={String(draft[field.id] ?? "")}
+                    onChange={(nextValue) => setDraft((value) => ({ ...value, [field.id]: nextValue }))}
+                    ariaLabel={field.name}
+                    triggerClassName="min-h-12 px-4 py-3"
+                    options={[
+                      { value: "", label: "空" },
+                      ...(field.options ?? []).map((option) => ({
+                        value: typeof option === "string" ? option : option.id,
+                        label: typeof option === "string" ? option : option.name,
+                      })),
+                    ]}
+                  />
                 ) : (
                   <input value={String(draft[field.id] ?? "")} onChange={(event) => setDraft((value) => ({ ...value, [field.id]: event.target.value }))} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-300" />
                 )}
-              </label>
+              </div>
             ))}
           </div>
         </section>

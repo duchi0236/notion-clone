@@ -398,9 +398,9 @@ export default function BitableApp() {
   const recordRow = activeTable?.rows.find((r) => r.id === recordRowId) ?? null;
 
   return (
-    <div className="flex h-full">
+    <div className="cn-bitable flex h-full">
       {/* Left rail: bases + tables */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-[#fbfbfa]">
+      <aside className="cn-bitable-sidebar flex w-56 shrink-0 flex-col border-r border-slate-200 bg-[#fbfbfa]">
         <div className="flex items-center justify-between px-3 py-3">
           <span className="text-xs font-semibold text-slate-500">多维表格</span>
           <button onClick={createBase} className="rounded p-1 text-slate-400 hover:bg-slate-200" title="新建多维表格">
@@ -462,11 +462,11 @@ export default function BitableApp() {
       </aside>
 
       {/* Main */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="cn-bitable-main flex min-w-0 flex-1 flex-col">
         {activeTable && activeView ? (
           <>
             {/* View tabs */}
-            <div className="flex items-center gap-1 border-b border-slate-200 px-3 pt-2">
+            <div className="cn-view-tabs flex items-center gap-1 border-b border-slate-200 px-3 pt-2" role="tablist" aria-label="数据视图">
               {activeTable.views.map((v) => (
                 <ViewTab
                   key={v.id}
@@ -584,7 +584,25 @@ export default function BitableApp() {
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-400">请选择或新建一张数据表</div>
+          <div className="flex flex-1 items-center justify-center bg-slate-50/70 p-8">
+            <div className="max-w-sm rounded-2xl border border-slate-200 bg-white px-8 py-9 text-center shadow-sm">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                <Table2 className="h-6 w-6" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">创建第一张数据表</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                数据表用于管理记录和字段，创建后可切换表格、看板、日历、甘特图与仪表盘视图。
+              </p>
+              <button
+                type="button"
+                onClick={createTable}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                新建数据表
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -672,12 +690,25 @@ function ViewTab({
   return (
     <div
       className={cn(
-        "group/vt relative flex items-center gap-1.5 rounded-t-lg py-1.5 pl-3 pr-1.5 text-sm transition-[color,border]",
+        "cn-view-tab group/vt relative flex items-center gap-1.5 rounded-t-lg py-1.5 pl-3 pr-1.5 text-sm transition-[color,border]",
         active ? "border-b-2 border-slate-900 font-medium text-slate-900" : "text-slate-500 hover:text-slate-800",
       )}
     >
       <button
         type="button"
+        role="tab"
+        aria-selected={active}
+        tabIndex={active ? 0 : -1}
+        onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          const tabs = Array.from(event.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []);
+          const index = tabs.indexOf(event.currentTarget);
+          if (index < 0 || !tabs.length) return;
+          event.preventDefault();
+          const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+          tabs[next]?.click();
+          tabs[next]?.focus();
+        }}
         onClick={onActivate}
         onDoubleClick={() => { setDraft(view.name); setEditing(true); }}
         className="flex items-center gap-1.5 text-left"

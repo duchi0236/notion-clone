@@ -35,6 +35,7 @@ export function BlockHoverToolbar({ editor, onAiCommand }: { editor: Editor; onA
 
   useEffect(() => {
     if (!container) return;
+    const root = container;
 
     function onMouseMove(event: MouseEvent) {
       if (pinned) return;
@@ -46,10 +47,10 @@ export function BlockHoverToolbar({ editor, onAiCommand }: { editor: Editor; onA
         return;
       }
 
-      const rootRect = container.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
       const rect = block.getBoundingClientRect();
       const pos = editor.view.posAtDOM(block, 0);
-      setHoverBlock({ element: block, top: rect.top - rootRect.top + container.scrollTop, left: Math.max(0, rect.left - rootRect.left - 54), pos });
+      setHoverBlock({ element: block, top: rect.top - rootRect.top + root.scrollTop, left: Math.max(0, rect.left - rootRect.left - 54), pos });
     }
 
     function onMouseLeave(event: MouseEvent) {
@@ -68,13 +69,14 @@ export function BlockHoverToolbar({ editor, onAiCommand }: { editor: Editor; onA
   }, [container, editor, pinned]);
 
   if (!hoverBlock) return null;
+  const currentBlock = hoverBlock;
 
   function focusBlock() {
-    editor.chain().focus().setTextSelection(Math.max(1, hoverBlock.pos)).run();
+    editor.chain().focus().setTextSelection(Math.max(1, currentBlock.pos)).run();
   }
 
   function getBlockRange() {
-    const $pos = editor.state.doc.resolve(Math.max(1, hoverBlock.pos));
+    const $pos = editor.state.doc.resolve(Math.max(1, currentBlock.pos));
     let depth = $pos.depth;
     while (depth > 0 && !$pos.node(depth).isBlock) depth -= 1;
     if (depth <= 0) return null;
@@ -84,7 +86,7 @@ export function BlockHoverToolbar({ editor, onAiCommand }: { editor: Editor; onA
   function duplicateBlock() {
     const range = getBlockRange();
     if (!range) return;
-    editor.chain().focus().insertContentAt(range.to, hoverBlock.element.outerHTML).run();
+    editor.chain().focus().insertContentAt(range.to, currentBlock.element.outerHTML).run();
   }
 
   function deleteBlock() {

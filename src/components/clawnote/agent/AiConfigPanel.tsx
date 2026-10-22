@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Film, ImageIcon, KeyRound, Loader2, Sparkles, Wrench } from "lucide-react";
+import { Check, Film, ImageIcon, KeyRound, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AI_PROVIDERS, AI_SKILLS } from "@/lib/ai-skills";
+import { AI_PROVIDERS } from "@/lib/ai-skills";
+import { Select } from "@/components/ui/Select";
 
 type MediaCapCfg = { provider: string; model: string; baseUrl: string; hasApiKey: boolean };
 
@@ -94,9 +95,6 @@ export function AiConfigPanel() {
       const prev = cur[cap] ?? { provider: "mock", model: "", baseUrl: "", hasApiKey: false };
       return { ...c, mediaProviders: { ...cur, [cap]: { ...prev, ...patch } } };
     });
-  const toggleSkill = (id: string) =>
-    set("enabledSkills", config.enabledSkills.includes(id) ? config.enabledSkills.filter((s) => s !== id) : [...config.enabledSkills, id]);
-
   async function save() {
     if (!config) return;
     setSaving(true);
@@ -139,8 +137,8 @@ export function AiConfigPanel() {
 
   return (
     <div className="mx-auto max-w-2xl px-8 py-9">
-      <h1 className="text-2xl font-bold">AI 配置</h1>
-      <p className="mt-1.5 text-sm text-slate-500">配置对话使用的模型，以及助手可调用的技能工具。</p>
+      <h1 className="text-2xl font-bold">模型与媒体</h1>
+      <p className="mt-1.5 text-sm text-slate-500">配置工作区助手使用的语言模型，以及图片、视频生成能力。</p>
 
       <div className={cn("mt-4 rounded-xl border px-4 py-2.5 text-sm", config.provider === "none" ? "border-slate-200 bg-slate-50 text-slate-600" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>
         {config.provider === "none"
@@ -155,30 +153,35 @@ export function AiConfigPanel() {
         </div>
         <div className="grid gap-4">
           <Field label="供应商">
-            <select
+            <Select
               value={config.provider}
-              onChange={(e) => {
-                const nextProvider = e.target.value;
+              ariaLabel="模型供应商"
+              onChange={(nextProvider) => {
                 const nextModels = AI_PROVIDERS.find((p) => p.id === nextProvider)?.models ?? [];
                 // 新供应商若仍支持当前 model（或为自由输入型）则保留，避免误触静默丢值
                 const keepModel = config.model && (nextModels.length === 0 || nextModels.includes(config.model));
                 set("provider", nextProvider);
                 if (!keepModel) set("model", "");
               }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-            >
-              {AI_PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+              options={AI_PROVIDERS.map((p) => ({
+                value: p.id,
+                label: p.name,
+                description: p.id === "none" ? "无需 API Key，可使用基础工作区能力" : undefined,
+              }))}
+            />
           </Field>
 
           {config.provider !== "none" && (
             <>
               <Field label="模型">
                 {provider.models.length > 0 ? (
-                  <select value={config.model} onChange={(e) => set("model", e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400">
-                    <option value="">选择模型…</option>
-                    {provider.models.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <Select
+                    value={config.model}
+                    onChange={(model) => set("model", model)}
+                    ariaLabel="语言模型"
+                    placeholder="选择模型…"
+                    options={provider.models.map((model) => ({ value: model, label: model }))}
+                  />
                 ) : (
                   <input value={config.model} onChange={(e) => set("model", e.target.value)} placeholder="模型 ID，如 my-model" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400" />
                 )}
@@ -228,13 +231,12 @@ export function AiConfigPanel() {
                 </div>
                 <div className="grid gap-3">
                   <Field label="供应商">
-                    <select
+                    <Select
                       value={cap.provider || "mock"}
-                      onChange={(e) => setMediaCap(key, { provider: e.target.value })}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                    >
-                      {MEDIA_PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                      onChange={(nextProvider) => setMediaCap(key, { provider: nextProvider })}
+                      ariaLabel={`${label}供应商`}
+                      options={MEDIA_PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
+                    />
                   </Field>
                   {!isMock && (
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -263,37 +265,13 @@ export function AiConfigPanel() {
         </div>
       </section>
 
-      {/* Skills */}
-      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-          <Wrench className="h-4 w-4 text-slate-600" /> 技能工具
-        </div>
-        <div className="space-y-1">
-          {AI_SKILLS.map((s) => {
-            const on = config.enabledSkills.includes(s.id);
-            return (
-              <div key={s.id} className="flex items-center justify-between rounded-xl px-2 py-2 hover:bg-slate-50">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
-                    {s.name}
-                    {!s.implemented && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">即将支持</span>}
-                  </div>
-                  <div className="text-xs text-slate-500">{s.desc}</div>
-                </div>
-                <Switch checked={on} onChange={() => toggleSkill(s.id)} label={`${s.name}（${on ? "已启用" : "已关闭"}）`} />
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
       <div className="mt-5 flex items-center gap-3">
         <button onClick={() => void save()} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 active:bg-slate-950 disabled:opacity-50">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
           {saved ? "已保存" : "保存配置"}
         </button>
         <span role="status" aria-live="polite" className={cn("text-xs", saveError ? "text-rose-600" : "text-slate-400")}>
-          {saveError ? "保存失败，请检查网络后重试。" : saved ? "配置已保存并即时生效。" : "配置即时生效；关闭的技能助手将不再执行。"}
+          {saveError ? "保存失败，请检查网络后重试。" : saved ? "配置已保存并即时生效。" : "模型与媒体配置保存在当前工作区。"}
         </span>
       </div>
     </div>
@@ -302,30 +280,12 @@ export function AiConfigPanel() {
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="block">
+    <div className="block">
       <span className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
         <span>{label}</span>
         {hint && <span className="font-normal text-slate-400">{hint}</span>}
       </span>
       {children}
-    </label>
-  );
-}
-
-function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label?: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onChange}
-      // 视觉轨道尺寸不变（h-5 w-9）；外层透明 padding 把触控热区扩到 ≥32px
-      className="-m-1.5 flex shrink-0 items-center p-1.5"
-    >
-      <span className={cn("relative block h-5 w-9 rounded-full transition-colors", checked ? "bg-slate-900" : "bg-slate-200")}>
-        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", checked ? "left-4" : "left-0.5")} />
-      </span>
-    </button>
+    </div>
   );
 }

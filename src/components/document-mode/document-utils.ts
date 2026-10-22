@@ -34,7 +34,7 @@ export function buildTree(documents: DocumentRecord[]): DocNode[] {
   }
 
   const roots: DocNode[] = [];
-  for (const node of nodes.values()) {
+  for (const node of Array.from(nodes.values())) {
     if (node.parentId && nodes.has(node.parentId)) {
       nodes.get(node.parentId)?.children?.push(node);
     } else {

@@ -11,6 +11,18 @@ import { Select } from "./Select";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { confirm } from "@/components/ui/confirm";
 
+const COLOR_LABELS: Record<string, string> = {
+  gray: "灰色",
+  red: "红色",
+  orange: "橙色",
+  yellow: "黄色",
+  green: "绿色",
+  teal: "青色",
+  blue: "蓝色",
+  purple: "紫色",
+  pink: "粉色",
+};
+
 export function FieldEditor({
   field,
   tables,
@@ -114,18 +126,18 @@ export function FieldEditor({
                   const onlyOption = (form.options?.length ?? 0) <= 1;
                   return (
                     <div key={opt.id} className="flex items-center gap-1.5">
-                      <select
+                      <Select
+                        className="w-24 shrink-0"
                         value={opt.color}
-                        onChange={(e) => updateOption(opt.id, { color: e.target.value })}
-                        className="rounded border border-slate-200 px-1 py-1 text-xs"
-                      >
-                        {OPTION_COLOR_KEYS.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <span className={cn("h-3 w-3 rounded-full", OPTION_COLORS[opt.color]?.dot)} />
+                        onChange={(color) => updateOption(opt.id, { color })}
+                        ariaLabel={`${opt.name}颜色`}
+                        triggerClassName="min-h-8 px-2 py-1 text-xs"
+                        options={OPTION_COLOR_KEYS.map((color) => ({
+                          value: color,
+                          label: COLOR_LABELS[color] ?? color,
+                          icon: <span className={cn("h-2.5 w-2.5 rounded-full", OPTION_COLORS[color]?.dot)} />,
+                        }))}
+                      />
                       <input
                         value={opt.name}
                         onChange={(e) => updateOption(opt.id, { name: e.target.value })}
@@ -152,20 +164,16 @@ export function FieldEditor({
 
           {/* Link target table */}
           {form.type === "link" && (
-            <label className="block">
+            <div className="block">
               <span className="text-xs text-slate-500">关联数据表</span>
-              <select
+              <Select
+                className="mt-1"
                 value={form.linkTableId ?? ""}
-                onChange={(e) => set("linkTableId", e.target.value || null)}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400"
-              >
-                {tables.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={(tableId) => set("linkTableId", tableId || null)}
+                ariaLabel="关联数据表"
+                options={tables.map((table) => ({ value: table.id, label: table.name }))}
+              />
+            </div>
           )}
 
           {/* Lookup config */}
@@ -311,34 +319,26 @@ function LookupConfig({
 
   return (
     <div className="space-y-2">
-      <label className="block">
+      <div className="block">
         <span className="text-xs text-slate-500">基于关联字段</span>
-        <select
+        <Select
+          className="mt-1"
           value={linkFieldId}
-          onChange={(e) => onChange({ linkFieldId: e.target.value, targetFieldId })}
-          className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400"
-        >
-          {linkFields.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block">
+          onChange={(nextLinkFieldId) => onChange({ linkFieldId: nextLinkFieldId, targetFieldId })}
+          ariaLabel="基于关联字段"
+          options={linkFields.map((field) => ({ value: field.id, label: field.name }))}
+        />
+      </div>
+      <div className="block">
         <span className="text-xs text-slate-500">引用目标字段</span>
-        <select
+        <Select
+          className="mt-1"
           value={targetFieldId}
-          onChange={(e) => onChange({ linkFieldId, targetFieldId: e.target.value })}
-          className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400"
-        >
-          {targetFields.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </label>
+          onChange={(nextTargetFieldId) => onChange({ linkFieldId, targetFieldId: nextTargetFieldId })}
+          ariaLabel="引用目标字段"
+          options={targetFields.map((field) => ({ value: field.id, label: field.name }))}
+        />
+      </div>
     </div>
   );
 }

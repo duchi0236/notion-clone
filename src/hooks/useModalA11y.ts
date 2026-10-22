@@ -58,6 +58,8 @@ export function useModalA11y<T extends HTMLElement = HTMLDivElement>(opts: {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (!isTop()) return; // only the topmost modal handles keys
+      const active = document.activeElement;
+      if (active instanceof Element && active.closest("[data-claw-floating-layer]")) return;
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
@@ -77,11 +79,11 @@ export function useModalA11y<T extends HTMLElement = HTMLDivElement>(opts: {
       }
       const first = nodes[0];
       const last = nodes[nodes.length - 1];
-      const active = document.activeElement as HTMLElement;
-      if (e.shiftKey && (active === first || !root.contains(active))) {
+      const focused = document.activeElement as HTMLElement;
+      if (e.shiftKey && (focused === first || !root.contains(focused))) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && active === last) {
+      } else if (!e.shiftKey && focused === last) {
         e.preventDefault();
         first.focus();
       }

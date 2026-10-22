@@ -17,6 +17,13 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - clawnote-redis-data:/data
+
   web:
     build: .
     container_name: clawnote-web
@@ -24,12 +31,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://clawnote:clawnote@postgres:5432/clawnote?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: replace-with-a-long-random-secret
-      CLAWNOTE_AGENT_TOKEN: dev-change-me-agent-token
+      REDIS_URL: redis://redis:6379
+      OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-dev-openclaw-gateway-token}
       STORAGE_DRIVER: local
       UPLOAD_DIR: public/uploads
     ports:
@@ -37,6 +48,55 @@ services:
     volumes:
       - clawnote-uploads:/app/public/uploads
 
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://clawnote:clawnote@postgres:5432/clawnote?schema=public
+      REDIS_URL: redis://redis:6379
+      OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-dev-openclaw-gateway-token}
+      AGENT_WORKER_POLL_MS: "1500"
+
+  collab:
+    build: .
+    restart: unless-stopped
+    command: ["node", "scripts/collab-server.cjs"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: "1234"
+      COLLAB_PERSISTENCE_DIR: /app/collab-data
+    ports:
+      - "127.0.0.1:1234:1234"
+    volumes:
+      - clawnote-collab-data:/app/collab-data
+
+  openclaw-gateway:
+    profiles: ["agent"]
+    build:
+      context: .
+      dockerfile: deploy/openclaw/Dockerfile
+    restart: unless-stopped
+    environment:
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-dev-openclaw-gateway-token}
+      CLAWNOTE_BASE_URL: http://web:3000
+      CLAWNOTE_AGENT_TOKEN: ${CLAWNOTE_OPENCLAW_TOKEN:-}
+    ports:
+      - "127.0.0.1:18789:18789"
+    volumes:
+      - clawnote-openclaw-state:/home/node/.openclaw
+    depends_on:
+      - web
+
 volumes:
   clawnote-postgres-data:
+  clawnote-redis-data:
   clawnote-uploads:
+  clawnote-collab-data:
+  clawnote-openclaw-state:

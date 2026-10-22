@@ -5,6 +5,7 @@ import { SchemaEditor } from "@/components/database/SchemaEditor";
 import { BoardView, CalendarView, GalleryView, TableView } from "@/components/database/DatabaseViews";
 import { useDatabaseWorkspace } from "@/components/database/useDatabaseWorkspace";
 import type { DatabaseView } from "@/components/database/types";
+import { Select } from "@/components/ui/Select";
 
 const viewTabs: Array<[DatabaseView, any, string]> = [
   ["table", Rows3, "表格"],
@@ -56,9 +57,16 @@ export default function DatabaseWorkspacePage() {
 
             <div className="mb-6 grid grid-cols-[1fr_220px] gap-4">
               <input value={db.filter} onChange={(event) => db.setFilter(event.target.value)} placeholder="筛选记录..." className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300" />
-              <select value={db.sortBy} onChange={(event) => db.setSortBy(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300">
-                {db.selected.schema.map((field) => <option key={field.id} value={field.id}>按 {field.name} 排序</option>)}
-              </select>
+              <Select
+                value={db.sortBy}
+                onChange={db.setSortBy}
+                ariaLabel="记录排序字段"
+                triggerClassName="min-h-12 px-4 py-3"
+                options={db.selected.schema.map((field) => ({
+                  value: field.id,
+                  label: `按 ${field.name} 排序`,
+                }))}
+              />
             </div>
 
             <div className="mb-6">

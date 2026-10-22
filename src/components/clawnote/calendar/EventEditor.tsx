@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, Clock, Loader2, MapPin, Palette, Repeat, Trash2, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModalA11y } from "@/hooks/useModalA11y";
+import { Select } from "@/components/ui/Select";
 import { COLOR_KEYS, EVENT_COLORS, type EventColor } from "./colors";
 import { REMINDER_OPTIONS, REPEAT_OPTIONS, type Calendar, type CalendarEvent, type RepeatRule } from "./types";
 import { toDateInput, toLocalInput } from "./dates";
@@ -212,25 +213,34 @@ export function EventEditor({
 
           {/* Calendar group */}
           {calendars.length > 0 && (
-            <label className="block text-sm">
+            <div className="block text-sm">
               <span className="text-xs text-slate-500">日历</span>
-              <select
+              <Select
+                className="mt-1"
                 value={form.calendarId ?? ""}
-                onChange={(e) => {
-                  const id = e.target.value || null;
+                ariaLabel="日历分组"
+                onChange={(value) => {
+                  const id = value || null;
                   const cal = calendars.find((c) => c.id === id);
                   setForm((f) => ({ ...f, calendarId: id, color: cal?.color ?? f.color }));
                 }}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400"
-              >
-                <option value="">未分组</option>
-                {calendars.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={[
+                  { value: "", label: "未分组" },
+                  ...calendars.map((calendar) => ({
+                    value: calendar.id,
+                    label: calendar.name,
+                    icon: (
+                      <span
+                        className={cn(
+                          "h-2.5 w-2.5 rounded-full",
+                          EVENT_COLORS[calendar.color as EventColor]?.dot ?? EVENT_COLORS.blue.dot,
+                        )}
+                      />
+                    ),
+                  })),
+                ]}
+              />
+            </div>
           )}
 
           {/* Color */}
@@ -258,22 +268,21 @@ export function EventEditor({
           </div>
 
           {/* Repeat */}
-          <label className="block text-sm">
+          <div className="block text-sm">
             <span className="flex items-center gap-2 text-xs text-slate-500">
               <Repeat className="h-3.5 w-3.5" /> 重复
             </span>
-            <select
+            <Select
+              className="mt-1"
               value={form.repeat}
-              onChange={(e) => set("repeat", e.target.value as RepeatRule)}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400"
-            >
-              {REPEAT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(value) => set("repeat", value as RepeatRule)}
+              ariaLabel="重复规则"
+              options={REPEAT_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+            />
+          </div>
 
           {form.repeat !== "none" && (
             <label className="block text-sm">
@@ -288,22 +297,21 @@ export function EventEditor({
           )}
 
           {/* Reminder */}
-          <label className="block text-sm">
+          <div className="block text-sm">
             <span className="flex items-center gap-2 text-xs text-slate-500">
               <Bell className="h-3.5 w-3.5" /> 提醒
             </span>
-            <select
+            <Select
+              className="mt-1"
               value={form.reminderMinutes === null ? "" : String(form.reminderMinutes)}
-              onChange={(e) => set("reminderMinutes", e.target.value === "" ? null : Number(e.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400"
-            >
-              {REMINDER_OPTIONS.map((o) => (
-                <option key={String(o.value)} value={o.value === null ? "" : String(o.value)}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(value) => set("reminderMinutes", value === "" ? null : Number(value))}
+              ariaLabel="提醒时间"
+              options={REMINDER_OPTIONS.map((option) => ({
+                value: option.value === null ? "" : String(option.value),
+                label: option.label,
+              }))}
+            />
+          </div>
 
           {/* Notes */}
           <label className="block text-sm">

@@ -27,6 +27,241 @@ html.dark :focus-visible {
   }
 }
 
+/* ==========================================================================
+   Home workspace usability pass
+   首页是入口页而不是概念海报：在桌面窗口里保持工具、最近文档和快捷操作
+   同屏可见，并让每个可点击区域都有明确的表面、边界和悬停反馈。
+   ========================================================================== */
+@media (min-width: 1024px) {
+  .claw-home-shell.claw-canvas {
+    background:
+      radial-gradient(900px 420px at 52% -12%, rgba(59, 130, 246, 0.08), transparent 68%),
+      #f3f5f8;
+  }
+
+  .claw-home-shell .claw-grain {
+    opacity: 0.06 !important;
+  }
+
+  .claw-home-rail {
+    top: 12px;
+    width: 72px;
+    height: calc(100vh - 24px);
+    padding: 52px 10px 16px;
+    gap: 8px;
+    border: 1px solid #dce2ea;
+    border-radius: 22px;
+    background: #ffffff;
+    box-shadow: 0 14px 34px -22px rgba(15, 23, 42, 0.35);
+  }
+
+  .claw-home-rail button:not(.claw-home-avatar) {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .claw-home-rail button[data-active="true"] {
+    color: #2563eb !important;
+    background: #eff6ff !important;
+    box-shadow: inset 0 0 0 1px #bfdbfe;
+  }
+
+  .claw-home-brand {
+    left: 114px;
+    top: 42px;
+    font-size: 18px;
+  }
+
+  .claw-home-shell .claw-command-lens {
+    top: 22px;
+    width: min(440px, 38vw);
+    height: 48px;
+    background: #ffffff;
+    border: 1px solid #d8dee8;
+    box-shadow: 0 10px 28px -18px rgba(15, 23, 42, 0.32);
+  }
+
+  .claw-home-create {
+    top: 20px;
+    right: 28px;
+    width: auto;
+    height: 50px;
+    border-radius: 14px;
+    background: #2563eb;
+    box-shadow: 0 12px 26px -16px rgba(37, 99, 235, 0.75);
+  }
+
+  .claw-home-content {
+    max-width: 1180px;
+    padding: 92px 26px 24px !important;
+  }
+
+  .claw-home-header {
+    margin-bottom: 24px !important;
+  }
+
+  .claw-home-header h1 {
+    font-size: 34px !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.025em;
+  }
+
+  .claw-home-header p {
+    margin-top: 8px !important;
+    font-size: 14px !important;
+  }
+
+  .claw-recent-title {
+    padding-bottom: 8px;
+    font-size: 16px !important;
+  }
+
+  .claw-recent-title::after {
+    width: 28px;
+    height: 2px;
+    background: #2563eb;
+  }
+
+  .claw-recent-row {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .claw-home-shell .claw-paper-sheet,
+  .claw-home-shell .claw-paper-sheet:first-child {
+    width: auto !important;
+    margin-top: 0 !important;
+    transform: none !important;
+  }
+
+  .claw-home-shell .claw-paper-sheet > div,
+  .claw-paper-hero .claw-sheet-face,
+  .claw-paper-note .claw-sheet-face {
+    min-height: 248px !important;
+    padding: 22px !important;
+    border: 1px solid #dfe4eb;
+    border-radius: 16px !important;
+    clip-path: none !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 26px -22px rgba(15, 23, 42, 0.38) !important;
+  }
+
+  .claw-home-shell .claw-paper-sheet:hover > div {
+    border-color: #bfdbfe;
+    box-shadow: 0 16px 34px -22px rgba(37, 99, 235, 0.36) !important;
+  }
+
+  .claw-paper-hero h3,
+  .claw-paper-note h3 {
+    max-width: none !important;
+    font-size: 18px !important;
+    line-height: 1.35 !important;
+  }
+
+  .claw-paper-hero p,
+  .claw-paper-note p {
+    font-size: 13px !important;
+    line-height: 1.65 !important;
+    -webkit-line-clamp: 4 !important;
+  }
+
+  .claw-paper-hero .claw-sheet-fold,
+  .claw-paper-note .claw-sheet-fold {
+    display: none;
+  }
+
+  .claw-home-bottom {
+    margin-top: 20px !important;
+    align-items: center !important;
+    gap: 20px !important;
+    padding: 0 !important;
+  }
+
+  .claw-home-action-dock {
+    min-height: 88px;
+    padding: 8px;
+    border: 1px solid #dce2ea;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 10px 26px -22px rgba(15, 23, 42, 0.38);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .claw-home-action-dock button {
+    min-width: 104px !important;
+    padding: 10px 12px !important;
+    border-radius: 13px !important;
+    font-size: 13px !important;
+  }
+
+  .claw-collections {
+    gap: 14px !important;
+  }
+
+  .claw-collections button {
+    width: 108px !important;
+    min-height: 88px;
+    flex-direction: row !important;
+    gap: 10px !important;
+    padding: 10px;
+    border: 1px solid #dce2ea;
+    border-radius: 16px;
+    background: #ffffff;
+    text-align: left;
+    box-shadow: 0 8px 22px -22px rgba(15, 23, 42, 0.38);
+  }
+
+  .claw-collection-object,
+  .claw-collection-photo,
+  .claw-collection-compass {
+    width: 38px;
+    height: 46px;
+    flex: 0 0 auto;
+    border-width: 2px;
+  }
+
+  .claw-collection-photo {
+    height: 38px;
+    border-width: 4px;
+  }
+
+  .claw-collection-photo::before {
+    display: none;
+  }
+
+  .claw-collection-object svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .claw-collections button span span:first-child {
+    font-size: 12px !important;
+  }
+
+  .claw-collections button span span:last-child {
+    font-size: 11px !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1180px) {
+  .claw-recent-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .claw-recent-row .claw-paper-sheet:nth-child(4) {
+    display: none;
+  }
+
+  .claw-collections button:nth-child(3) {
+    display: none;
+  }
+}
+
 /* ===========================================================================
    Dark mode. The app uses hardcoded Tailwind color utilities, so we remap the
    common surface/text/border utilities under .dark instead of touching every
@@ -647,13 +882,13 @@ html.glass .bg-white.text-slate-900 {
 /* 外壳面板：图标栏 / 侧栏 / 抽屉 → 磨砂 */
 html.glass .bg-\[\#f4f4f3\],
 html.glass .bg-\[\#f5f5f4\] {
-  background-color: rgba(255, 255, 255, 0.42) !important;
+  background-color: rgba(248, 250, 252, 0.9) !important;
   backdrop-filter: blur(26px) saturate(180%);
   -webkit-backdrop-filter: blur(26px) saturate(180%);
 }
 html.glass .bg-\[\#fbfbfa\],
 html.glass .bg-\[\#fbfbfa\]\/95 {
-  background-color: rgba(255, 255, 255, 0.5) !important;
+  background-color: rgba(248, 250, 252, 0.92) !important;
   backdrop-filter: blur(26px) saturate(180%);
   -webkit-backdrop-filter: blur(26px) saturate(180%);
 }
@@ -662,20 +897,20 @@ html.glass .bg-white\/92,
 html.glass .bg-white\/95,
 html.glass .bg-white\/90,
 html.glass .bg-white\/96 {
-  background-color: rgba(255, 255, 255, 0.55) !important;
+  background-color: rgba(255, 255, 255, 0.9) !important;
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
 }
 
 /* 通用白卡 → 轻磨砂 */
 html.glass .bg-white {
-  background-color: rgba(255, 255, 255, 0.55) !important;
+  background-color: rgba(255, 255, 255, 0.9) !important;
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
 }
 /* 正文 / 编辑区：更高不透明度，保证文字可读 */
 html.glass main.bg-white {
-  background-color: rgba(255, 255, 255, 0.6) !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
@@ -692,7 +927,7 @@ html.glass .shadow-xl {
 /* 发丝高光边 */
 html.glass .border-slate-100,
 html.glass .border-slate-200 {
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  border-color: rgba(100, 116, 139, 0.28) !important;
 }
 
 /* ---- 深色 + 玻璃：走深色磨砂 ---- */
@@ -830,7 +1065,7 @@ html.dark .claw-canvas {
 /* 外观可调：模糊/透明度/圆角由设置页滑块写入这些变量（document.documentElement） */
 :root {
   --glass-blur: 20px;
-  --glass-alpha: 0.72;
+  --glass-alpha: 0.88;
   --glass-alpha-dark: 0.66;
   --claw-radius: 24px;
 }
@@ -847,9 +1082,9 @@ html.dark {
   background: rgba(255, 255, 255, var(--glass-alpha));
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: var(--claw-radius);
-  box-shadow: 0 22px 50px -24px rgba(15, 23, 42, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: 0 20px 48px -24px rgba(15, 23, 42, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 html.dark .claw-dock,
 html.dark .claw-panel {
@@ -872,7 +1107,7 @@ html:not(.glass).dark .claw-panel {
 .claw-paper {
   background: var(--claw-paper);
   border-radius: var(--claw-radius);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.24);
   box-shadow: var(--claw-shadow);
 }
 html.dark .claw-paper {
@@ -1413,6 +1648,233 @@ html.glass .claw-solid {
 html.dark .claw-solid,
 html.glass.dark .claw-solid {
   background-color: #1c2128 !important;
+}
+
+/* Home rules must stay after the legacy responsive concept styles above. */
+@media (min-width: 1024px) {
+  .claw-home-shell .claw-home-create {
+    top: 20px;
+    right: 28px;
+    display: flex !important;
+    width: auto !important;
+    height: 50px !important;
+    padding-inline: 20px !important;
+    color: #ffffff !important;
+    background: #2563eb !important;
+    border: 1px solid #1d4ed8 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 26px -16px rgba(37, 99, 235, 0.75) !important;
+  }
+
+  .claw-home-shell .claw-home-create:hover {
+    background: #1d4ed8 !important;
+  }
+
+  .claw-home-shell .claw-collections {
+    flex: 0 0 auto;
+    gap: 12px !important;
+  }
+
+  .claw-home-shell .claw-collections button {
+    display: flex;
+    flex: 0 0 138px;
+    width: 138px !important;
+    min-height: 88px;
+    flex-direction: row !important;
+    gap: 10px !important;
+    padding: 10px 12px;
+    border: 1px solid #dce2ea;
+    border-radius: 16px;
+    background: #ffffff;
+    text-align: left;
+  }
+
+  .claw-home-shell .claw-collections button > span:last-child {
+    display: block;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .claw-home-shell .claw-collections button span span:first-child,
+  .claw-home-shell .claw-collections button span span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1320px) {
+  .claw-home-shell .claw-collections button {
+    flex-basis: 138px;
+    width: 138px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .claw-home-shell .claw-recent-row-sparse {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .claw-home-shell.claw-canvas {
+    background: #f4f6f9;
+  }
+
+  .claw-home-stage {
+    height: calc(100dvh - 3.5rem);
+  }
+
+  .claw-home-content {
+    display: block;
+    padding: 20px 16px 104px !important;
+  }
+
+  .claw-home-mobile-bar {
+    display: flex;
+    margin-bottom: 32px;
+  }
+
+  .claw-home-header {
+    margin-bottom: 32px !important;
+  }
+
+  .claw-home-header h1 {
+    max-width: 280px;
+    font-size: 34px !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .claw-home-header p {
+    margin-top: 10px !important;
+    font-size: 14px !important;
+  }
+
+  .claw-recent-title {
+    padding-bottom: 8px;
+    font-size: 16px !important;
+  }
+
+  .claw-recent-title::after {
+    width: 28px;
+    background: #2563eb;
+  }
+
+  .claw-home-shell .claw-recent-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px !important;
+    overflow: visible;
+    padding: 0 !important;
+  }
+
+  .claw-home-shell .claw-paper-sheet,
+  .claw-home-shell .claw-paper-sheet:first-child {
+    width: 100% !important;
+    margin-top: 0 !important;
+    transform: none !important;
+  }
+
+  .claw-home-shell .claw-paper-sheet > div,
+  .claw-home-shell .claw-paper-hero .claw-sheet-face,
+  .claw-home-shell .claw-paper-note .claw-sheet-face {
+    min-height: 210px !important;
+    padding: 20px !important;
+    border: 1px solid #dfe4eb;
+    border-radius: 16px !important;
+    clip-path: none !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.38) !important;
+  }
+
+  .claw-home-shell .claw-paper-hero h3,
+  .claw-home-shell .claw-paper-note h3 {
+    max-width: none !important;
+    font-size: 18px !important;
+  }
+
+  .claw-home-shell .claw-paper-hero p,
+  .claw-home-shell .claw-paper-note p {
+    font-size: 13px !important;
+    line-height: 1.65 !important;
+    -webkit-line-clamp: 3 !important;
+  }
+
+  .claw-home-shell .claw-sheet-fold {
+    display: none;
+  }
+
+  .claw-home-bottom {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 16px !important;
+    margin-top: 20px !important;
+    padding: 0 !important;
+  }
+
+  .claw-home-action-dock {
+    display: grid !important;
+    width: 100%;
+    min-height: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    overflow: visible;
+    padding: 6px;
+    border: 1px solid #dfe4eb;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .claw-home-action-dock button {
+    min-width: 0 !important;
+    gap: 6px !important;
+    padding: 12px 6px !important;
+    border-radius: 12px !important;
+    font-size: 12px !important;
+  }
+
+  .claw-home-dock-segment::before {
+    display: none;
+  }
+
+  .claw-home-shell .claw-collections {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px !important;
+  }
+
+  .claw-home-shell .claw-collections button {
+    width: 100% !important;
+    min-height: 86px;
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 10px 6px;
+    border: 1px solid #dfe4eb;
+    border-radius: 14px;
+    background: #ffffff;
+    text-align: center;
+  }
+
+  .claw-home-shell .claw-collection-object,
+  .claw-home-shell .claw-collection-photo,
+  .claw-home-shell .claw-collection-compass {
+    width: 34px;
+    height: 38px;
+  }
+
+  .claw-home-shell .claw-collections button span span:first-child {
+    font-size: 11px !important;
+  }
+
+  .claw-home-shell .claw-collections button span span:last-child {
+    font-size: 10px !important;
+  }
 }
 /* claw-solid 是标准不透明纸面：玻璃的"发丝高光边"（半透明白）在白底上不可见，
    此处恢复设计既定的 slate 边框色 */

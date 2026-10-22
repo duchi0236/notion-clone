@@ -13,6 +13,6 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
 
   if (!token) return NextResponse.json({ error: "Token not found" }, { status: 404 });
 
-  await prisma.apiToken.delete({ where: { id: token.id } });
+  await prisma.apiToken.update({ where: { id: token.id }, data: { revokedAt: new Date() } });
   return NextResponse.json({ ok: true });
 }

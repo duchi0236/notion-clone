@@ -3,6 +3,7 @@
 import { CalendarDays, GalleryHorizontal, Inbox, KanbanSquare, Plus, Table2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { confirm } from "@/components/ui/confirm";
+import { Select } from "@/components/ui/Select";
 import type { Task, TaskView } from "./types";
 
 function EmptyTasks() {
@@ -94,8 +95,26 @@ function TaskTable({ tasks, updateTask, deleteTask }: { tasks: Task[]; updateTas
             <tr key={task.id} className="border-t border-slate-100">
               <td className="p-3"><input value={task.name} onChange={(e) => updateTask(task.id, { name: e.target.value })} className="w-full bg-transparent outline-none" /></td>
               <td className="p-3"><input value={task.owner} onChange={(e) => updateTask(task.id, { owner: e.target.value })} className="w-24 bg-transparent outline-none" /></td>
-              <td className="p-3"><select value={task.status} onChange={(e) => updateTask(task.id, { status: e.target.value as Task["status"] })} className="rounded-xl border px-2 py-1"><option>未开始</option><option>进行中</option><option>已完成</option></select></td>
-              <td className="p-3"><select value={task.priority} onChange={(e) => updateTask(task.id, { priority: e.target.value as Task["priority"] })} className="rounded-xl border px-2 py-1"><option>低</option><option>中</option><option>高</option></select></td>
+              <td className="p-3">
+                <Select
+                  className="w-28"
+                  value={task.status}
+                  onChange={(status) => updateTask(task.id, { status: status as Task["status"] })}
+                  ariaLabel={`${task.name}状态`}
+                  triggerClassName="min-h-8 px-2 py-1 text-xs"
+                  options={["未开始", "进行中", "已完成"].map((status) => ({ value: status, label: status }))}
+                />
+              </td>
+              <td className="p-3">
+                <Select
+                  className="w-20"
+                  value={task.priority}
+                  onChange={(priority) => updateTask(task.id, { priority: priority as Task["priority"] })}
+                  ariaLabel={`${task.name}优先级`}
+                  triggerClassName="min-h-8 px-2 py-1 text-xs"
+                  options={["低", "中", "高"].map((priority) => ({ value: priority, label: priority }))}
+                />
+              </td>
               <td className="p-3"><input type="date" value={task.dueDate} onChange={(e) => updateTask(task.id, { dueDate: e.target.value })} className="bg-transparent" /></td>
               <td className="p-3">
                 <input

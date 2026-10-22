@@ -1,33 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { ensureTaskCollection, ensureWorkspace } from "@/lib/clawnote-store";
+import { createWorkItems } from "@/lib/commands";
 
 export async function GET() {
   const { workspace } = await ensureWorkspace();
   const collection = await ensureTaskCollection(workspace.id);
-  return NextResponse.json({ collection, rows: collection.rows });
+  return NextResponse.json({
+    collection,
+    rows: collection.rows.filter((row) => !(row.data as Record<string, unknown>)._archived),
+  });
 }
 
 export async function POST(req: NextRequest) {
-  const { workspace } = await ensureWorkspace();
-  const collection = await ensureTaskCollection(workspace.id);
+  const { user, workspace } = await ensureWorkspace();
   const body = await req.json().catch(() => ({}));
-  const count = await prisma.collectionRow.count({ where: { collectionId: collection.id } });
-
-  const row = await prisma.collectionRow.create({
-    data: {
-      collectionId: collection.id,
-      sortIndex: count,
-      data: {
-        name: body.name ?? "新任务",
-        owner: body.owner ?? "Me",
-        status: body.status ?? "未开始",
-        priority: body.priority ?? "中",
-        dueDate: body.dueDate ?? new Date().toISOString().slice(0, 10),
-        progress: Number(body.progress ?? 0),
-      },
-    },
-  });
-
-  return NextResponse.json({ row }, { status: 201 });
+  const result = await createWorkItems({
+    workspaceId: workspace.id,
+    idempotencyKey: req.headers.get("idempotency-key") ?? `user:work-item:create:${crypto.randomUUID()}`,
+    actor: { type: "user", userId: user.id },
+  }, [{
+    name: body.name ?? "新任务",
+    owner: body.owner,
+    status: body.status,
+    priority: body.priority,
+    dueDate: body.dueDate,
+    progress: body.progress,
+  }]);
+  return NextResponse.json({ row: result.rows[0], changeSetId: result.changeSetId }, { status: 201 });
 }

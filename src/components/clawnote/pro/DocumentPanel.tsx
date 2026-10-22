@@ -154,9 +154,9 @@ export function DocumentPanel({
   const breadcrumbs = buildBreadcrumbs(docs ?? [], currentDoc);
 
   return (
-    <div className="flex h-full min-w-0 bg-transparent">
-      <article className="min-w-0 flex-1 overflow-y-auto scroll-smooth">
-        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-slate-200/60 bg-white/82 px-5 backdrop-blur-xl">
+    <div className="cn-document-panel flex h-full min-w-0 bg-transparent">
+      <article className="cn-document-article min-w-0 flex-1 overflow-y-auto scroll-smooth">
+        <header className="cn-document-toolbar sticky top-0 z-30 flex h-12 items-center justify-between border-b border-slate-200/60 bg-white/82 px-5 backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-1 text-sm text-slate-500">
             {breadcrumbs.map((item, index) => (
               <span key={item.id} className="flex min-w-0 items-center gap-1">
@@ -212,11 +212,11 @@ export function DocumentPanel({
           </div>
         </header>
 
-        <div className="mx-auto max-w-[820px] px-6 pb-28 pt-8 sm:px-10 lg:pt-10">
+        <div className="cn-document-page mx-auto max-w-[820px] px-6 pb-28 pt-8 sm:px-10 lg:pt-10">
           {doc.coverImage && <div className="mb-7 h-36 rounded-[24px] bg-cover bg-center shadow-inner" style={{ backgroundImage: `url(${doc.coverImage})` }} />}
           <div className="mb-7">
-            <div className="flex items-start gap-3">
-              <div ref={iconPickerWrapRef} className="relative mt-1">
+            <div className="cn-document-heading flex items-start gap-3">
+              <div ref={iconPickerWrapRef} className="cn-document-icon relative mt-1">
                 <button
                   className="inline-flex rounded-xl outline-none transition hover:-translate-y-0.5 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-300"
                   title="更改页面图标"
@@ -290,9 +290,9 @@ export function DocumentPanel({
                     }
                   }}
                   placeholder="无标题"
-                  className="block w-full bg-transparent text-[38px] font-semibold leading-[1.1] tracking-normal text-slate-950 outline-none placeholder:text-slate-300 sm:text-[44px]"
+                  className="cn-document-title block w-full bg-transparent text-[38px] font-semibold leading-[1.1] tracking-normal text-slate-950 outline-none placeholder:text-slate-300 sm:text-[44px]"
                 />
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-400">
+                <div className="cn-document-meta mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-400">
                   <span>创建 {formatDate(doc.createdAt)}</span>
                   <span>·</span>
                   <span>更新 {formatDate(doc.updatedAt)}</span>
@@ -314,7 +314,7 @@ export function DocumentPanel({
             </div>
           </div>
           {doc.tags.length > 0 && (
-            <div className="mb-6 flex flex-wrap gap-2 pl-12">
+            <div className="cn-document-tags-row mb-6 flex flex-wrap gap-2 pl-12">
               {doc.tags.map((tag) => (
                 <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">#{tag}</span>
               ))}
@@ -395,6 +395,7 @@ const IconButton = forwardRef<
     <button
       ref={ref}
       title={title}
+      aria-label={title}
       onClick={onClick}
       className={
         tone === "danger"

@@ -72,6 +72,13 @@ export async function syncDocumentToSearchIndex(documentId: string) {
 
   const chunks = chunkAsset(asset);
   const mergedText = chunks.map((chunk) => chunk.text).join("\n\n");
+  const embedding = JSON.parse(JSON.stringify({
+    asset,
+    chunks,
+    provider: "pending",
+    model: "not-generated",
+    checksum: asset.checksum,
+  }));
 
   await prisma.searchIndex.upsert({
     where: { documentId },
@@ -80,13 +87,7 @@ export async function syncDocumentToSearchIndex(documentId: string) {
       text: mergedText,
       summary: String(asset.metadata.summary ?? summarize(asset.text)),
       tags: Array.isArray(asset.metadata.tags) ? asset.metadata.tags.map(String) : [],
-      embedding: {
-        asset,
-        chunks,
-        provider: "pending",
-        model: "not-generated",
-        checksum: asset.checksum,
-      },
+      embedding,
     },
     create: {
       documentId,
@@ -94,13 +95,7 @@ export async function syncDocumentToSearchIndex(documentId: string) {
       text: mergedText,
       summary: String(asset.metadata.summary ?? summarize(asset.text)),
       tags: Array.isArray(asset.metadata.tags) ? asset.metadata.tags.map(String) : [],
-      embedding: {
-        asset,
-        chunks,
-        provider: "pending",
-        model: "not-generated",
-        checksum: asset.checksum,
-      },
+      embedding,
     },
   });
 

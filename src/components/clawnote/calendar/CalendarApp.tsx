@@ -399,9 +399,9 @@ export default function CalendarApp() {
   }, [view, anchor]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="cn-calendar flex h-full flex-col">
       {/* Toolbar */}
-      <header className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3">
+      <header className="cn-calendar-toolbar flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3">
         <h1 className="mr-2 min-w-[200px] text-lg font-semibold text-slate-900">{title}</h1>
         <button
           onClick={() => shift(-1)}
@@ -491,7 +491,7 @@ export default function CalendarApp() {
       </header>
 
       {/* Secondary toolbar: quick add + search + import/export */}
-      <div className="relative flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/60 px-4 py-2">
+      <div className="cn-calendar-quickbar relative flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/60 px-4 py-2">
         <div
           className={cn(
             "flex min-w-[260px] flex-1 items-center gap-2 rounded-lg border bg-white px-3 py-1.5",
@@ -632,7 +632,7 @@ export default function CalendarApp() {
       {/* Body */}
       <div className="relative min-h-0 flex-1">
         {view !== "year" && occurrences.length === 0 && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="cn-calendar-empty pointer-events-none absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center">
             <div className="claw-solid pointer-events-auto flex flex-col items-center gap-2 rounded-2xl border border-slate-200 px-6 py-5 text-center shadow-sm">
               <p className="text-sm text-slate-400">这段时间还没有事件</p>
               <button

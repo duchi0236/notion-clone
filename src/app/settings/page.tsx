@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Save, Trash2, Users } from "lucide-react";
+import { Select } from "@/components/ui/Select";
 
 type Member = { id: string; role: string; user: { email: string; name?: string | null } };
 type Workspace = {
@@ -136,11 +137,18 @@ export default function SettingsPage() {
                 <input value={memberName} onChange={(event) => setMemberName(event.target.value)} placeholder="名称" className="claw-input px-4 py-3 text-sm" />
               </div>
               <div className="mt-3 flex gap-3">
-                <select value={memberRole} onChange={(event) => setMemberRole(event.target.value)} className="claw-input px-4 py-3 text-sm">
-                  <option value="ADMIN">ADMIN</option>
-                  <option value="MEMBER">MEMBER</option>
-                  <option value="GUEST">GUEST</option>
-                </select>
+                <Select
+                  className="flex-1"
+                  value={memberRole}
+                  onChange={setMemberRole}
+                  ariaLabel="新成员角色"
+                  triggerClassName="min-h-12 px-4 py-3"
+                  options={[
+                    { value: "ADMIN", label: "管理员", description: "可管理内容与普通成员" },
+                    { value: "MEMBER", label: "成员", description: "可创建和编辑工作区内容" },
+                    { value: "GUEST", label: "访客", description: "仅访问已授权内容" },
+                  ]}
+                />
                 <button className="claw-primary-button"><Plus className="mr-2 h-4 w-4" />添加</button>
               </div>
             </form>
@@ -165,12 +173,19 @@ export default function SettingsPage() {
                     <div className="font-medium">{member.user.name ?? member.user.email}</div>
                     <div className="text-xs text-slate-500">{member.user.email}</div>
                     <div className="mt-3 flex items-center gap-2">
-                      <select value={member.role} onChange={(event) => updateRole(member.id, event.target.value)} className="claw-input flex-1 px-3 py-2 text-xs">
-                        <option value="OWNER">OWNER</option>
-                        <option value="ADMIN">ADMIN</option>
-                        <option value="MEMBER">MEMBER</option>
-                        <option value="GUEST">GUEST</option>
-                      </select>
+                      <Select
+                        className="flex-1"
+                        value={member.role}
+                        onChange={(role) => updateRole(member.id, role)}
+                        ariaLabel={`${member.user.name ?? member.user.email}角色`}
+                        triggerClassName="min-h-9 px-3 py-2 text-xs"
+                        options={[
+                          { value: "OWNER", label: "所有者" },
+                          { value: "ADMIN", label: "管理员" },
+                          { value: "MEMBER", label: "成员" },
+                          { value: "GUEST", label: "访客" },
+                        ]}
+                      />
                       <button onClick={() => removeMember(member.id)} className="claw-danger-button min-h-0 p-2" title="移除成员"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>

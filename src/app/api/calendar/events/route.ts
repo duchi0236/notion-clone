@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureWorkspace } from "@/lib/clawnote-store";
+import { createCalendarEvents } from "@/lib/commands";
+import { routeError } from "@/lib/agent-v1";
 
 const REPEATS = new Set(["none", "daily", "weekly", "biweekly", "monthly", "yearly"]);
 
@@ -58,36 +60,32 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { workspace } = await ensureWorkspace();
-  const body = await req.json().catch(() => ({}));
-
-  const startsAt = parseDate(body.startsAt) ?? new Date();
-  const endsAt = parseDate(body.endsAt) ?? new Date(startsAt.getTime() + 60 * 60 * 1000);
-  const repeat = REPEATS.has(body.repeat) ? body.repeat : "none";
-  const attendees = Array.isArray(body.attendees) ? body.attendees.filter(Boolean) : [];
-
-  const event = await prisma.calendarEvent.create({
-    data: {
+  try {
+    const { user, workspace } = await ensureWorkspace();
+    const body = await req.json().catch(() => ({}));
+    const startsAt = parseDate(body.startsAt) ?? new Date();
+    const endsAt = parseDate(body.endsAt) ?? new Date(startsAt.getTime() + 60 * 60 * 1000);
+    const result = await createCalendarEvents({
       workspaceId: workspace.id,
+      idempotencyKey: req.headers.get("idempotency-key") ?? `user:calendar:create:${crypto.randomUUID()}`,
+      actor: { type: "user", userId: user.id },
+    }, [{
       title: body.title?.trim() || "新建事件",
-      description: body.description ?? null,
-      location: body.location ?? null,
-      startsAt,
-      endsAt,
+      description: body.description,
+      location: body.location,
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
       allDay: Boolean(body.allDay),
-      color: body.color || "blue",
+      color: body.color,
       calendarId: body.calendarId || null,
-      repeat: repeat === "none" ? null : repeat,
-      repeatUntil: parseDate(body.repeatUntil),
-      reminderMinutes:
-        body.reminderMinutes === null || body.reminderMinutes === undefined
-          ? null
-          : Number(body.reminderMinutes),
-      metadata: attendees.length ? { attendees } : undefined,
-      status: body.status || "CONFIRMED",
-      source: body.source || "MANUAL",
-    },
-  });
-
-  return NextResponse.json({ event }, { status: 201 });
+      repeat: REPEATS.has(body.repeat) ? body.repeat : "none",
+      repeatUntil: parseDate(body.repeatUntil)?.toISOString() ?? null,
+      reminderMinutes: body.reminderMinutes == null ? null : Number(body.reminderMinutes),
+      status: body.status,
+      attendees: Array.isArray(body.attendees) ? body.attendees.filter(Boolean).map(String) : [],
+    }]);
+    return NextResponse.json({ event: result.events[0], changeSetId: result.changeSetId }, { status: 201 });
+  } catch (error) {
+    return routeError(error);
+  }
 }

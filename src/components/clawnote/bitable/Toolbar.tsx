@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode, type SelectHTMLAttributes } from "react";
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   ArrowUpDown,
-  ChevronDown,
   Download,
   EyeOff,
   FileSpreadsheet,
@@ -17,12 +25,14 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
 import { Switch } from "@/components/ui/Switch";
 import type { Automation, Field, Filter, FilterGroup, FilterOp, FormatRule, Sort, View } from "./types";
 import { newId } from "./types";
 import { FILTER_OPS, FORMAT_TINTS, toFilterGroup } from "./fieldMeta";
 import { parseImportFile } from "./excel";
 import { useDismiss } from "@/hooks/useDismiss";
+import { Select } from "@/components/ui/Select";
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -30,13 +40,66 @@ const FOCUSABLE =
 /** 条件行控件统一规格：筛选/排序/分组等弹层内的 select 与 input 共用。 */
 const CONTROL_CLS = "h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none transition-colors focus:border-blue-400";
 
-/** 统一的条件行下拉：自绘箭头替代原生箭头。宽度类（w-24 / flex-1 等）传给 className。 */
-function CondSelect({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+type NativeOptionProps = {
+  value?: string | number;
+  children?: ReactNode;
+  disabled?: boolean;
+};
+
+function optionText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(optionText).join("");
+  if (isValidElement(node)) return optionText((node as ReactElement<NativeOptionProps>).props.children);
+  return "";
+}
+
+/** 条件弹层中的统一自定义选择器，保留旧调用形状以减少业务逻辑改动。 */
+function CondSelect({
+  className,
+  value,
+  defaultValue,
+  onChange,
+  children,
+  disabled,
+  "aria-label": ariaLabel,
+}: {
+  className?: string;
+  value?: string | number | readonly string[];
+  defaultValue?: string | number | readonly string[];
+  onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
+  children?: ReactNode;
+  disabled?: boolean;
+  "aria-label"?: string;
+}) {
+  const options = Children.toArray(children)
+    .filter(isValidElement)
+    .map((node) => {
+      const option = node as ReactElement<NativeOptionProps>;
+      return {
+        value: String(option.props.value ?? optionText(option.props.children)),
+        label: optionText(option.props.children),
+        disabled: option.props.disabled,
+      };
+    });
+  const resolvedValue = Array.isArray(value)
+    ? String(value[0] ?? "")
+    : String(value ?? defaultValue ?? "");
+
   return (
-    <div className={cn("relative", className)}>
-      <select {...props} className={cn(CONTROL_CLS, "w-full appearance-none pr-7")} />
-      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-    </div>
+    <Select
+      className={className}
+      value={resolvedValue}
+      options={options}
+      disabled={disabled}
+      ariaLabel={ariaLabel}
+      triggerClassName="h-9 min-h-9 px-2.5 py-1 text-sm"
+      onChange={(nextValue) =>
+        onChange?.({
+          target: { value: nextValue },
+          currentTarget: { value: nextValue },
+        } as ChangeEvent<HTMLSelectElement>)
+      }
+    />
   );
 }
 
@@ -75,6 +138,29 @@ function Popover({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: 12, top: 0, width: 416, maxHeight: 480 });
+
+  function positionPanel() {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(wide ? 480 : 416, window.innerWidth - 24);
+    setPosition({
+      left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
+      top: rect.bottom + 8,
+      width,
+      maxHeight: Math.max(160, window.innerHeight - rect.bottom - 20),
+    });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("resize", positionPanel);
+    window.addEventListener("scroll", positionPanel, true);
+    return () => {
+      window.removeEventListener("resize", positionPanel);
+      window.removeEventListener("scroll", positionPanel, true);
+    };
+  }, [open, wide]);
 
   useDismiss({ open, onClose: () => setOpen(false), refs: [panelRef, triggerRef] });
 
@@ -94,6 +180,7 @@ function Popover({
         ref={triggerRef}
         onClick={() => {
           if (open) triggerRef.current?.focus();
+          else positionPanel();
           setOpen((v) => !v);
         }}
         aria-haspopup="dialog"
@@ -105,18 +192,17 @@ function Popover({
       >
         {icon} {label}
       </button>
-      {open && (
+      {open && createPortal(
         <div
           ref={panelRef}
           role="dialog"
           aria-label={label}
-          className={cn(
-            "claw-solid absolute left-0 top-full z-30 mt-2 rounded-xl border border-slate-200 p-3 shadow-lg",
-            wide ? "w-[30rem] max-w-[85vw]" : "w-[26rem] max-w-[80vw]",
-          )}
+          className="cn-table-popover claw-solid fixed z-50 overflow-y-auto rounded-xl border border-slate-200 p-3 shadow-lg"
+          style={position}
         >
           {typeof children === "function" ? children(() => setOpen(false)) : children}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -645,7 +731,7 @@ export function Toolbar({
   const filterCount = filterRoot.conditions.length + (filterRoot.groups ?? []).reduce((n, g) => n + g.conditions.length, 0);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
+    <div className="cn-table-toolbar flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
       {/* Filter（高级筛选：与/或 + 条件组） */}
       <Popover wide label={filterCount ? `筛选 ${filterCount}` : "筛选"} icon={<FilterIcon className="h-4 w-4" />} active={filterCount > 0}>
         <FilterPanel root={filterRoot} schema={schema} onChange={(next) => onPatchView({ filterGroup: next, filters: [] })} />
@@ -661,6 +747,7 @@ export function Toolbar({
                 value={s.fieldId}
                 onChange={(e) => onPatchView({ sorts: sorts.map((x, j) => (j === i ? { ...x, fieldId: e.target.value } : x)) })}
                 className="min-w-0 flex-1"
+                aria-label={`排序字段 ${i + 1}`}
               >
                 {schema.map((f) => (
                   <option key={f.id} value={f.id}>
@@ -672,6 +759,7 @@ export function Toolbar({
                 value={s.dir}
                 onChange={(e) => onPatchView({ sorts: sorts.map((x, j) => (j === i ? { ...x, dir: e.target.value as Sort["dir"] } : x)) })}
                 className="w-20 shrink-0"
+                aria-label={`排序方向 ${i + 1}`}
               >
                 <option value="asc">升序</option>
                 <option value="desc">降序</option>

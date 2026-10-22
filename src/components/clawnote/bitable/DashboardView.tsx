@@ -3,8 +3,17 @@
 // 仪表盘视图：按 view.charts 渲染纯 SVG 图表卡（bar/pie/line/stat），
 // 图表增删改通过 onPatchView({ charts }) 持久化。
 
-import { useMemo, useRef, useState, type SelectHTMLAttributes } from "react";
-import { BarChart3, ChevronDown, MoreHorizontal, Plus } from "lucide-react";
+import {
+  Children,
+  isValidElement,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { BarChart3, MoreHorizontal, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AggType, BitableContext, ChartConfig, ChartKind, Field, Row, Table, View } from "./types";
 import { newId } from "./types";
@@ -12,16 +21,61 @@ import { cellValue, formatValue } from "./fieldMeta";
 import { AGG_LABELS, evalFormula } from "./formula";
 import { useDismiss } from "@/hooks/useDismiss";
 import { confirm } from "@/components/ui/confirm";
+import { Select } from "@/components/ui/Select";
 
 // 与 Toolbar 的条件行控件同规格（不 import Toolbar，按约定复制类字符串）。
 const CONTROL_CLS = "h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none transition-colors focus:border-blue-400";
 
-function CondSelect({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+type NativeOptionProps = { value?: string | number; children?: ReactNode; disabled?: boolean };
+
+function optionText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(optionText).join("");
+  if (isValidElement(node)) return optionText((node as ReactElement<NativeOptionProps>).props.children);
+  return "";
+}
+
+function CondSelect({
+  className,
+  value,
+  onChange,
+  children,
+  disabled,
+  "aria-label": ariaLabel,
+}: {
+  className?: string;
+  value?: string | number | readonly string[];
+  onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
+  children?: ReactNode;
+  disabled?: boolean;
+  "aria-label"?: string;
+}) {
+  const options = Children.toArray(children)
+    .filter(isValidElement)
+    .map((node) => {
+      const option = node as ReactElement<NativeOptionProps>;
+      return {
+        value: String(option.props.value ?? optionText(option.props.children)),
+        label: optionText(option.props.children),
+        disabled: option.props.disabled,
+      };
+    });
+
   return (
-    <div className={cn("relative", className)}>
-      <select {...props} className={cn(CONTROL_CLS, "w-full appearance-none pr-7")} />
-      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-    </div>
+    <Select
+      className={className}
+      value={Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "")}
+      options={options}
+      disabled={disabled}
+      ariaLabel={ariaLabel}
+      triggerClassName="h-9 min-h-9 px-2.5 py-1 text-sm"
+      onChange={(nextValue) =>
+        onChange?.({
+          target: { value: nextValue },
+          currentTarget: { value: nextValue },
+        } as ChangeEvent<HTMLSelectElement>)
+      }
+    />
   );
 }
 
@@ -426,7 +480,7 @@ function ChartEditor({
 
         <label className="block">
           <span className="mb-1 block text-xs text-slate-400">分组字段</span>
-          <CondSelect value={draft.fieldId ?? ""} onChange={(e) => patch({ fieldId: e.target.value || null })} className="w-full">
+          <CondSelect value={draft.fieldId ?? ""} onChange={(e) => patch({ fieldId: e.target.value || null })} className="w-full" aria-label="图表分组字段">
             <option value="">全表（仅统计数字）</option>
             {schema.map((f) => (
               <option key={f.id} value={f.id}>
@@ -440,7 +494,7 @@ function ChartEditor({
         <div className="flex gap-2">
           <label className="min-w-0 flex-1">
             <span className="mb-1 block text-xs text-slate-400">聚合方式</span>
-            <CondSelect value={draft.agg} onChange={(e) => patch({ agg: e.target.value as AggType })} className="w-full">
+            <CondSelect value={draft.agg} onChange={(e) => patch({ agg: e.target.value as AggType })} className="w-full" aria-label="图表聚合方式">
               {AGG_CHOICES.map((a) => (
                 <option key={a} value={a}>
                   {AGG_LABELS[a]}
@@ -451,7 +505,7 @@ function ChartEditor({
           {needsValue && (
             <label className="min-w-0 flex-1">
               <span className="mb-1 block text-xs text-slate-400">数值字段</span>
-              <CondSelect value={draft.valueFieldId ?? ""} onChange={(e) => patch({ valueFieldId: e.target.value || null })} className="w-full">
+              <CondSelect value={draft.valueFieldId ?? ""} onChange={(e) => patch({ valueFieldId: e.target.value || null })} className="w-full" aria-label="图表数值字段">
                 <option value="">—</option>
                 {valueFields.map((f) => (
                   <option key={f.id} value={f.id}>

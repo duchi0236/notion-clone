@@ -1,37 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { ensureWorkspace } from "@/lib/clawnote-store";
-
-async function findScopedRow(rowId: string) {
-  const { workspace } = await ensureWorkspace();
-  return prisma.collectionRow.findFirst({
-    where: { id: rowId, collection: { workspaceId: workspace.id } },
-  });
-}
+import { archiveWorkItem, updateWorkItem } from "@/lib/commands";
+import { routeError } from "@/lib/agent-v1";
 
 export async function PUT(req: NextRequest, { params }: { params: { rowId: string } }) {
-  const body = await req.json().catch(() => ({}));
-  const existing = await findScopedRow(params.rowId);
-  if (!existing) return NextResponse.json({ error: "Task row not found" }, { status: 404 });
-
-  const row = await prisma.collectionRow.update({
-    where: { id: params.rowId },
-    data: {
-      data: {
-        ...(existing.data as object),
-        ...body,
-        ...(body.progress !== undefined ? { progress: Number(body.progress) } : {}),
-      },
-    },
-  });
-
-  return NextResponse.json({ row });
+  try {
+    const { user, workspace } = await ensureWorkspace();
+    const body = await req.json().catch(() => ({}));
+    const { expectedVersion, ...patch } = body;
+    const result = await updateWorkItem({
+      workspaceId: workspace.id,
+      idempotencyKey: req.headers.get("idempotency-key") ?? `user:work-item:update:${params.rowId}:${crypto.randomUUID()}`,
+      expectedVersion,
+      actor: { type: "user", userId: user.id },
+    }, params.rowId, patch, expectedVersion);
+    return NextResponse.json(result);
+  } catch (error) {
+    return routeError(error);
+  }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { rowId: string } }) {
-  const existing = await findScopedRow(params.rowId);
-  if (!existing) return NextResponse.json({ error: "Task row not found" }, { status: 404 });
-
-  const row = await prisma.collectionRow.delete({ where: { id: params.rowId } });
-  return NextResponse.json({ row });
+export async function DELETE(req: NextRequest, { params }: { params: { rowId: string } }) {
+  try {
+    const { user, workspace } = await ensureWorkspace();
+    const expectedVersion = Number(new URL(req.url).searchParams.get("expectedVersion")) || undefined;
+    const result = await archiveWorkItem({
+      workspaceId: workspace.id,
+      idempotencyKey: req.headers.get("idempotency-key") ?? `user:work-item:archive:${params.rowId}:${crypto.randomUUID()}`,
+      expectedVersion,
+      actor: { type: "user", userId: user.id },
+    }, params.rowId, expectedVersion);
+    return NextResponse.json(result);
+  } catch (error) {
+    return routeError(error);
+  }
 }

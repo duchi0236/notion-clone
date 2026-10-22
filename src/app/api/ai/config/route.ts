@@ -4,6 +4,8 @@ import { ensureWorkspace } from "@/lib/clawnote-store";
 import { AI_SKILLS } from "@/lib/ai-skills";
 import { getAiConfig } from "@/lib/ai-config";
 
+export const dynamic = "force-dynamic";
+
 type MediaCap = { provider?: string; model?: string; baseUrl?: string; apiKey?: string };
 
 // 去掉各能力的原始 Key，仅暴露是否已配置

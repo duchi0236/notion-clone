@@ -1,28 +1,56 @@
-version: '3.9'
-
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file:
-      - .env.production
+    env_file: [.env.production]
     environment:
       NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
     depends_on:
-      - postgres
-      - redis
-    ports:
-      - "3000:3000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    networks: [edge, backend, agent]
+    expose: ["3000"]
     volumes:
       - uploads:/app/public/uploads
       - backups:/app/backups
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    env_file: [.env.production]
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    networks: [backend, agent]
+
+  openclaw-gateway:
+    build:
+      context: .
+      dockerfile: deploy/openclaw/Dockerfile
+    restart: unless-stopped
+    env_file: [.env.production]
+    environment:
+      CLAWNOTE_BASE_URL: http://app:3000
+    networks: [agent]
+    expose: ["18789"]
+    volumes:
+      - openclaw_state:/home/node/.openclaw
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:18789/readyz"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
 
   collab:
     build:
@@ -30,53 +58,66 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     command: ["node", "scripts/collab-server.cjs"]
-    env_file:
-      - .env.production
+    env_file: [.env.production]
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "1234"
       COLLAB_PERSISTENCE_DIR: /app/collab-data
+    networks: [edge]
+    expose: ["1234"]
     volumes:
       - collab_data:/app/collab-data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1234/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: clawnote
-      POSTGRES_USER: claw
-      POSTGRES_PASSWORD: change-me-strong-password
-    ports:
-      - "5432:5432"
+    env_file: [.env.production]
+    networks: [backend]
+    expose: ["5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-claw} -d ${POSTGRES_DB:-clawnote}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
+    networks: [backend]
+    expose: ["6379"]
     volumes:
       - redis_data:/data
 
   nginx:
     image: nginx:stable-alpine
     restart: unless-stopped
-    depends_on:
-      - app
-      - collab
-    ports:
-      - "80:80"
-      - "443:443"
+    depends_on: [app, collab]
+    networks: [edge]
+    ports: ["80:80", "443:443"]
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/certs:/etc/nginx/certs:ro
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.131.1
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    networks: [backend, agent]
+    volumes:
+      - ./deploy/otel-collector.yml:/etc/otelcol/config.yaml:ro
+    expose: ["4317", "4318", "8889"]
+
+networks:
+  edge:
+  backend:
+    internal: true
+  agent:
+    internal: true
 
 volumes:
   postgres_data:
@@ -84,3 +125,4 @@ volumes:
   uploads:
   backups:
   collab_data:
+  openclaw_state:

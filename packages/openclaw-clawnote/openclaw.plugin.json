@@ -1,0 +1,40 @@
+{
+  "id": "clawnote",
+  "name": "ClawNote",
+  "description": "Read and safely manage a ClawNote workspace",
+  "contracts": {
+    "tools": [
+      "clawnote_search_workspace",
+      "clawnote_get_document",
+      "clawnote_query_records",
+      "clawnote_list_work_items",
+      "clawnote_list_calendar_events",
+      "clawnote_create_document_draft",
+      "clawnote_preview_work_items",
+      "clawnote_apply_work_items",
+      "clawnote_preview_record_changes",
+      "clawnote_apply_record_changes",
+      "clawnote_preview_calendar_changes",
+      "clawnote_apply_calendar_changes",
+      "clawnote_get_job",
+      "clawnote_report_job_progress"
+    ]
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false
+  },
+  "toolMetadata": {
+    "clawnote_create_document_draft": { "optional": true },
+    "clawnote_preview_work_items": { "optional": true },
+    "clawnote_apply_work_items": { "optional": true },
+    "clawnote_preview_record_changes": { "optional": true },
+    "clawnote_apply_record_changes": { "optional": true },
+    "clawnote_preview_calendar_changes": { "optional": true },
+    "clawnote_apply_calendar_changes": { "optional": true },
+    "clawnote_report_job_progress": { "optional": true }
+  }
+}

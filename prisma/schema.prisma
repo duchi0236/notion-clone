@@ -11,16 +11,16 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String?  @unique  // 可空：纯手机/纯微信用户无邮箱
-  phone       String?  @unique  // E.164，手机号登录归并键
-  name        String?
-  avatarUrl   String?
-  password    String?           // 旧字段，迁移期与 AuthIdentity(PASSWORD) 双读
-  tokenVersion Int     @default(0) // 改密/解绑后 +1，旧会话失效
-  lastLoginAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  email        String?   @unique // 可空：纯手机/纯微信用户无邮箱
+  phone        String?   @unique // E.164，手机号登录归并键
+  name         String?
+  avatarUrl    String?
+  password     String? // 旧字段，迁移期与 AuthIdentity(PASSWORD) 双读
+  tokenVersion Int       @default(0) // 改密/解绑后 +1，旧会话失效
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
@@ -44,7 +44,7 @@ model AuthIdentity {
   userId            String
   user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider          AuthProvider
-  providerAccountId String       // PASSWORD=email / PHONE=E.164 / WECHAT=unionid||openid
+  providerAccountId String // PASSWORD=email / PHONE=E.164 / WECHAT=unionid||openid
   secretHash        String?
   unionid           String?
   openid            String?
@@ -86,17 +86,17 @@ model WechatTicket {
 
 // OIDC/OAuth2 一次性授权码（SSO：第三方应用 code 换 token）
 model OAuthCode {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  clientId    String
-  userId      String
-  redirectUri String
-  scope       String    @default("openid profile")
-  nonce       String?
+  id            String    @id @default(cuid())
+  code          String    @unique
+  clientId      String
+  userId        String
+  redirectUri   String
+  scope         String    @default("openid profile")
+  nonce         String?
   codeChallenge String?
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  createdAt   DateTime  @default(now())
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
 
   @@index([clientId])
 }
@@ -111,28 +111,34 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members      WorkspaceMember[]
-  documents    Document[]
-  collections  Collection[]
-  objects      KnowledgeObject[]
-  memories     AgentMemory[]
-  inboxItems   InboxItem[]
-  agentRuns    AgentRun[]
-  templates    Template[]
-  apiTokens    ApiToken[]
-  calendars      Calendar[]
-  calendarEvents CalendarEvent[]
-  bitableBases   BitableBase[]
-  aiConfig       AiConfig?
+  members            WorkspaceMember[]
+  documents          Document[]
+  collections        Collection[]
+  objects            KnowledgeObject[]
+  memories           AgentMemory[]
+  inboxItems         InboxItem[]
+  agentRuns          AgentRun[]
+  agentConversations AgentConversation[]
+  agentJobs          AgentJob[]
+  approvalRequests   ApprovalRequest[]
+  changeSets         ChangeSet[]
+  commandExecutions  CommandExecution[]
+  outboxEvents       OutboxEvent[]
+  templates          Template[]
+  apiTokens          ApiToken[]
+  calendars          Calendar[]
+  calendarEvents     CalendarEvent[]
+  bitableBases       BitableBase[]
+  aiConfig           AiConfig?
 }
 
 model WorkspaceMember {
-  id          String   @id @default(cuid())
-  role        Role     @default(MEMBER)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
 
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -149,35 +155,35 @@ enum Role {
 }
 
 model Document {
-  id             String         @id @default(cuid())
-  title          String         @default("Untitled")
-  icon           String?        @default("📄")
-  coverImage     String?
-  type           DocumentType   @default(DOC)
-  status         DocumentStatus @default(DRAFT)
-  parentId       String?
-  sortIndex      Int            @default(0)
+  id         String         @id @default(cuid())
+  title      String         @default("Untitled")
+  icon       String?        @default("📄")
+  coverImage String?
+  type       DocumentType   @default(DOC)
+  status     DocumentStatus @default(DRAFT)
+  parentId   String?
+  sortIndex  Int            @default(0)
 
-  contentJson    Json
-  contentHtml    String         @db.Text
-  contentText    String         @db.Text
-  summary        String?        @db.Text
-  tags           String[]       @default([])
+  contentJson Json
+  contentHtml String   @db.Text
+  contentText String   @db.Text
+  summary     String?  @db.Text
+  tags        String[] @default([])
 
-  isFavorite     Boolean        @default(false)
-  isPublished    Boolean        @default(false)
-  isArchived     Boolean        @default(false)
-  agentReadable  Boolean        @default(true)
-  agentWritable  Boolean        @default(false)
+  isFavorite    Boolean @default(false)
+  isPublished   Boolean @default(false)
+  isArchived    Boolean @default(false)
+  agentReadable Boolean @default(true)
+  agentWritable Boolean @default(false)
 
-  workspaceId    String
-  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  createdById    String
-  createdBy      User           @relation("DocumentCreator", fields: [createdById], references: [id])
+  createdById String
+  createdBy   User   @relation("DocumentCreator", fields: [createdById], references: [id])
 
-  parent         Document?      @relation("DocumentChildren", fields: [parentId], references: [id])
-  children       Document[]     @relation("DocumentChildren")
+  parent         Document?         @relation("DocumentChildren", fields: [parentId], references: [id])
+  children       Document[]        @relation("DocumentChildren")
   blocks         Block[]
   comments       Comment[]
   versions       DocumentVersion[]
@@ -186,8 +192,8 @@ model Document {
   calendarEvents CalendarEvent[]
   searchIndex    SearchIndex?
 
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId, parentId])
   @@index([workspaceId, updatedAt])
@@ -220,13 +226,13 @@ model Block {
   sortIndex     Int       @default(0)
   parentBlockId String?
 
-  documentId    String
-  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  parentBlock   Block?    @relation("BlockChildren", fields: [parentBlockId], references: [id])
-  children      Block[]   @relation("BlockChildren")
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parentBlock Block?   @relation("BlockChildren", fields: [parentBlockId], references: [id])
+  children    Block[]  @relation("BlockChildren")
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([documentId, sortIndex])
 }
@@ -257,26 +263,27 @@ enum BlockType {
 }
 
 model Collection {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   name        String
-  icon        String   @default("📊")
+  icon        String         @default("📊")
   description String?
   schema      Json
   views       Json
   // 轻量自动化规则（触发器+动作，客户端执行）：[{id,name,enabled,trigger,action}]
-  automations Json     @default("[]")
+  automations Json           @default("[]")
   type        CollectionType @default(TABLE)
-  sortIndex   Int       @default(0)
+  sortIndex   Int            @default(0)
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId   String?
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // When set, this collection is a data table inside a Bitable base.
-  baseId      String?
-  base        BitableBase? @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  baseId String?
+  base   BitableBase? @relation(fields: [baseId], references: [id], onDelete: Cascade)
 
-  rows        CollectionRow[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  rows      CollectionRow[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@index([workspaceId])
   @@index([baseId])
@@ -284,19 +291,19 @@ model Collection {
 
 // A Bitable "base" (多维表格) groups several data tables (Collections).
 model BitableBase {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
-  icon        String   @default("🗂️")
+  icon        String  @default("🗂️")
   description String?
-  sortIndex   Int      @default(0)
+  sortIndex   Int     @default(0)
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  tables      Collection[]
+  tables Collection[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
 }
@@ -310,20 +317,21 @@ enum CollectionType {
 }
 
 model CollectionRow {
-  id           String     @id @default(cuid())
+  id           String        @id @default(cuid())
   collectionId String
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection   Collection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   documentId   String?
-  document     Document?  @relation(fields: [documentId], references: [id])
+  document     Document?     @relation(fields: [documentId], references: [id])
   data         Json
-  sortIndex    Int        @default(0)
+  sortIndex    Int           @default(0)
+  version      Int           @default(1)
   // 创建人/修改人：写入时落显示名快照（展示足够，避免跨表 join）
   createdBy    String?
   updatedBy    String?
   comments     RowComment[]
   revisions    RowRevision[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([collectionId, sortIndex])
 }
@@ -354,7 +362,7 @@ model RowRevision {
 }
 
 model KnowledgeObject {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   type        String
   title       String
   properties  Json
@@ -363,30 +371,30 @@ model KnowledgeObject {
   document    Document? @relation(fields: [documentId], references: [id])
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId, type])
 }
 
 model AgentMemory {
-  id          String       @id @default(cuid())
-  scope       MemoryScope  @default(WORKSPACE)
-  content     String       @db.Text
-  summary     String?
-  tags        String[]     @default([])
-  sourceType  String?
-  sourceId    String?
-  confidence  Float        @default(1)
-  status      MemoryStatus @default(PENDING)
+  id         String       @id @default(cuid())
+  scope      MemoryScope  @default(WORKSPACE)
+  content    String       @db.Text
+  summary    String?
+  tags       String[]     @default([])
+  sourceType String?
+  sourceId   String?
+  confidence Float        @default(1)
+  status     MemoryStatus @default(PENDING)
 
   workspaceId String
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdById String?
-  createdBy   User?        @relation(fields: [createdById], references: [id])
+  createdBy   User?     @relation(fields: [createdById], references: [id])
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId, status])
 }
@@ -436,111 +444,321 @@ enum InboxStatus {
 }
 
 model AgentRun {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   agentName   String
   input       Json
   output      Json?
   status      String
-  documentIds String[] @default([])
+  documentIds String[]  @default([])
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId, createdAt])
 }
 
 model Comment {
-  id         String   @id @default(cuid())
-  content    String   @db.Text
+  id         String    @id @default(cuid())
+  content    String    @db.Text
   documentId String
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   authorId   String
-  author     User     @relation(fields: [authorId], references: [id])
+  author     User      @relation(fields: [authorId], references: [id])
   parentId   String?
-  parent     Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies    Comment[] @relation("CommentReplies")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([documentId])
 }
 
 model DocumentVersion {
-  id          String   @id @default(cuid())
-  documentId  String
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  version     Int
-  changedBy   String
-  snapshot    Json
-  diff        Json?
-  reason      String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version    Int
+  changedBy  String
+  snapshot   Json
+  diff       Json?
+  reason     String?
+  createdAt  DateTime @default(now())
 
   @@unique([documentId, version])
   @@index([documentId, createdAt])
 }
 
 model Template {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   title       String
-  icon        String   @default("📄")
+  icon        String     @default("📄")
   description String?
   category    String
   contentJson Json
-  contentHtml String   @db.Text
-  tags        String[] @default([])
+  contentHtml String     @db.Text
+  tags        String[]   @default([])
   workspaceId String?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model SearchIndex {
-  id          String   @id @default(cuid())
-  documentId  String   @unique
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  title       String
-  text        String   @db.Text
-  summary     String?  @db.Text
-  tags        String[] @default([])
-  embedding   Json?
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  documentId String   @unique
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  title      String
+  text       String   @db.Text
+  summary    String?  @db.Text
+  tags       String[] @default([])
+  embedding  Json?
+  updatedAt  DateTime @updatedAt
 }
 
 model ApiToken {
-  id          String   @id @default(cuid())
-  name        String
-  tokenHash   String   @unique
-  scopes      String[] @default([])
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  userId      String?
-  user        User?     @relation(fields: [userId], references: [id])
-  lastUsedAt  DateTime?
-  createdAt   DateTime @default(now())
+  id                String    @id @default(cuid())
+  name              String
+  tokenHash         String    @unique
+  scopes            String[]  @default([])
+  workspaceId       String
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId            String?
+  user              User?     @relation(fields: [userId], references: [id])
+  agentId           String?
+  delegatedByUserId String?
+  projectIds        String[]  @default([])
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  legacy            Boolean   @default(false)
+  lastUsedAt        DateTime?
+  createdAt         DateTime  @default(now())
 
   @@index([workspaceId])
 }
 
+enum AgentConversationStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum AgentMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+enum AgentJobStatus {
+  QUEUED
+  PLANNING
+  WAITING_APPROVAL
+  RUNNING
+  WAITING_INPUT
+  VERIFYING
+  WAITING_REVIEW
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AgentStepStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model AgentConversation {
+  id                String                  @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdById       String
+  title             String                  @default("新对话")
+  openclawSessionId String?
+  status            AgentConversationStatus @default(ACTIVE)
+  messages          AgentMessage[]
+  jobs              AgentJob[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([workspaceId, updatedAt])
+}
+
+model AgentMessage {
+  id             String            @id @default(cuid())
+  conversationId String
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  jobId          String?
+  job            AgentJob?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  role           AgentMessageRole
+  content        String            @db.Text
+  citations      Json?
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([jobId])
+}
+
+model AgentJob {
+  id                String             @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversationId    String?
+  conversation      AgentConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  requestedById     String
+  agentId           String             @default("openclaw")
+  openclawSessionId String?
+  title             String
+  goal              String             @db.Text
+  status            AgentJobStatus     @default(QUEUED)
+  riskLevel         String             @default("low")
+  authorization     Json               @default("{}")
+  plan              Json?
+  result            Json?
+  error             Json?
+  attempts          Int                @default(0)
+  maxAttempts       Int                @default(3)
+  nextAttemptAt     DateTime           @default(now())
+  steps             AgentStep[]
+  messages          AgentMessage[]
+  approvals         ApprovalRequest[]
+  changeSets        ChangeSet[]
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([workspaceId, status, updatedAt])
+  @@index([conversationId])
+}
+
+model AgentStep {
+  id          String          @id @default(cuid())
+  jobId       String
+  job         AgentJob        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sequence    Int
+  title       String
+  toolName    String?
+  status      AgentStepStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  error       Json?
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@unique([jobId, sequence])
+}
+
+model ApprovalRequest {
+  id           String         @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  jobId        String
+  job          AgentJob       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  action       String
+  summary      String
+  payload      Json
+  status       ApprovalStatus @default(PENDING)
+  resolvedById String?
+  resolvedAt   DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([jobId])
+}
+
+model ChangeSet {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  jobId        String?
+  job          AgentJob?       @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  title        String
+  reversible   Boolean         @default(true)
+  revertedAt   DateTime?
+  revertedById String?
+  items        ChangeSetItem[]
+  createdAt    DateTime        @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([jobId])
+}
+
+model ChangeSetItem {
+  id           String    @id @default(cuid())
+  changeSetId  String
+  changeSet    ChangeSet @relation(fields: [changeSetId], references: [id], onDelete: Cascade)
+  resourceType String
+  resourceId   String
+  action       String
+  before       Json?
+  after        Json?
+  createdAt    DateTime  @default(now())
+
+  @@index([changeSetId])
+}
+
+model CommandExecution {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  idempotencyKey String    @unique
+  command        String
+  actorType      String
+  actorId        String
+  result         Json?
+  createdAt      DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  topic       String
+  aggregateId String?
+  payload     Json
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now())
+  processedAt DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([processedAt, availableAt])
+  @@index([workspaceId, createdAt])
+}
+
 // One AI configuration per workspace: model provider settings + enabled skills.
 model AiConfig {
-  id            String   @id @default(cuid())
-  workspaceId   String   @unique
-  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  provider      String   @default("none") // none | claude | openai | custom
-  model         String   @default("")
-  apiKey        String   @default("")
-  baseUrl       String   @default("")
-  temperature   Float    @default(0.7)
-  maxTokens     Int      @default(2048)
-  enabledSkills String[] @default(["search", "create", "summarize"])
+  provider       String   @default("none") // none | claude | openai | custom
+  model          String   @default("")
+  apiKey         String   @default("")
+  baseUrl        String   @default("")
+  temperature    Float    @default(0.7)
+  maxTokens      Int      @default(2048)
+  enabledSkills  String[] @default(["search", "create", "summarize"])
   // 按能力存的供应商配置：{ image|video|edit: { provider, model, apiKey, baseUrl } }
-  mediaProviders Json    @default("{}")
+  mediaProviders Json     @default("{}")
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------
@@ -548,25 +766,26 @@ model AiConfig {
 // ---------------------------------------------------------------------------
 
 model Calendar {
-  id          String   @id @default(cuid())
-  name        String
-  color       String   @default("blue")
-  isDefault   Boolean  @default(false)
-  sortIndex   Int      @default(0)
+  id        String  @id @default(cuid())
+  name      String
+  color     String  @default("blue")
+  isDefault Boolean @default(false)
+  sortIndex Int     @default(0)
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  events      CalendarEvent[]
+  events CalendarEvent[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
 }
 
 model CalendarEvent {
   id          String              @id @default(cuid())
+  version     Int                 @default(1)
   title       String
   description String?
   location    String?
@@ -580,25 +799,26 @@ model CalendarEvent {
   metadata    Json?
 
   // Recurrence (preset rules expanded on the client)
-  repeat          String?   // none | daily | weekly | biweekly | monthly | yearly
+  repeat          String? // none | daily | weekly | biweekly | monthly | yearly
   repeatUntil     DateTime?
   // Reminder: minutes before start to notify (null = no reminder)
   reminderMinutes Int?
 
-  calendarId  String?
-  calendar    Calendar?  @relation(fields: [calendarId], references: [id], onDelete: SetNull)
+  calendarId String?
+  calendar   Calendar? @relation(fields: [calendarId], references: [id], onDelete: SetNull)
 
   workspaceId String
-  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId   String?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  documentId  String?
-  document    Document?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
   createdById String?
-  createdBy   User?      @relation("CalendarEventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation("CalendarEventCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId, startsAt])
   @@index([workspaceId, source])

@@ -23,11 +23,14 @@ export function useDismiss(opts: {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
+      if (t instanceof Element && t.closest("[data-claw-floating-layer]")) return;
       if (refsRef.current.some((r) => r.current?.contains(t))) return;
       onCloseRef.current();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        const active = document.activeElement;
+        if (active instanceof Element && active.closest("[data-claw-floating-layer]")) return;
         e.stopPropagation();
         onCloseRef.current();
       }

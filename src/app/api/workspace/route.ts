@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { ensureTaskCollection, ensureWorkspace, seedTemplates } from "@/lib/clawnote-store";
 import { canWriteWorkspace } from "@/lib/permissions";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const { user, workspace } = await ensureWorkspace();
   await seedTemplates(workspace.id);

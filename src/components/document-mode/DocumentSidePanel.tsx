@@ -32,7 +32,7 @@ export function DocumentSidePanel({
 
       {mode === "meta" ? (
         <div className="p-5">
-          <DocumentMetaPanel documentId={documentId} onRestored={onRestored} />
+          <DocumentMetaPanel documentId={documentId} mode="versions" onRestored={onRestored} />
         </div>
       ) : (
         <div className="space-y-4 p-5">

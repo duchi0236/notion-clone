@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Bot,
-  Archive,
-  Bookmark,
   BookOpen,
   CalendarDays,
   Check,
@@ -13,7 +11,6 @@ import {
   Grid3x3,
   ChevronRight,
   Clock3,
-  Command,
   Database,
   Droplets,
   ExternalLink,
@@ -21,11 +18,8 @@ import {
   FileText,
   FolderTree,
   Home,
-  ArrowUpRight,
-  Compass,
   PanelLeftClose,
   PanelLeftOpen,
-  ImageIcon,
   KeyRound,
   Link2,
   Moon,
@@ -45,25 +39,27 @@ import {
 } from "lucide-react";
 import { cn, formatDateTime } from "@/lib/utils";
 import { useModalA11y } from "@/hooks/useModalA11y";
-import { prefersReducedMotion } from "@/hooks/useReducedMotion";
 import { confirm } from "@/components/ui/confirm";
 import { docDisplayTitle } from "./api";
 import type { AgentMutation, Doc, Memory, PageNode, View } from "./types";
 import { useWorkspaceState } from "./useWorkspaceState";
 import { useTheme } from "./useTheme";
 import { DocumentPanel } from "./DocumentPanel";
+import { WorkspaceHome, WorkspaceTrash } from "./WorkspaceHome";
 import { PageIcon } from "./PageIcon";
 import CalendarApp from "../calendar/CalendarApp";
 import BitableApp from "../bitable/BitableApp";
 import { AgentChat } from "../agent/AgentChat";
 import { AiConfigPanel } from "../agent/AiConfigPanel";
+import { AgentSkillPanel } from "../agent/AgentSkillPanel";
 
 type SidebarTab = "tree" | "recent" | "favorites" | "trash";
-type AiTab = "chat" | "config" | "overview" | "memory" | "activity";
+type AiTab = "chat" | "skills" | "config" | "overview" | "memory" | "activity";
 
 const AI_TABS: { key: AiTab; label: string; desc: string }[] = [
   { key: "chat", label: "对话", desc: "和工作区助手对话" },
-  { key: "config", label: "配置", desc: "模型与技能工具" },
+  { key: "skills", label: "能力与权限", desc: "选择助手可使用的能力与范围" },
+  { key: "config", label: "模型与媒体", desc: "模型供应商与生成能力" },
   { key: "overview", label: "接入概览", desc: "Agent API 与可审计写入" },
   { key: "memory", label: "Memory 审核", desc: "外部写入的长期记忆" },
   { key: "activity", label: "活动日志", desc: "版本 / 评论 / Agent 运行" },
@@ -120,10 +116,13 @@ function ancestorIds(docs: Doc[], selectedId: string) {
 
 export default function ClawNotePro() {
   const [view, setView] = useState<View>("home");
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("tree");
   const [aiTab, setAiTab] = useState<AiTab>("chat");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  // Desktop defaults to the labelled navigation panel. Icon-only navigation is
+  // an explicit compact mode, not the first-run experience.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,7 +147,7 @@ export default function ClawNotePro() {
   const store = useWorkspaceState();
   const activeDocs = store.activeDocs ?? store.docs.filter((doc) => !doc.isArchived);
   const docTree = useMemo(() => buildDocTree(activeDocs), [activeDocs]);
-  const showSidebar = view !== "home" && !sidebarCollapsed;
+  const showSidebar = !sidebarCollapsed;
 
   useEffect(() => {
     const next = ancestorIds(activeDocs, store.selectedDocId);
@@ -172,16 +171,33 @@ export default function ClawNotePro() {
     void store.createDoc();
   }
 
+  function openAiWorkspace() {
+    setView("ai");
+    setSidebarCollapsed(false);
+  }
+
   function createChildDoc(parentId: string) {
     setView("docs");
     setExpandedIds((current) => new Set(current).add(parentId));
     void store.createDoc({ parentId });
   }
 
+  useEffect(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem("clawnote.recent-docs") ?? "[]");
+      if (Array.isArray(saved)) setRecentDocIds(saved.filter((id): id is string => typeof id === "string").slice(0, 8));
+    } catch { /* Storage can be unavailable in private browsing. */ }
+  }, []);
+
   function selectDoc(id: string) {
     setView("docs");
+    if (sidebarTab === "trash") setSidebarTab("tree");
     store.setSelectedDocId(id);
-    setRecentDocIds((ids) => [id, ...ids.filter((item) => item !== id)].slice(0, 8));
+    setRecentDocIds((ids) => {
+      const next = [id, ...ids.filter((item) => item !== id)].slice(0, 8);
+      try { localStorage.setItem("clawnote.recent-docs", JSON.stringify(next)); } catch { /* Navigation still works without storage. */ }
+      return next;
+    });
   }
 
   function toggleExpanded(id: string) {
@@ -194,120 +210,51 @@ export default function ClawNotePro() {
   }
 
   return (
-    <div className={cn("claw-canvas relative min-h-screen text-slate-900", view === "home" && "claw-home-shell")}>
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="claw-grain absolute inset-0 opacity-[0.22]" />
-      </div>
-
-      {view === "home" && (
-        <button
-          onClick={() => setPaletteOpen(true)}
-          aria-label="搜索或创建（⌘K）"
-          className="claw-command-lens fixed left-1/2 top-9 z-40 hidden h-14 w-[min(530px,42vw)] -translate-x-1/2 items-center gap-4 px-6 text-left text-[15px] text-slate-500 transition duration-200 hover:-translate-y-0.5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 lg:flex"
-        >
-          <Search className="h-5 w-5 text-slate-400" />
-          <span className="min-w-0 flex-1 truncate">搜索或创建...</span>
-          <span className="text-sm font-medium text-slate-400">⌘K</span>
-        </button>
-      )}
-
-      {view === "home" && (
-        <button
-          onClick={createRootDoc}
-          aria-label="新建文档"
-          className="claw-home-create fixed right-10 top-9 z-40 hidden h-16 w-16 items-center justify-center rounded-full text-slate-800 transition duration-200 hover:-translate-y-0.5 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 lg:flex"
-        >
-          <FilePlus2 className="h-7 w-7" />
-        </button>
-      )}
-
-      <div
-        className={cn(
-          "relative z-10 grid min-h-screen grid-cols-1 gap-3 p-3 transition-[grid-template-columns] duration-200 ease-out",
-          view === "home"
-            ? "lg:grid-cols-[96px_minmax(0,1fr)]"
-            : showSidebar
-              ? "lg:grid-cols-[64px_296px_minmax(0,1fr)]"
-              : "lg:grid-cols-[64px_minmax(0,1fr)]",
-        )}
-      >
-      <nav className={cn("claw-dock sticky top-3 z-30 hidden h-[calc(100vh-1.5rem)] flex-col items-center gap-1 px-2 py-3 lg:flex", view === "home" && "claw-home-rail")}>
-        {view === "home" ? (
-          <>
-            <IconRailButton active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
-            <IconRailButton active={false} onClick={() => setPaletteOpen(true)} icon={<Search />} label="搜索" />
-            <IconRailButton active={false} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
-            <IconRailButton active={false} onClick={() => setView("docs")} icon={<Bookmark />} label="收藏" />
-            <IconRailButton active={false} onClick={() => setView("docs")} icon={<Tags />} label="标签" />
-            <IconRailButton active={false} onClick={() => setView("bitable")} icon={<Archive />} label="资料库" />
-            <IconRailButton active={false} onClick={() => setView("docs")} icon={<Trash2 />} label="回收站" />
-            <div className="claw-home-rail-rule mt-auto" />
-            <IconRailButton active={false} onClick={toggleTheme} icon={dark ? <Sun /> : <Moon />} label={dark ? "浅色模式" : "深色模式"} />
-            <IconRailButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings />} label="设置" />
-            <button type="button" onClick={() => setView("settings")} className="claw-home-avatar" aria-label="个人设置">
-              C
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setView("home")}
-              title="回到主页"
-              className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-500/30 transition-transform hover:scale-105"
-            >
-              C
-            </button>
-            <IconRailButton
-              active={false}
-              onClick={() => setSidebarCollapsed((v) => !v)}
-              icon={sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-              label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
-            />
-            <div className="my-1 h-px w-7 bg-slate-200/70" />
-            <IconRailButton active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
-            <IconRailButton active={view === "docs"} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
-            <IconRailButton active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays />} label="日历" />
-            <IconRailButton active={view === "bitable"} onClick={() => setView("bitable")} icon={<Grid3x3 />} label="多维表格" />
-            <IconRailButton active={view === "ai"} onClick={() => setView("ai")} icon={<Bot />} label="AI 接入" />
-            <IconRailButton active={glass} onClick={toggleGlass} icon={<Droplets />} label={glass ? "关闭玻璃质感" : "液体玻璃"} wrapperClassName="mt-auto" />
-            <IconRailButton active={false} onClick={toggleTheme} icon={dark ? <Sun /> : <Moon />} label={dark ? "浅色模式" : "深色模式"} />
-            <IconRailButton active={view === "settings"} onClick={() => setView("settings")} icon={<Settings />} label="设置" />
-          </>
-        )}
-      </nav>
-      <aside className={cn("claw-panel sticky top-3 z-20 hidden h-[calc(100vh-1.5rem)] min-h-0 flex-col overflow-hidden", showSidebar && "lg:flex")}>
-        <div className="px-4 pb-3 pt-4">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="min-w-0">
-                <h1 className="truncate text-sm font-semibold leading-5">ClawNote</h1>
-                <p className="text-xs text-slate-500">超级文档空间</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPaletteOpen(true)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white/70 hover:text-slate-950" title="打开命令面板">
-                <Command className="h-4 w-4" />
-              </button>
-              <button onClick={createRootDoc} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white/70 hover:text-slate-950" title="新建文档">
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/78 px-3 py-2 shadow-sm ring-1 ring-slate-900/[0.03]">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              value={store.query}
-              onChange={(event) => store.setQuery(event.target.value)}
-              placeholder="搜索标题、正文、标签"
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-            />
-          </div>
+    <div className="claw-product" data-view={view}>
+      <a className="cn-skip-link" href="#workspace-content">跳转到内容</a>
+      <div className="cn-workspace" data-collapsed={sidebarCollapsed}>
+      <aside className="cn-sidebar" aria-label="工作空间导航">
+        <div className="cn-sidebar-brand">
+          <button className="cn-brand" onClick={() => setView("home")} aria-label="ClawNote 主页">
+            <span className="cn-brand-mark"><BookOpen size={19} strokeWidth={1.8} /></span>
+            <span className="cn-brand-name">ClawNote<span>个人工作空间</span></span>
+          </button>
+          <button className="cn-icon-button cn-collapse" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"} title={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}>
+            {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
         </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-          {(view === "docs" || view === "home") && (
+        <button className="cn-sidebar-search" onClick={() => setPaletteOpen(true)} aria-label="搜索工作空间">
+          <Search size={16} /><span>搜索工作空间</span><kbd>⌘ K</kbd>
+        </button>
+        <nav className="cn-primary-nav" aria-label="主要功能">
+          {([
+            { key: "home", label: "主页", icon: <Home />, count: undefined },
+            { key: "docs", label: "文档", icon: <FileText />, count: activeDocs.length },
+            { key: "bitable", label: "多维表格", icon: <Grid3x3 />, count: undefined },
+            { key: "calendar", label: "日历", icon: <CalendarDays />, count: undefined },
+            { key: "ai", label: "AI 助手", icon: <Bot />, count: undefined },
+          ] as const).map((item) => (
+            <button key={item.key} className="cn-nav-item" data-active={view === item.key} aria-current={view === item.key ? "page" : undefined} aria-label={item.label} title={sidebarCollapsed ? item.label : undefined} onClick={() => { setView(item.key); if (item.key === "docs") setSidebarTab("tree"); }}>
+              {item.icon}<span>{item.label}</span>{item.count !== undefined && <small>{item.count}</small>}
+            </button>
+          ))}
+        </nav>
+        <div className="cn-sidebar-divider" />
+        <div className="cn-sidebar-context" hidden={!showSidebar}>
+          {view !== "docs" && view !== "ai" && (
+            <div className="cn-pinned-pages">
+              <div className="cn-section-label">快捷访问</div>
+              <button className="cn-nav-item" onClick={() => { setView("docs"); setSidebarTab("favorites"); }}><Star /><span>收藏</span><small>{store.favoriteDocs.length || ""}</small></button>
+              {store.favoriteDocs.slice(0, 3).map((doc) => <button key={doc.id} className="cn-nav-item cn-pinned-doc" onClick={() => selectDoc(doc.id)}><PageIcon icon={doc.icon} muted /><span>{docDisplayTitle(doc)}</span></button>)}
+              <button className="cn-nav-item" onClick={() => { setView("docs"); setSidebarTab("trash"); }}><Trash2 /><span>回收站</span></button>
+            </div>
+          )}
+          {view === "docs" && <div className="cn-tree-search"><Search size={14} /><input aria-label="筛选文档" value={store.query} onChange={(event) => store.setQuery(event.target.value)} placeholder="筛选文档…" /></div>}
+        <div className="cn-sidebar-detail">
+          {view === "docs" && (
             <DocsSidebar
+              tab={sidebarTab}
+              setTab={setSidebarTab}
               docs={docTree}
               flatDocs={store.filteredDocs}
               activeDocs={activeDocs}
@@ -329,17 +276,22 @@ export default function ClawNotePro() {
               emptyTrash={store.emptyTrash}
             />
           )}
-          {view === "calendar" && <ContextAside title="日历" desc="月 / 周 / 日视图，支持拖拽新建与移动事件、重复规则、多日历配色和桌面提醒。" />}
-          {view === "bitable" && <ContextAside title="多维表格" desc="飞书式多维表格：多张数据表、富字段类型、表格 / 看板 / 画册 / 表单视图，支持筛选排序分组与表间关联。" />}
           {view === "ai" && <AgentSidebar tab={aiTab} setTab={setAiTab} />}
-          {view === "settings" && <ContextAside title="空间设置" desc="文件、访问密钥、权限、发布和导入导出集中放在这里。" />}
         </div>
-
+        </div>
+        <div className="cn-sidebar-footer">
+          <div className="cn-sidebar-tools">
+            <button className="cn-icon-button" onClick={toggleTheme} aria-label={dark ? "浅色模式" : "深色模式"} title={dark ? "浅色模式" : "深色模式"}>{dark ? <Sun size={16} /> : <Moon size={16} />}</button>
+            <button className="cn-icon-button" data-active={glass} onClick={toggleGlass} aria-label={glass ? "关闭玻璃质感" : "液体玻璃"} title="玻璃质感"><Droplets size={16} /></button>
+            <button className="cn-icon-button" data-active={view === "settings"} onClick={() => setView("settings")} aria-label="设置" title="设置"><Settings size={16} /></button>
+          </div>
+          <Link href="/account" className="cn-account"><span className="cn-account-avatar">C</span><span>我的工作空间<small>账户与偏好设置</small></span><ChevronRight size={14} /></Link>
+        </div>
       </aside>
 
-      <main className={cn("min-w-0", view !== "home" && "claw-paper h-[calc(100vh-1.5rem)] overflow-y-auto")}>
+      <main id="workspace-content" className="cn-main" tabIndex={-1}>
         {view === "home" && (
-          <SpaceHome
+          <WorkspaceHome
             docs={activeDocs}
             recentDocIds={recentDocIds}
             onOpenDoc={selectDoc}
@@ -349,9 +301,11 @@ export default function ClawNotePro() {
               void store.createDoc(input);
             }}
             onNavigate={setView}
+            onSearch={() => setPaletteOpen(true)}
           />
         )}
-        {view === "docs" && (
+        {view === "docs" && sidebarTab === "trash" && <WorkspaceTrash docs={store.archivedDocs} onRestore={(id) => { store.restoreDoc(id); showToast("文档已恢复"); }} />}
+        {view === "docs" && sidebarTab !== "trash" && (
           <DocumentPanel
             doc={store.selectedDoc}
             docs={activeDocs}
@@ -369,19 +323,28 @@ export default function ClawNotePro() {
         )}
         {view === "calendar" && <CalendarApp />}
         {view === "bitable" && <BitableApp />}
-        {view === "ai" &&
-          (aiTab === "chat" ? (
-            <AgentChat
-              onOpenDoc={async (id) => {
-                if (!activeDocs.some((doc) => doc.id === id)) await store.reloadDocs();
-                selectDoc(id);
-              }}
-            />
-          ) : aiTab === "config" ? (
-            <AiConfigPanel />
-          ) : (
-            <AiAccessPanel tab={aiTab} memories={store.memories} reviewMemory={store.reviewMemory} />
-          ))}
+        {view === "ai" && (
+          <div className="cn-ai-workspace flex h-full min-h-0 flex-col">
+            <header className="cn-topbar"><div className="cn-breadcrumb"><Bot size={15} /><strong>AI 助手</strong><ChevronRight size={13} /><span>{AI_TABS.find((item) => item.key === aiTab)?.label}</span></div><span className="cn-header-caption">读写有记录，操作可撤销</span></header>
+            <MobileAgentNav tab={aiTab} setTab={setAiTab} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {aiTab === "chat" ? (
+                <AgentChat
+                  onOpenDoc={async (id) => {
+                    if (!activeDocs.some((doc) => doc.id === id)) await store.reloadDocs();
+                    selectDoc(id);
+                  }}
+                />
+              ) : aiTab === "config" ? (
+                <AiConfigPanel />
+              ) : aiTab === "skills" ? (
+                <AgentSkillPanel />
+              ) : (
+                <AiAccessPanel tab={aiTab} memories={store.memories} reviewMemory={store.reviewMemory} />
+              )}
+            </div>
+          </div>
+        )}
         {view === "settings" && <SettingsPanel />}
       </main>
       </div>
@@ -399,7 +362,8 @@ export default function ClawNotePro() {
             setPaletteOpen(false);
           }}
           onNavigate={(v) => {
-            setView(v);
+            if (v === "ai") openAiWorkspace();
+            else setView(v);
             setPaletteOpen(false);
           }}
         />
@@ -445,6 +409,8 @@ export default function ClawNotePro() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-3">
             <DocsSidebar
+              tab={sidebarTab}
+              setTab={setSidebarTab}
               docs={docTree}
               flatDocs={store.filteredDocs}
               activeDocs={activeDocs}
@@ -472,12 +438,12 @@ export default function ClawNotePro() {
         </MobileTreeDrawer>
       )}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
-        <MobileTab active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
+      <nav aria-label="移动端导航" className="cn-mobile-nav fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
+        <MobileTab active={view === "ai"} onClick={openAiWorkspace} icon={<Bot />} label="AI" />
         <MobileTab active={view === "docs"} onClick={() => setView("docs")} icon={<FileText />} label="文档" />
-        <MobileTab active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays />} label="日历" />
+        <MobileTab active={view === "home"} onClick={() => setView("home")} icon={<Home />} label="主页" />
         <MobileTab active={view === "bitable"} onClick={() => setView("bitable")} icon={<Grid3x3 />} label="表格" />
-        <MobileTab active={view === "ai"} onClick={() => setView("ai")} icon={<Bot />} label="AI" />
+        <MobileTab active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays />} label="日历" />
       </nav>
 
       {/* 操作反馈 Toast（删除可撤销等） */}
@@ -498,380 +464,12 @@ export default function ClawNotePro() {
   );
 }
 
-// 更新时间格式：今天 14:20 / 昨天 09:05 / 6月5日 16:12
-function fmtUpdated(iso: string) {
-  try {
-    const d = new Date(iso);
-    const now = new Date();
-    const hm = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
-    const y = new Date(now);
-    y.setDate(now.getDate() - 1);
-    if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
-    if (d.toDateString() === y.toDateString()) return `昨天 ${hm}`;
-    return `${new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(d)} ${hm}`;
-  } catch {
-    return "";
-  }
-}
-
-// 展示端防御：DB 存量摘要/正文可能混入导入 HTML 时泄漏的 CSS 源码（形如 body{margin:0;font-family:…}）。
-// 命中「花括号内含冒号」且带典型 CSS 属性词即判定为样式源码，渲染时丢弃（返回空串），不动 DB。
 function cleanExcerpt(raw: string): string {
-  const s = (raw || "").trim();
-  if (/\{[^}]*:[^}]*\}/.test(s) && /\b(?:font-family|font-size|line-height|margin|padding|background|color|display|width|height)\s*:/i.test(s)) return "";
-  return s;
+  const text = (raw || "").trim();
+  if (/\{[^}]*:[^}]*\}/.test(text) && /\b(?:font-family|font-size|margin|padding|background|color|display)\s*:/i.test(text)) return "";
+  return text;
 }
 
-// 一张「纸」：渲染文档真实内容，带折角(dog-ear)、作者底注，hero 更大。对齐 design/01。
-function PaperSheet({ doc, hero, index = 0, onOpen }: { doc: Doc; hero?: boolean; index?: number; onOpen: () => void }) {
-  const fold = hero ? 76 : 30;
-  const body =
-    cleanExcerpt(doc.text) ||
-    cleanExcerpt(doc.summary) ||
-    ((doc.text || doc.summary || "").trim() ? "（HTML 页面）" : "空白文档，点击开始书写…");
-  return (
-    <button
-      onClick={onOpen}
-      style={{ "--sheet-offset": `${hero ? 0 : 82 + Math.min(index, 3) * 18}px` } as CSSProperties}
-      className={cn(
-        "claw-paper-sheet group relative shrink-0 self-start text-left transition duration-300 ease-out hover:-translate-y-1 focus-visible:-translate-y-1",
-        hero ? "claw-paper-hero w-[430px]" : "claw-paper-note w-[270px]",
-      )}
-    >
-      <div
-        className={cn(
-          "claw-sheet-face relative flex h-full flex-col overflow-hidden bg-white ring-1 ring-slate-900/5",
-          hero ? "min-h-[560px] rounded-[4px] p-11" : "min-h-[390px] rounded-[3px] p-7",
-        )}
-        style={{
-          clipPath: `polygon(0 0, calc(100% - ${fold}px) 0, 100% ${fold}px, 100% 100%, 0 100%)`,
-          boxShadow: hero
-            ? "0 42px 80px -34px rgba(15,23,42,0.34), 0 12px 24px -18px rgba(15,23,42,0.22)"
-            : "0 34px 62px -36px rgba(15,23,42,0.26), 0 8px 18px -16px rgba(15,23,42,0.18)",
-        }}
-      >
-        <div className="mb-2 flex items-start justify-between gap-3">
-          <h3 className={cn("font-semibold text-slate-950 transition-colors group-hover:text-blue-600", hero ? "max-w-[300px] text-[30px] leading-tight" : "text-[22px] leading-snug")}>
-            {docDisplayTitle(doc)}
-          </h3>
-          {doc.isFavorite && <Star className="mt-1 h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />}
-        </div>
-        {doc.tags.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-2">
-            {doc.tags.slice(0, hero ? 4 : 2).map((t, i) => (
-              <span key={t} className={cn("claw-sheet-tag text-[12px] font-semibold", i % 2 === 1 && "claw-sheet-tag-alt")}>#{t}</span>
-            ))}
-          </div>
-        )}
-        <div className={cn("border-t border-slate-200/75", hero ? "my-7" : "my-5")} />
-        <p className={cn("flex-1 whitespace-pre-line text-slate-600", hero ? "line-clamp-[10] text-[15px] leading-8" : "line-clamp-[7] text-[13px] leading-6")}>
-          {body}
-        </p>
-        <div className={cn("mt-7 flex items-center gap-3 text-slate-400", hero ? "text-sm" : "text-xs")}>
-          <span className={cn("claw-sheet-avatar flex items-center justify-center rounded-full bg-slate-950 font-semibold text-white", hero ? "h-10 w-10 text-[13px]" : "h-8 w-8 text-[11px]")}>
-            C
-          </span>
-          <span className="min-w-0">
-            <span className="block font-medium text-slate-500">Claw</span>
-            <span className="block">{fmtUpdated(doc.updatedAt)}</span>
-          </span>
-        </div>
-      </div>
-      {/* 折角 */}
-      <span
-        className="claw-sheet-fold absolute right-0 top-0"
-        style={{
-          width: fold,
-          height: fold,
-          clipPath: "polygon(0 0, 100% 0, 100% 100%)",
-          background: "linear-gradient(135deg, #e6e2da 0%, #f6f3ed 68%)",
-          boxShadow: "-8px 8px 16px rgba(15,23,42,0.16)",
-        }}
-      />
-    </button>
-  );
-}
-
-const COLLECTION_VISUALS = [
-  { Icon: BookOpen, surface: "claw-collection-book", label: "灵感收集" },
-  { Icon: ImageIcon, surface: "claw-collection-photo", label: "旅行计划" },
-  { Icon: Compass, surface: "claw-collection-compass", label: "阅读清单" },
-];
-
-// 空间主页：问候 + 纸张式最近内容 + 玻璃创建坞 + 合集卡（对齐 design/01-space-home）
-function SpaceHome({
-  docs,
-  recentDocIds,
-  onOpenDoc,
-  onCreateDoc,
-  onCreateWith,
-  onNavigate,
-}: {
-  docs: Doc[];
-  recentDocIds: string[];
-  onOpenDoc: (id: string) => void;
-  onCreateDoc: () => void;
-  onCreateWith: (input: { title?: string; html?: string }) => void;
-  onNavigate: (view: View) => void;
-}) {
-  const now = new Date();
-  const hour = now.getHours();
-  const greeting = hour < 5 ? "夜深了" : hour < 11 ? "早上好" : hour < 13 ? "中午好" : hour < 18 ? "下午好" : "晚上好";
-  const dateLabel = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(now);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  // 最近：先按最近打开顺序，再用更新时间补足
-  const recent = useMemo(() => {
-    const byId = new Map(docs.map((d) => [d.id, d]));
-    const ordered: Doc[] = [];
-    const seen = new Set<string>();
-    for (const id of recentDocIds) {
-      const d = byId.get(id);
-      if (d && !seen.has(id)) {
-        ordered.push(d);
-        seen.add(id);
-      }
-    }
-    const rest = [...docs]
-      .filter((d) => !seen.has(d.id))
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    return [...ordered, ...rest].slice(0, 6);
-  }, [docs, recentDocIds]);
-
-  // 合集：按标签聚合，取数量最多的几个
-  const collections = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const d of docs) for (const t of d.tags) map.set(t, (map.get(t) ?? 0) + 1);
-    return Array.from(map.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name, count], i) => ({ name, count, visual: COLLECTION_VISUALS[i % COLLECTION_VISUALS.length] }));
-  }, [docs]);
-
-  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const raw = String(reader.result ?? "");
-      const title = f.name.replace(/\.[^.]+$/, "");
-      const isHtml = /\.html?$/i.test(f.name);
-      const html = isHtml
-        ? raw
-        : "<p>" +
-          raw
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .split(/\n{2,}/)
-            .filter(Boolean)
-            .join("</p><p>")
-            .replace(/\n/g, "<br/>") +
-          "</p>";
-      onCreateWith({ title, html });
-    };
-    reader.readAsText(f);
-  }
-
-  function newFromTemplate() {
-    onCreateWith({
-      title: "会议纪要",
-      html:
-        "<h1>会议纪要</h1><p>时间：｜参与人：</p><h2>议题</h2><ul><li>议题一</li><li>议题二</li></ul><h2>结论</h2><ul><li></li></ul><h2>待办</h2><ul><li>负责人 — 事项 — 截止</li></ul>",
-    });
-  }
-
-  return (
-    <div className="claw-home-stage relative flex h-[calc(100vh-1.5rem)] flex-col overflow-y-auto">
-      <div className="claw-home-brand">ClawNote</div>
-      <div className="claw-home-content relative mx-auto flex min-h-full w-full max-w-[1420px] flex-col px-5 pb-14 pt-36 sm:px-10 lg:pt-[176px]">
-        {/* 问候 */}
-        <header className="claw-home-header mb-16 max-w-2xl">
-          <h1 className="text-[42px] font-semibold text-slate-950 sm:text-[56px] sm:leading-[1.05]">
-            {greeting}，继续创作
-          </h1>
-          <p className="mt-5 text-[19px] font-medium leading-7 text-slate-500">
-            {dateLabel}
-          </p>
-        </header>
-
-        {/* 最近打开：纸张叠 */}
-        <section>
-          <div className="mb-6 flex items-end justify-between">
-            <h2 className="claw-recent-title text-[20px] font-semibold text-slate-800">
-              最近打开
-            </h2>
-            <button onClick={() => onNavigate("docs")} className="hidden items-center gap-1 text-xs font-medium text-slate-400 transition-colors hover:text-blue-600 sm:flex">
-              查看全部 <ArrowUpRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          {recent.length === 0 ? (
-            <button
-              onClick={onCreateDoc}
-              className="flex w-full items-center justify-center gap-2 rounded-[20px] border-2 border-dashed border-slate-300/70 bg-white/40 py-16 text-sm text-slate-400 transition-colors hover:border-blue-300 hover:text-blue-600"
-            >
-              <FilePlus2 className="h-4 w-4" /> 还没有文档，新建第一篇
-            </button>
-          ) : (
-            <div className="claw-recent-row flex items-start gap-9 overflow-x-auto pb-10 pr-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {recent[0] && <PaperSheet doc={recent[0]} hero onOpen={() => onOpenDoc(recent[0].id)} />}
-              {recent.slice(1, 4).map((doc, i) => (
-                <PaperSheet key={doc.id} doc={doc} index={i} onOpen={() => onOpenDoc(doc.id)} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* 玻璃创建坞（左） + 合集卡（右） */}
-        <div className="claw-home-bottom mt-auto flex flex-wrap items-end justify-between gap-8 pt-8">
-          <MacDock
-            items={[
-              { icon: <FilePlus2 className="h-8 w-8" />, label: "新建文档", primary: true, onClick: onCreateDoc },
-              { icon: <Upload className="h-7 w-7" />, label: "导入文件", onClick: () => fileRef.current?.click() },
-              { icon: <Grid3x3 className="h-7 w-7" />, label: "从模板新建", onClick: newFromTemplate },
-            ]}
-          />
-
-          {collections.length > 0 && (
-            <div className="claw-collections flex items-end gap-16">
-              {collections.map((c) => (
-                <button
-                  key={c.name}
-                  onClick={() => onNavigate("docs")}
-                  className="group flex w-[112px] flex-col items-center gap-4 text-center transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
-                >
-                  <span className={cn("claw-collection-object flex items-center justify-center", c.visual.surface)}>
-                    <c.visual.Icon className="h-9 w-9" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[16px] font-medium text-slate-700">{c.visual.label}</span>
-                    <span className="mt-1 block text-[15px] text-slate-400">{c.count}个文档</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <input ref={fileRef} type="file" accept=".md,.markdown,.txt,.html,.htm" className="hidden" onChange={onPickFile} />
-    </div>
-  );
-}
-
-type DockItem = { icon: ReactNode; label: string; primary?: boolean; onClick: () => void };
-
-// macOS 拓展坞放大：靠 requestAnimationFrame 每帧按「光标到按钮中心的距离」实时重算缩放，
-// 移动时瞬时跟手（不靠 CSS 过渡去追，避免发黏）；光标位置与强度各做轻量 lerp，进入/离开顺滑渐变。
-// 放大同时用左右 margin 顶开邻居（不遮挡），外层坞宽度随之果冻伸缩。基准宽/中心只测一次。
-function MacDock({ items }: { items: DockItem[] }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const baseRef = useRef<{ centers: number[]; widths: number[] }>({ centers: [], widths: [] });
-  const raf = useRef<number | null>(null);
-  const targetX = useRef(0); // 光标在坞内的目标 x
-  const curX = useRef(0); // 缓动后的 x（每帧 lerp 靠近 targetX）
-  const hovering = useRef(false);
-  const intensity = useRef(0); // 0..1，进入渐入、离开渐出
-
-  const AMP = 0.45; // 最大放大 = 1 + AMP
-  const SIGMA = 80; // 影响半径（越大波纹越宽）
-
-  useEffect(() => {
-    function measure() {
-      baseRef.current = {
-        widths: itemRefs.current.map((el) => el?.offsetWidth ?? 0),
-        centers: itemRefs.current.map((el) => (el ? el.offsetLeft + el.offsetWidth / 2 : 0)),
-      };
-    }
-    measure();
-    window.addEventListener("resize", measure);
-    return () => {
-      window.removeEventListener("resize", measure);
-      if (raf.current != null) cancelAnimationFrame(raf.current);
-    };
-  }, [items.length]);
-
-  function paint() {
-    const { centers, widths } = baseRef.current;
-    for (let i = 0; i < itemRefs.current.length; i++) {
-      const el = itemRefs.current[i];
-      if (!el) continue;
-      const d = curX.current - (centers[i] ?? 0);
-      const f = Math.exp(-(d * d) / (2 * SIGMA * SIGMA));
-      const s = 1 + AMP * intensity.current * f;
-      const extra = ((widths[i] ?? 0) * (s - 1)) / 2;
-      el.style.transform = `scale(${s.toFixed(3)})`;
-      el.style.marginLeft = `${extra.toFixed(2)}px`;
-      el.style.marginRight = `${extra.toFixed(2)}px`;
-    }
-  }
-
-  function tick() {
-    const targetI = hovering.current ? 1 : 0;
-    intensity.current += (targetI - intensity.current) * (hovering.current ? 0.28 : 0.16);
-    if (hovering.current) curX.current += (targetX.current - curX.current) * 0.42; // 跟手缓动
-    paint();
-    // 离开且强度已归零 → 复位收尾
-    if (!hovering.current && intensity.current < 0.004) {
-      intensity.current = 0;
-      paint();
-      raf.current = null;
-      return;
-    }
-    raf.current = requestAnimationFrame(tick);
-  }
-
-  function ensureRaf() {
-    if (raf.current == null) raf.current = requestAnimationFrame(tick);
-  }
-
-  return (
-    <div
-      ref={ref}
-      onMouseMove={(e) => {
-        if (prefersReducedMotion()) return; // reduce：不放大，仅保留普通 hover 背景反馈
-        const box = ref.current;
-        if (!box) return;
-        const x = e.clientX - box.getBoundingClientRect().left;
-        if (!hovering.current) {
-          hovering.current = true;
-          curX.current = x; // 进入时直接落到光标处，避免从左缘扫入
-        }
-        targetX.current = x;
-        ensureRaf();
-      }}
-      onMouseLeave={() => {
-        hovering.current = false;
-        ensureRaf();
-      }}
-      className="claw-home-action-dock relative flex items-center gap-2 rounded-[22px] border border-transparent bg-white/75 px-3 py-2 shadow-[0_18px_44px_-14px_rgba(15,23,42,0.22)] backdrop-blur-xl"
-    >
-      {items.map((it, i) => (
-        <button
-          key={it.label}
-          ref={(el) => {
-            itemRefs.current[i] = el;
-          }}
-          onClick={it.onClick}
-          style={{ transformOrigin: "center", willChange: "transform, margin" }}
-          className={cn(
-            "flex min-w-[118px] flex-col items-center justify-center gap-2 rounded-[18px] px-4 py-4 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
-            i > 0 && "claw-home-dock-segment",
-            it.primary
-              ? "bg-white text-blue-600 shadow-[0_14px_36px_-22px_rgba(15,23,42,0.5)] ring-1 ring-white/80 active:brightness-95"
-              : "text-slate-600 hover:bg-white/50 hover:text-slate-900 active:bg-white/65",
-          )}
-        >
-          {it.icon} {it.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// 移动端页面树抽屉：滑入/滑出动画 + 焦点陷阱 + Esc + 关闭后焦点归还（背景滚动锁定）。
 function MobileTreeDrawer({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const ref = useModalA11y<HTMLDivElement>({ open: true, onClose });
   const [entered, setEntered] = useState(false);
@@ -906,6 +504,7 @@ function MobileTab({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] [&_svg]:h-5 [&_svg]:w-5",
         active ? "text-slate-950" : "text-slate-400",
@@ -917,40 +516,9 @@ function MobileTab({ active, onClick, icon, label }: { active: boolean; onClick:
   );
 }
 
-function IconRailButton({
-  active,
-  onClick,
-  icon,
-  label,
-  wrapperClassName,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-  label: string;
-  wrapperClassName?: string;
-}) {
-  return (
-    <div className={cn("group relative", wrapperClassName)}>
-      <button
-        onClick={onClick}
-        aria-label={label}
-        data-active={active ? "true" : "false"}
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 [&_svg]:h-5 [&_svg]:w-5",
-          active && "bg-blue-100/70 text-blue-600 hover:bg-blue-100/70 hover:text-blue-600"
-        )}
-      >
-        {icon}
-      </button>
-      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">
-        {label}
-      </span>
-    </div>
-  );
-}
-
 function DocsSidebar({
+  tab,
+  setTab,
   docs,
   flatDocs,
   activeDocs,
@@ -971,6 +539,8 @@ function DocsSidebar({
   purgeDoc,
   emptyTrash,
 }: {
+  tab: SidebarTab;
+  setTab: (tab: SidebarTab) => void;
   docs: PageNode[];
   flatDocs: Doc[];
   activeDocs: Doc[];
@@ -991,8 +561,6 @@ function DocsSidebar({
   purgeDoc: (id: string) => void;
   emptyTrash: () => void;
 }) {
-  const [tab, setTab] = useState<SidebarTab>("tree");
-
   if (searching) {
     return (
       <SidebarSection
@@ -1196,7 +764,7 @@ function DocTreeItem({
           if (draggedId && draggedId !== node.id) moveDoc(draggedId, node.id);
         }}
         className={cn(
-          "group flex min-h-8 items-center rounded-lg text-slate-700 transition-colors hover:bg-slate-100",
+          "cn-tree-row group flex min-h-8 items-center rounded-lg text-slate-700 transition-colors hover:bg-slate-100",
           node.id === selectedDocId && "bg-slate-200 text-slate-950",
           dragOver && "bg-blue-50 ring-2 ring-inset ring-blue-400",
         )}
@@ -1464,18 +1032,6 @@ function CommandPalette({
   );
 }
 
-function ContextAside({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-        <FolderTree className="h-4 w-4" />
-      </div>
-      <h2 className="font-semibold">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{desc}</p>
-    </div>
-  );
-}
-
 function AgentSidebar({ tab, setTab }: { tab: AiTab; setTab: (t: AiTab) => void }) {
   return (
     <div className="px-1 py-1">
@@ -1503,6 +1059,29 @@ function AgentSidebar({ tab, setTab }: { tab: AiTab; setTab: (t: AiTab) => void 
         <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
       </Link>
     </div>
+  );
+}
+
+function MobileAgentNav({ tab, setTab }: { tab: AiTab; setTab: (tab: AiTab) => void }) {
+  return (
+    <nav aria-label="AI 工作区" className="shrink-0 overflow-x-auto border-b border-slate-200 bg-white/95 px-2 py-2 backdrop-blur lg:hidden">
+      <div className="flex min-w-max items-center gap-1">
+        {AI_TABS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setTab(item.key)}
+            aria-current={tab === item.key ? "page" : undefined}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+              tab === item.key && "bg-slate-900 text-white hover:bg-slate-900 hover:text-white",
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </nav>
   );
 }
 
