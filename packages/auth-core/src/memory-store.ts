@@ -84,13 +84,19 @@ export function createMemoryStore(): AuthStore {
     async getTicket(ticket) {
       return tickets.find((t) => t.ticket === ticket) ?? null;
     },
-    async updateTicketByState(state, patch) {
-      const t = tickets.find((x) => x.state === state);
-      if (t) Object.assign(t, patch);
+    async updateTicketByState(state, expected, patch) {
+      const t = tickets.find((x) => x.state === state && x.status === expected &&
+        (expected !== "PENDING" || x.expiresAt > Date.now()));
+      if (!t) return false;
+      Object.assign(t, patch);
+      return true;
     },
     async consumeTicket(ticket) {
-      const t = tickets.find((x) => x.ticket === ticket);
-      if (t) t.consumedAt = Date.now();
+      const t = tickets.find((x) => x.ticket === ticket && x.status === "CONFIRMED" && !x.consumedAt && x.expiresAt > Date.now());
+      if (!t) return false;
+      t.consumedAt = Date.now();
+      t.status = "CONSUMED";
+      return true;
     },
   };
 }

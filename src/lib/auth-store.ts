@@ -111,10 +111,23 @@ export const prismaAuthStore: AuthStore = {
     const r = await prisma.wechatTicket.findUnique({ where: { ticket } });
     return r ? { ticket: r.ticket, state: r.state, status: r.status as never, userId: r.userId, unionid: r.unionid, openid: r.openid, expiresAt: r.expiresAt.getTime(), consumedAt: r.consumedAt?.getTime() ?? null } : null;
   },
-  async updateTicketByState(state, patch) {
-    await prisma.wechatTicket.update({ where: { state }, data: { status: patch.status, userId: patch.userId ?? undefined, unionid: patch.unionid ?? undefined, openid: patch.openid ?? undefined } });
+  async updateTicketByState(state, expected, patch) {
+    const result = await prisma.wechatTicket.updateMany({
+      where: { state, status: expected, ...(expected === "PENDING" ? { expiresAt: { gt: new Date() } } : {}) },
+      data: {
+        status: patch.status, userId: patch.userId, unionid: patch.unionid, openid: patch.openid,
+        expiresAt: patch.expiresAt === undefined ? undefined : new Date(patch.expiresAt),
+        consumedAt: typeof patch.consumedAt === "number" ? new Date(patch.consumedAt) : patch.consumedAt,
+      },
+    });
+    return result.count === 1;
   },
   async consumeTicket(ticket) {
-    await prisma.wechatTicket.update({ where: { ticket }, data: { consumedAt: new Date(), status: "CONSUMED" } });
+    const now = new Date();
+    const result = await prisma.wechatTicket.updateMany({
+      where: { ticket, status: "CONFIRMED", consumedAt: null, expiresAt: { gt: now } },
+      data: { consumedAt: now, status: "CONSUMED" },
+    });
+    return result.count === 1;
   },
 };

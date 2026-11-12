@@ -152,19 +152,22 @@ export async function createAuthCore(deps: AuthCoreDeps): Promise<AuthCore> {
 
     wechat: {
       async start() {
-        if (!deps.wechat) throw new AuthError("TICKET_INVALID", "微信登录未配置", 500);
+        if (!deps.wechat) throw new AuthError("PROVIDER_UNAVAILABLE", "微信登录未配置", 503);
+        await limit([{ key: "wechat:start:global:10s", limit: 100, windowSec: 10 }]);
         const state = randomToken(18);
         const ticket = randomToken(24);
         await deps.store.saveTicket({ ticket, state, status: "PENDING", expiresAt: Date.now() + 5 * 60 * 1000, consumedAt: null });
         return { state, authUrl: deps.wechat.authUrl(state) };
       },
       async callback({ code, state, currentUserId }) {
-        if (!deps.wechat) throw new AuthError("TICKET_INVALID", "微信登录未配置", 500);
+        if (!deps.wechat) throw new AuthError("PROVIDER_UNAVAILABLE", "微信登录未配置", 503);
         const rec = await deps.store.getTicketByState(state);
-        if (!rec || rec.status !== "PENDING" || rec.expiresAt < Date.now()) throw new AuthError("STATE_INVALID", "微信登录会话无效或已过期");
+        if (!code || !rec || !await deps.store.updateTicketByState(state, "PENDING", { status: "PROCESSING" })) {
+          throw new AuthError("STATE_INVALID", "微信登录会话无效或已过期");
+        }
         const profile = await deps.wechat.exchangeCode(code);
-        // 优先 unionid 归并；无 unionid 时用 openid 仅新建独立账号（不复用既有 unionid 账号）
-        const accountId = profile.unionid || profile.openid;
+        // 网站应用按 AppID + OpenID 识别，UnionID 缺失不影响同一应用的回访登录。
+        const accountId = profile.accountId || profile.unionid || profile.openid;
         const user = await linkOrCreateUser(deps.store, {
           provider: "WECHAT",
           providerAccountId: accountId,
@@ -174,19 +177,28 @@ export async function createAuthCore(deps: AuthCoreDeps): Promise<AuthCore> {
           profile: { name: profile.name ?? null, avatarUrl: profile.avatar ?? null },
           currentUserId,
         });
-        await deps.store.updateTicketByState(state, { status: "CONFIRMED", userId: user.id, unionid: profile.unionid ?? null, openid: profile.openid });
+        const now = Date.now();
+        const finalized = await deps.store.updateTicketByState(state, "PROCESSING", {
+          status: currentUserId ? "CONSUMED" : "CONFIRMED",
+          consumedAt: currentUserId ? now : null,
+          expiresAt: now + ticketTtl,
+          userId: user.id,
+          unionid: profile.unionid ?? null,
+          openid: profile.openid,
+        });
+        if (!finalized) throw new AuthError("STATE_INVALID", "微信登录会话无效或已过期");
         await deps.store.touchLogin(user.id);
         return { ticket: rec.ticket };
       },
       async poll(state) {
         const rec = await deps.store.getTicketByState(state);
-        if (!rec) return { status: "EXPIRED" };
+        if (!rec || rec.expiresAt <= Date.now()) return { status: "EXPIRED" };
         return { status: rec.status, ticket: rec.status === "CONFIRMED" && !rec.consumedAt ? rec.ticket : undefined };
       },
       async exchange(ticket) {
+        if (!deps.wechat) throw new AuthError("PROVIDER_UNAVAILABLE", "微信登录未配置", 503);
         const rec = await deps.store.getTicket(ticket);
-        if (!rec || rec.status !== "CONFIRMED" || rec.consumedAt || rec.expiresAt < Date.now()) throw new AuthError("TICKET_INVALID", "登录票据无效");
-        await deps.store.consumeTicket(ticket);
+        if (!rec || !await deps.store.consumeTicket(ticket)) throw new AuthError("TICKET_INVALID", "登录票据无效");
         const user = rec.userId ? await deps.store.findUserById(rec.userId) : null;
         if (!user) throw new AuthError("TICKET_INVALID", "用户不存在");
         return { user, accessToken: await signFor(user) };

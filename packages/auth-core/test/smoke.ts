@@ -80,6 +80,24 @@ async function main() {
   ok("票据兑换得到 token", !!wx.accessToken && !!wx.user.id);
   await expectThrow("票据一次性（不可重放）", () => core.wechat.exchange(cb.ticket), "TICKET_INVALID");
   await expectThrow("错误 state 回调被拒", () => core.wechat.callback({ code: "x", state: "bogus" }), "STATE_INVALID");
+  const parallel = await core.wechat.start();
+  const callbacks = await Promise.allSettled([
+    core.wechat.callback({ code: "wxcode", state: parallel.state }),
+    core.wechat.callback({ code: "wxcode", state: parallel.state }),
+  ]);
+  const confirmations = callbacks.filter((result) => result.status === "fulfilled");
+  ok("并发回调只能确认一次", confirmations.length === 1);
+  if (confirmations.length === 1 && confirmations[0].status === "fulfilled") {
+    const { ticket } = confirmations[0].value;
+    const exchanges = await Promise.allSettled([core.wechat.exchange(ticket), core.wechat.exchange(ticket)]);
+    ok("并发兑换只能登录一次", exchanges.filter((result) => result.status === "fulfilled").length === 1);
+  }
+  const binding = await core.wechat.start();
+  const bound = await core.wechat.callback({ code: "wxcode", state: binding.state, currentUserId: wx.user.id });
+  await expectThrow("绑定微信不产生登录票据", () => core.wechat.exchange(bound.ticket), "TICKET_INVALID");
+  const otherBinding = await core.wechat.start();
+  await expectThrow("禁止把已绑定的微信转到另一个账号",
+    () => core.wechat.callback({ code: "wxcode", state: otherBinding.state, currentUserId: phoneLogin.user.id }), "IDENTITY_TAKEN");
 
   console.log("【防接管：未验证凭证不得归并】");
   const { linkOrCreateUser } = await import("../src/identity");

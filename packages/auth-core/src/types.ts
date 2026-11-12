@@ -34,7 +34,7 @@ export interface OtpRecord {
   consumedAt: number | null;
 }
 
-export type WechatTicketStatus = "PENDING" | "CONFIRMED" | "CONSUMED";
+export type WechatTicketStatus = "PENDING" | "PROCESSING" | "CONFIRMED" | "CONSUMED";
 export interface WechatTicketRecord {
   ticket: string; // 一次性短令牌（兑换 JWT 用）
   state: string; // 防 CSRF + 扫码轮询标识
@@ -63,8 +63,8 @@ export interface AuthStore {
   saveTicket(rec: WechatTicketRecord): Promise<void>;
   getTicketByState(state: string): Promise<WechatTicketRecord | null>;
   getTicket(ticket: string): Promise<WechatTicketRecord | null>;
-  updateTicketByState(state: string, patch: Partial<WechatTicketRecord>): Promise<void>;
-  consumeTicket(ticket: string): Promise<void>;
+  updateTicketByState(state: string, expected: WechatTicketStatus, patch: Partial<WechatTicketRecord>): Promise<boolean>;
+  consumeTicket(ticket: string): Promise<boolean>;
 }
 
 export interface SmsSender {
@@ -83,7 +83,7 @@ export interface RateLimiter {
 
 export interface WechatClient {
   authUrl(state: string): string;
-  exchangeCode(code: string): Promise<{ openid: string; unionid?: string; name?: string; avatar?: string }>;
+  exchangeCode(code: string): Promise<{ openid: string; unionid?: string; accountId?: string; name?: string; avatar?: string }>;
 }
 
 export interface Hasher {
@@ -113,6 +113,7 @@ export type AuthErrorCode =
   | "IDENTITY_TAKEN"
   | "INVALID_CREDENTIALS"
   | "RATE_LIMITED"
+  | "PROVIDER_UNAVAILABLE"
   | "CAPTCHA_FAILED"
   | "OTP_INVALID"
   | "OTP_EXPIRED"

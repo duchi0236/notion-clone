@@ -159,6 +159,12 @@ STORAGE_DRIVER="local"
 UPLOAD_DIR="public/uploads"
 ```
 
+### 微信网站扫码登录
+
+在微信开放平台为 ClawNote 的网站应用开通微信登录。将授权回调域设置为 `NEXTAUTH_URL` 的主机名，例如 `clawnote.ink`。应用使用该 HTTPS 地址下的 `/api/auth/wechat/callback` 接收授权结果。
+
+在部署主机的 `.env.production` 填写 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET`。两项都配置后，登录页显示微信入口。已有账号可以先用邮箱登录，再在「账户设置」绑定微信，后续扫码进入同一个账号。
+
 ## OpenClaw 调用示例
 
 ### 搜索上下文

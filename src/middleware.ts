@@ -11,7 +11,8 @@ const LOCAL_MODE =
 // - /api/auth/*: login, register, OTP, OIDC, WeChat callbacks (NextAuth itself)
 // - /api/health: container / uptime probes
 // - /api/agent/*: authenticated separately via Bearer token (verifyAgentRequest)
-const PUBLIC_API = [/^\/api\/auth(\/|$)/, /^\/api\/health$/, /^\/api\/agent(\/|$)/];
+const AUTH_API = /^\/api\/auth(\/|$)/;
+const PUBLIC_API = [AUTH_API, /^\/api\/health$/, /^\/api\/agent(\/|$)/];
 
 // Pages that require a session (redirect to /login) when not in local mode.
 const PROTECTED_PAGES = ["/workspace", "/clawnote", "/trash"];
@@ -39,21 +40,25 @@ export async function middleware(request: NextRequest) {
     if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
       const origin = request.headers.get("origin");
       if (origin) {
-        let originHost = "";
+        let originUrl: URL;
+        let authOrigin: string | undefined;
         try {
-          originHost = new URL(origin).host;
+          originUrl = new URL(origin);
+          // Next.js can expose the internal listener URL behind a reverse proxy.
+          if (!LOCAL_MODE && AUTH_API.test(pathname) && process.env.NEXTAUTH_URL) {
+            authOrigin = new URL(process.env.NEXTAUTH_URL).origin;
+          }
         } catch {
-          /* malformed origin → reject below */
+          return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
         }
-        const originUrl = originHost ? new URL(origin) : null;
         const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
         const isEquivalentLocalOrigin =
           LOCAL_MODE &&
-          originUrl !== null &&
           loopbackHosts.has(originUrl.hostname) &&
           loopbackHosts.has(request.nextUrl.hostname) &&
           originUrl.port === request.nextUrl.port;
-        if (originHost !== request.nextUrl.host && !isEquivalentLocalOrigin) {
+        const matchesOrigin = authOrigin ? originUrl.origin === authOrigin : originUrl.host === request.nextUrl.host;
+        if (!matchesOrigin && !isEquivalentLocalOrigin) {
           return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
         }
       }

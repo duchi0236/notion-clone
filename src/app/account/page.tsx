@@ -1,7 +1,9 @@
 "use client";
 
-import { Bell, ChevronRight, KeyRound, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, ChevronRight, KeyRound, Mail, QrCode, ShieldCheck, UserRound } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { beginWechatLogin, useWechatLoginMode } from "@/lib/wechat-login-client";
 
 const nav = [
   { title: "个人资料", icon: UserRound },
@@ -12,8 +14,33 @@ const nav = [
 
 export default function AccountPage() {
   const { data: session } = useSession();
+  const wechatMode = useWechatLoginMode();
+  const [binding, setBinding] = useState(false);
+  const [wechatStatus, setWechatStatus] = useState("");
   const name = session?.user?.name || "未设置";
   const email = session?.user?.email || "未设置";
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get("wechat");
+    if (!result) return;
+    url.searchParams.delete("wechat");
+    window.history.replaceState(window.history.state, "", url);
+    setWechatStatus(result === "linked" ? "微信已绑定到当前 ClawNote 账号。"
+      : result === "taken" ? "此微信已绑定其他 ClawNote 账号。"
+        : "微信授权未完成，请重新绑定。");
+  }, []);
+
+  async function bindWechat() {
+    setBinding(true);
+    setWechatStatus("");
+    try {
+      await beginWechatLogin({ bind: true });
+    } catch (error) {
+      setBinding(false);
+      setWechatStatus(error instanceof Error ? error.message : "微信绑定失败，请重试");
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f8fb] px-6 py-8 text-slate-900">
@@ -64,7 +91,9 @@ export default function AccountPage() {
                 <button className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-sm hover:border-blue-200 hover:bg-blue-50"><strong className="block text-slate-900">修改密码</strong><span className="mt-1 block text-xs text-slate-500">定期更新账号密码</span></button>
                 <button className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-sm hover:border-blue-200 hover:bg-blue-50"><strong className="block text-slate-900">找回密码</strong><span className="mt-1 block text-xs text-slate-500">通过邮件重置密码</span></button>
                 <button className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-sm hover:border-blue-200 hover:bg-blue-50"><strong className="block text-slate-900">验证邮箱</strong><span className="mt-1 block text-xs text-slate-500">保护账户安全</span></button>
+                {wechatMode && session?.user?.id && <button type="button" onClick={bindWechat} disabled={binding} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-sm hover:border-blue-200 hover:bg-blue-50 disabled:opacity-60"><strong className="flex items-center gap-2 text-slate-900"><QrCode className="h-4 w-4" />{binding ? "正在打开授权…" : "绑定微信"}</strong><span className="mt-1 block text-xs text-slate-500">扫码登录后进入同一工作区</span></button>}
               </div>
+              {wechatStatus && <p role="status" className="mt-3 text-sm text-slate-600">{wechatStatus}</p>}
             </section>
 
             <section className="grid gap-5 md:grid-cols-2">

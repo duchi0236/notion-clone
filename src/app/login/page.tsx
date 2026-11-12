@@ -2,8 +2,8 @@
 
 import { FormEvent, forwardRef, useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Brain, Loader2, Lock, Smartphone, QrCode } from "lucide-react";
+import { beginWechatLogin, useWechatLoginMode } from "@/lib/wechat-login-client";
 
 type Method = "password" | "phone" | "wechat";
 type Notice = { type: "error" | "info" | "success"; text: string } | null;
@@ -11,12 +11,14 @@ type Notice = { type: "error" | "info" | "success"; text: string } | null;
 const METHODS: Method[] = ["password", "phone", "wechat"];
 
 export default function LoginPage() {
-  const router = useRouter();
   const [method, setMethod] = useState<Method>("password");
   const [callbackUrl, setCallbackUrl] = useState("/clawnote");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<Notice>(null);
+  const wechatMode = useWechatLoginMode();
+  const methods = wechatMode ? METHODS : METHODS.slice(0, 2);
+  const wechatReturnHandled = useRef(false);
 
   // 密码
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -43,6 +45,28 @@ export default function LoginPage() {
     } catch {
       /* ignore */
     }
+  }, []);
+  useEffect(() => {
+    if (wechatReturnHandled.current) return;
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get("wechat");
+    if (!result) return;
+    wechatReturnHandled.current = true;
+    url.searchParams.delete("wechat");
+    window.history.replaceState(window.history.state, "", url);
+    if (result !== "confirmed") {
+      setMessage({ type: "error", text: "微信授权未完成或已过期，请重试" });
+      return;
+    }
+    setLoading(true);
+    void signIn("wechat", { redirect: false }).then(response => {
+      if (!response?.ok || response.error) throw new Error("微信登录失败");
+      const next = new URL(url.searchParams.get("callbackUrl") || "/clawnote", url.origin);
+      window.location.assign(next.origin === url.origin ? next.href : "/clawnote");
+    }).catch(() => {
+      setLoading(false);
+      setMessage({ type: "error", text: "微信登录失败，请重新扫码" });
+    });
   }, []);
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -107,22 +131,18 @@ export default function LoginPage() {
   async function wechatLogin() {
     setLoading(true); setMessage(null);
     try {
-      const start = await fetch("/api/auth/wechat/qrconnect").then((r) => r.json());
-      // 生产：展示二维码(start.authUrl) 并轮询 /poll；开发：直接走 mock 回调拿 ticket
-      const cb = await fetch(`/api/auth/wechat/callback?code=devcode&state=${encodeURIComponent(start.state)}`).then((r) => r.json());
-      if (!cb.ticket) { setLoading(false); setMessage({ type: "error", text: "微信登录失败（开发占位）" }); return; }
-      const r = await signIn("wechat", { ticket: cb.ticket, redirect: false });
-      done(r ?? undefined, "微信登录失败");
-    } catch {
-      setLoading(false); setMessage({ type: "error", text: "微信服务未配置" });
+      await beginWechatLogin({ next: callbackUrl });
+    } catch (error) {
+      setLoading(false);
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "无法打开微信授权，请重试" });
     }
   }
 
   function onTabKeyDown(e: React.KeyboardEvent) {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
-    const idx = METHODS.indexOf(method);
-    const next = e.key === "ArrowRight" ? METHODS[(idx + 1) % METHODS.length] : METHODS[(idx - 1 + METHODS.length) % METHODS.length];
+    const idx = methods.indexOf(method);
+    const next = e.key === "ArrowRight" ? methods[(idx + 1) % methods.length] : methods[(idx - 1 + methods.length) % methods.length];
     tabSwitchByKey.current = true; // 让 method 变化的 effect 跳过抢焦点，焦点留在 tab
     setMethod(next); setMessage(null);
     tabRefs.current[next]?.focus();
@@ -162,10 +182,10 @@ export default function LoginPage() {
           <div><h1 className="text-2xl font-bold">ClawNote</h1><p className="text-sm text-slate-500">登录你的知识工作台</p></div>
         </div>
 
-        <div role="tablist" aria-label="登录方式" className="mb-6 grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
+        <div role="tablist" aria-label="登录方式" className={`mb-6 grid gap-1 rounded-2xl bg-slate-100 p-1 ${wechatMode ? "grid-cols-3" : "grid-cols-2"}`}>
           {tab("password", "密码", Lock)}
           {tab("phone", "验证码", Smartphone)}
-          {tab("wechat", "微信", QrCode)}
+          {wechatMode && tab("wechat", "微信", QrCode)}
         </div>
 
         {method === "password" && (
@@ -202,18 +222,9 @@ export default function LoginPage() {
 
         {method === "wechat" && (
           <div role="tabpanel" className="space-y-4 text-center">
-            <div className="relative mx-auto flex h-40 w-40 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 text-slate-300">
-              <QrCode className="h-16 w-16" />
-              {loading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/80 text-slate-500">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="text-xs">正在登录…</span>
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-slate-400">生产环境此处展示微信二维码扫码登录；当前为开发占位。</p>
+            <p className="text-sm text-slate-500">已有 ClawNote 账号？先用邮箱登录，再到「账户设置」绑定微信。</p>
             <button onClick={wechatLogin} disabled={loading} className="flex w-full items-center justify-center rounded-2xl bg-[#07c160] px-4 py-3 font-medium text-white transition-colors duration-150 hover:opacity-90 active:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 微信登录（开发模拟）
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {wechatMode === "mock" ? "模拟微信登录" : "微信扫码登录"}
             </button>
           </div>
         )}
